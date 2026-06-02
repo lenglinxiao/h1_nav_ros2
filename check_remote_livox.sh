@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 set -eo pipefail
 
+WORKSPACE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 source /opt/ros/foxy/setup.bash
 source "$HOME/unitree_ros2/cyclonedds_ws/install/setup.bash"
 source "$HOME/unitree_ros2/install/setup.bash"
-source "$HOME/g1_nav2_ros2_ws/install/setup.bash"
+source "${WORKSPACE_DIR}/install/setup.bash"
 
 export ROS_LOCALHOST_ONLY=0
 export ROS_DOMAIN_ID="${ROS_DOMAIN_ID:-0}"
