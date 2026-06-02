@@ -149,6 +149,88 @@ ros2 launch h1_2_slam_bringup lidar_slam_mapping.launch.py \
   livox_x:=0.10 livox_y:=0.0 livox_z:=0.32 livox_yaw:=0.0
 ```
 
+## Nav2 在线建图和导航
+
+默认推荐保留原来的 `camera_init` SLAM 体系：FAST-LIO2 继续发布
+`camera_init -> body`，`/cloud_registered` 和最终 `/map` 都在 `camera_init`。
+Nav2 只接管规划和速度控制，不再重建一套 `map -> odom -> base_link`。
+RViz 的 `Fixed Frame` 继续使用 `camera_init`。
+
+```bash
+ros2 launch h1_2_slam_bringup h1_2_nav2_camera_init_navigation.launch.py
+```
+
+一键脚本等价用法：
+
+```bash
+./run_ai_slam_nav.sh
+```
+
+或者显式写：
+
+```bash
+./run_ai_slam_nav.sh mode=online
+```
+
+`mode=mapping` 也会进入 `camera_init` 在线建图 + Nav2，保留它只是为了兼容旧习惯：
+
+```bash
+./run_ai_slam_nav.sh mode=mapping
+```
+
+启动后在 RViz 里把 `Fixed Frame` 设为 `camera_init`，可以直接用普通
+2D goal 发布 `/goal_pose`，本工程的 `goal_pose_to_nav2` 会转成 Nav2 的
+`NavigateToPose` action。也可以使用 RViz 的 `Nav2 Goal`。如果想保存当前
+在线建出的地图：
+
+推荐直接用配好的 RViz：
+
+```bash
+ros2 launch h1_2_slam_bringup h1_2_nav2_rviz.launch.py
+```
+
+这份配置会显示 `/map`、`/cloud_registered`、`/plan` 和 `/slam_odom`，
+其中 Odometry 的 `Keep` 已固定为 `1`，只显示当前位姿。
+
+```bash
+mkdir -p maps
+ros2 run nav2_map_server map_saver_cli -f maps/h1_2_lab
+```
+
+停止：
+
+```bash
+./stop_ai_slam_nav.sh
+```
+
+如果以后要用已经保存好的固定地图导航，也保留离线定位入口：
+
+```bash
+./run_ai_slam_nav.sh mode=navigation map=$PWD/maps/h1_2_lab.yaml
+```
+
+对应的 launch 是：
+
+```bash
+ros2 launch h1_2_slam_bringup h1_2_nav2_navigation.launch.py \
+  map:=$PWD/maps/h1_2_lab.yaml
+```
+
+离线定位导航启动后，在 RViz 里先用 `2D Pose Estimate` 给 `/initialpose`，
+再用 2D goal 或 `Nav2 Goal` 给目标。Nav2 输出 `/cmd_vel`，本工程会先平滑到
+`/cmd_vel_nav`，再交给 `h1_2_loco_bridge`。`camera_init` 在线建图 + Nav2 模式通常不需要
+手动给初始位姿。
+
+常用调参：
+
+```bash
+ros2 launch h1_2_slam_bringup h1_2_nav2_navigation.launch.py \
+  map:=$PWD/maps/h1_2_lab.yaml \
+  max_linear_speed:=0.15 \
+  max_angular_speed:=0.4 \
+  odom_yaw_offset:=3.141592653589793
+```
+
 ## 录制示教路径
 
 ```bash
@@ -188,7 +270,7 @@ ros2 launch h1_2_slam_bringup lidar_slam_navigation.launch.py \
 
 ## 接机器人控制
 
-这个工程保留了原项目的 `/way_point` 输出。远端机器人如果已有跟踪 `/way_point` 的控制节点，可以直接接上。如果机器人使用 Nav2 的标准目标接口，则需要另写一个 `/way_point` 到 `NavigateToPose` action 的桥接节点，或者把现有底盘控制节点改为订阅 `/way_point`。
+这个工程保留了原项目的 `/way_point` 输出。远端机器人如果已有跟踪 `/way_point` 的控制节点，可以直接接上。当前 Nav2 链路也提供了 `/goal_pose` 到 `NavigateToPose` action 的桥接节点，方便继续使用普通 2D goal 工作流。
 
 `velocity_smoother_ema` 默认把 `/cmd_vel` 平滑到 `/cmd_vel_smooth`。如果机器人底盘只听 `/cmd_vel`，请在启动时改参数：
 

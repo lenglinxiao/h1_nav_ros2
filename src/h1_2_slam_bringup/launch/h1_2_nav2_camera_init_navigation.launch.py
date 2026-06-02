@@ -1,0 +1,143 @@
+import os
+
+from ament_index_python.packages import get_package_share_directory
+from launch import LaunchDescription
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.substitutions import LaunchConfiguration
+from launch_ros.actions import Node
+
+
+def generate_launch_description():
+    bringup_share = get_package_share_directory("h1_2_slam_bringup")
+    nav_tools_share = get_package_share_directory("h1_2_nav_tools")
+    loco_share = get_package_share_directory("h1_2_loco_bridge")
+    nav2_share = get_package_share_directory("nav2_bringup")
+
+    fastlio_launch = os.path.join(bringup_share, "launch", "fastlio2_mid360_mapping.launch.py")
+    loco_bridge_launch = os.path.join(loco_share, "launch", "h1_2_loco_bridge.launch.py")
+    nav2_navigation_launch = os.path.join(nav2_share, "launch", "navigation_launch.py")
+    default_nav2_params = os.path.join(nav_tools_share, "config", "nav2_h1_2_camera_init.yaml")
+
+    return LaunchDescription(
+        [
+            DeclareLaunchArgument("params_file", default_value=default_nav2_params),
+            DeclareLaunchArgument("use_sim_time", default_value="false"),
+            DeclareLaunchArgument("autostart", default_value="true"),
+            DeclareLaunchArgument("start_livox_driver", default_value="false"),
+            DeclareLaunchArgument("cloud_topic", default_value="/cloud_registered"),
+            DeclareLaunchArgument("map_topic", default_value="/map"),
+            DeclareLaunchArgument("odom_topic", default_value="/slam_odom"),
+            DeclareLaunchArgument("global_frame", default_value="camera_init"),
+            DeclareLaunchArgument("goal_topic", default_value="/goal_pose"),
+            DeclareLaunchArgument("map_z", default_value="-1.20"),
+            DeclareLaunchArgument("min_z", default_value="0.30"),
+            DeclareLaunchArgument("max_z", default_value="2.00"),
+            DeclareLaunchArgument("filter_floating_points", default_value="true"),
+            DeclareLaunchArgument("support_min_z", default_value="0.05"),
+            DeclareLaunchArgument("support_max_z", default_value="0.30"),
+            DeclareLaunchArgument("occupancy_hit_increment", default_value="2"),
+            DeclareLaunchArgument("occupancy_miss_decrement", default_value="1"),
+            DeclareLaunchArgument("occupancy_threshold", default_value="6"),
+            DeclareLaunchArgument("occupancy_max_score", default_value="20"),
+            DeclareLaunchArgument("enable_sport_bridge", default_value="true"),
+            DeclareLaunchArgument("auto_start_loco", default_value="true"),
+            DeclareLaunchArgument("network_interface", default_value="enp45s0"),
+            DeclareLaunchArgument("domain_id", default_value="0"),
+            DeclareLaunchArgument("max_linear_speed", default_value="0.20"),
+            DeclareLaunchArgument("max_angular_speed", default_value="0.5"),
+            IncludeLaunchDescription(
+                PythonLaunchDescriptionSource(fastlio_launch),
+                launch_arguments={
+                    "start_livox_driver": LaunchConfiguration("start_livox_driver"),
+                }.items(),
+            ),
+            Node(
+                package="h1_2_nav_tools",
+                executable="pointcloud_to_occupancy_grid",
+                name="pointcloud_to_occupancy_grid",
+                output="screen",
+                parameters=[
+                    {
+                        "cloud_topic": LaunchConfiguration("cloud_topic"),
+                        "map_topic": LaunchConfiguration("map_topic"),
+                        "frame_id": LaunchConfiguration("global_frame"),
+                        "resolution": "0.05",
+                        "width_m": "40.0",
+                        "height_m": "40.0",
+                        "origin_x": "-20.0",
+                        "origin_y": "-20.0",
+                        "map_z": LaunchConfiguration("map_z"),
+                        "min_z": LaunchConfiguration("min_z"),
+                        "max_z": LaunchConfiguration("max_z"),
+                        "filter_floating_points": LaunchConfiguration("filter_floating_points"),
+                        "support_min_z": LaunchConfiguration("support_min_z"),
+                        "support_max_z": LaunchConfiguration("support_max_z"),
+                        "occupancy_hit_increment": LaunchConfiguration("occupancy_hit_increment"),
+                        "occupancy_miss_decrement": LaunchConfiguration("occupancy_miss_decrement"),
+                        "occupancy_threshold": LaunchConfiguration("occupancy_threshold"),
+                        "occupancy_max_score": LaunchConfiguration("occupancy_max_score"),
+                        "publish_hz": "3.0",
+                        "inflation_radius": "0.25",
+                        "clear_robot_radius": "0.45",
+                        "accumulate_map": "true",
+                        "unknown_value": "-1",
+                        "raytrace_free": "true",
+                        "raytrace_clears_occupied": "false",
+                        "sensor_origin_from_odom": "true",
+                        "odom_topic": LaunchConfiguration("odom_topic"),
+                    }
+                ],
+            ),
+            IncludeLaunchDescription(
+                PythonLaunchDescriptionSource(nav2_navigation_launch),
+                launch_arguments={
+                    "use_sim_time": LaunchConfiguration("use_sim_time"),
+                    "params_file": LaunchConfiguration("params_file"),
+                    "autostart": LaunchConfiguration("autostart"),
+                    "map_subscribe_transient_local": "true",
+                }.items(),
+            ),
+            Node(
+                package="h1_2_nav_tools",
+                executable="goal_pose_to_nav2",
+                name="goal_pose_to_nav2",
+                output="screen",
+                parameters=[
+                    {
+                        "goal_topic": LaunchConfiguration("goal_topic"),
+                        "action_name": "navigate_to_pose",
+                    }
+                ],
+            ),
+            Node(
+                package="h1_2_nav_tools",
+                executable="velocity_smoother_ema",
+                name="velocity_smoother_ema",
+                output="screen",
+                parameters=[
+                    {
+                        "raw_cmd_topic": "/cmd_vel",
+                        "cmd_topic": "/cmd_vel_nav",
+                        "cmd_rate": 20.0,
+                        "alpha_v": 0.45,
+                        "alpha_w": 0.45,
+                    }
+                ],
+            ),
+            IncludeLaunchDescription(
+                PythonLaunchDescriptionSource(loco_bridge_launch),
+                launch_arguments={
+                    "cmd_topic": "/cmd_vel_nav",
+                    "enabled": LaunchConfiguration("enable_sport_bridge"),
+                    "start_ros_shim": "true",
+                    "auto_start": LaunchConfiguration("auto_start_loco"),
+                    "network_interface": LaunchConfiguration("network_interface"),
+                    "domain_id": LaunchConfiguration("domain_id"),
+                    "max_x": LaunchConfiguration("max_linear_speed"),
+                    "max_y": "0.0",
+                    "max_yaw": LaunchConfiguration("max_angular_speed"),
+                }.items(),
+            ),
+        ]
+    )
