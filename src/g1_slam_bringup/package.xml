@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>g1_slam_bringup</name>
+  <version>0.1.0</version>
+  <description>ROS2 bringup for Livox MID360 lidar, 2D SLAM, and G1 navigation helper nodes.</description>
+  <maintainer email="user@example.com">user</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>ament_python</buildtool_depend>
+
+  <exec_depend>g1_nav_tools</exec_depend>
+  <exec_depend>g1_loco_bridge</exec_depend>
+  <exec_depend>fast_lio2</exec_depend>
+  <exec_depend>pointcloud_to_laserscan</exec_depend>
+  <exec_depend>robot_state_publisher</exec_depend>
+  <exec_depend>slam_toolbox</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

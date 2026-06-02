@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>g1_nav_tools</name>
+  <version>0.1.0</version>
+  <description>ROS2 navigation helper nodes migrated from the G1Nav2D ROS1 project.</description>
+  <maintainer email="user@example.com">user</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>ament_python</buildtool_depend>
+
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>nav_msgs</exec_depend>
+  <exec_depend>nav2_msgs</exec_depend>
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>std_srvs</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
+  <exec_depend>unitree_go</exec_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>
