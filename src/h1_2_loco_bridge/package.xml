@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>h1_2_loco_bridge</name>
+  <version>0.0.1</version>
+  <description>Bridge geometry_msgs/Twist commands to Unitree H1-2 LocoClient velocity commands.</description>
+  <maintainer email="llx@todo.todo">llx</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>geometry_msgs</depend>
+  <depend>rclcpp</depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

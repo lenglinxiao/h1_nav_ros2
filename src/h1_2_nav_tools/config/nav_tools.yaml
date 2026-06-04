@@ -1,0 +1,44 @@
+path_to_waypoint:
+  ros__parameters:
+    odom_topic: /slam_odom
+    path_topic: /teach_path
+    waypoint_topic: /way_point
+    visual_path_topic: /path_with_stairs
+    target_frame: map
+    distance_tolerance: 1.9
+    distance_step: 0.1
+    min_lookahead_distance: 1.0
+    max_lookahead_distance: 2.0
+    high_curvature_threshold: 0.5
+    publish_rate: 50.0
+
+play_teaching_path:
+  ros__parameters:
+    path_file: ""
+    frame_id: map
+    path_topic: /teach_path
+    publish_period: 0.5
+
+record_teaching_path:
+  ros__parameters:
+    file_path: ""
+    distance_threshold: 0.3
+    frame_id: map
+    odom_topic: /slam_odom
+    path_topic: /teaching_path
+
+velocity_smoother_ema:
+  ros__parameters:
+    alpha_v: 0.4
+    alpha_w: 0.4
+    raw_cmd_topic: /cmd_vel
+    cmd_topic: /cmd_vel_smooth
+    cmd_rate: 30.0
+    stop_counter: 3
+
+costmap_clear_on_initialpose:
+  ros__parameters:
+    initialpose_topic: /initialpose
+    clear_services:
+      - /global_costmap/clear_entirely_global_costmap
+      - /local_costmap/clear_entirely_local_costmap

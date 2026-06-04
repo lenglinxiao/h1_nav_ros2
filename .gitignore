@@ -1,0 +1,17 @@
+build/
+install/
+log/
+
+*.log
+__pycache__/
+*.py[cod]
+
+.colcon/
+.pytest_cache/
+.coverage
+
+.vscode/
+.agents/
+.codex/
+.codex-tools/
+.codegraph/
