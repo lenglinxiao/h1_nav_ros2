@@ -1,4 +1,5 @@
 import os
+import xml.etree.ElementTree as ET
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
@@ -6,10 +7,12 @@ from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 
 
 def generate_launch_description():
     bringup_share = get_package_share_directory("h1_2_slam_bringup")
+    description_share = get_package_share_directory("h1_2_description")
     nav_tools_share = get_package_share_directory("h1_2_nav_tools")
     loco_share = get_package_share_directory("h1_2_loco_bridge")
     nav2_share = get_package_share_directory("nav2_bringup")
@@ -18,6 +21,22 @@ def generate_launch_description():
     loco_bridge_launch = os.path.join(loco_share, "launch", "h1_2_loco_bridge.launch.py")
     nav2_navigation_launch = os.path.join(nav2_share, "launch", "navigation_launch.py")
     default_nav2_params = os.path.join(nav_tools_share, "config", "nav2_h1_2_camera_init.yaml")
+    robot_urdf = os.path.join(description_share, "h1_2_handless.urdf")
+    with open(robot_urdf, "r", encoding="utf-8") as stream:
+        robot_description = stream.read().replace(
+            'filename="meshes/',
+            'filename="package://h1_2_description/meshes/',
+        )
+    robot_root = ET.fromstring(robot_description)
+    for link in robot_root.findall("link"):
+        link_name = link.attrib.get("name", "link")
+        for index, visual in enumerate(link.findall("visual")):
+            material = visual.find("material")
+            if material is not None and "name" not in material.attrib:
+                material.attrib["name"] = f"{link_name}_visual_material_{index}"
+    for joint in robot_root.findall("joint"):
+        joint.attrib["type"] = "fixed"
+    robot_description = ET.tostring(robot_root, encoding="unicode")
 
     return LaunchDescription(
         [
@@ -46,6 +65,35 @@ def generate_launch_description():
             DeclareLaunchArgument("domain_id", default_value="0"),
             DeclareLaunchArgument("max_linear_speed", default_value="0.20"),
             DeclareLaunchArgument("max_angular_speed", default_value="0.5"),
+            DeclareLaunchArgument("robot_pelvis_z", default_value="-0.22"),
+            Node(
+                package="robot_state_publisher",
+                executable="robot_state_publisher",
+                name="robot_state_publisher",
+                output="screen",
+                parameters=[
+                    {
+                        "robot_description": ParameterValue(robot_description, value_type=str),
+                        "use_sim_time": False,
+                    }
+                ],
+            ),
+            Node(
+                package="tf2_ros",
+                executable="static_transform_publisher",
+                name="body_to_pelvis",
+                arguments=[
+                    "0",
+                    "0",
+                    LaunchConfiguration("robot_pelvis_z"),
+                    "0",
+                    "0",
+                    "0",
+                    "body",
+                    "pelvis",
+                ],
+                output="screen",
+            ),
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource(fastlio_launch),
                 launch_arguments={

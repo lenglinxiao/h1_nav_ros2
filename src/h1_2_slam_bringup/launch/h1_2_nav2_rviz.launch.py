@@ -2,7 +2,7 @@ import os
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument
+from launch.actions import DeclareLaunchArgument, SetEnvironmentVariable, UnsetEnvironmentVariable
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
@@ -15,6 +15,14 @@ def generate_launch_description():
 
     return LaunchDescription(
         [
+            UnsetEnvironmentVariable("ROS_HOSTNAME"),
+            UnsetEnvironmentVariable("ROS_IP"),
+            UnsetEnvironmentVariable("ROS_MASTER_URI"),
+            UnsetEnvironmentVariable("CYCLONEDDS_URI"),
+            UnsetEnvironmentVariable("FASTRTPS_DEFAULT_PROFILES_FILE"),
+            SetEnvironmentVariable("ROS_LOCALHOST_ONLY", "0"),
+            SetEnvironmentVariable("ROS_DOMAIN_ID", "0"),
+            SetEnvironmentVariable("RMW_IMPLEMENTATION", "rmw_cyclonedds_cpp"),
             DeclareLaunchArgument("rviz_config", default_value=default_rviz_config),
             Node(
                 package="rviz2",

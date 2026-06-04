@@ -11,6 +11,8 @@ patterns=(
   "h1_2_slam_bringup h1_2_nav2_navigation.launch.py"
   "h1_2_slam_bringup h1_2_nav2_slam_navigation.launch.py"
   "h1_2_slam_bringup h1_2_nav2_camera_init_navigation.launch.py"
+  "h1_2_slam_bringup h1_2_nav2_rviz.launch.py"
+  "rviz2"
   "install/fast_lio2/lib/fast_lio2/fastlio2_mapping"
   "install/h1_2_nav_tools/lib/h1_2_nav_tools/fastlio_odom_adapter"
   "install/h1_2_nav_tools/lib/h1_2_nav_tools/pointcloud_frame_adapter"
