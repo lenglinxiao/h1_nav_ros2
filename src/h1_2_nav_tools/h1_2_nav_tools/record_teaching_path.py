@@ -5,7 +5,7 @@ import rclpy
 from geometry_msgs.msg import PoseStamped
 from nav_msgs.msg import Odometry, Path
 from rclpy.node import Node
-from tf2_ros import Buffer, TransformException, TransformListener
+from tf2_ros import Buffer, TransformListener
 
 from .transform_utils import transform_pose
 
@@ -44,7 +44,7 @@ class RecordTeachingPath(Node):
         try:
             transform = self.tf_buffer.lookup_transform(self.frame_id, raw_pose.header.frame_id, rclpy.time.Time())
             pose = transform_pose(raw_pose, transform)
-        except TransformException as exc:
+        except Exception as exc:
             self.get_logger().warn(f"TF transform failed: {exc}", throttle_duration_sec=2.0)
             return
 

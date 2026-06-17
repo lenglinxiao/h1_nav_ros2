@@ -197,6 +197,7 @@ mkdir -p maps
 ros2 run nav2_map_server map_saver_cli -f maps/h1_2_lab
 ```
 
+
 停止：
 
 ```bash
@@ -220,6 +221,127 @@ ros2 launch h1_2_slam_bringup h1_2_nav2_navigation.launch.py \
 再用 2D goal 或 `Nav2 Goal` 给目标。Nav2 输出 `/cmd_vel`，本工程会先平滑到
 `/cmd_vel_nav`，再交给 `h1_2_loco_bridge`。`camera_init` 在线建图 + Nav2 模式通常不需要
 手动给初始位姿。
+
+## 离线地图演示工作流
+
+在线建图 + 在线导航仍然是默认入口，继续用于调试雷达、现场建图、临时目标点导航和保存地图：
+
+```bash
+./run_ai_slam_nav.sh mode=online
+```
+
+如果要做“预设点长期复用、后续一条指令循环巡航”的演示，先在在线模式下走完整个演示区域，然后保存固定地图：
+
+```bash
+mkdir -p maps
+./run_ai_slam_nav.sh mode=save_map map_prefix=maps/h1_2_lab
+./run_ai_slam_nav.sh mode=save_pcd_map pcd_prefix=maps/h1_2_lab
+```
+
+`mode=save_map` 只封装 `nav2_map_server` 的 `map_saver_cli`，用于把当前已经发布的 `/map` 保存成 `maps/h1_2_lab.yaml` 和 `maps/h1_2_lab.pgm`。它不会停止正在运行的在线建图/导航；通常在另一个终端里执行。
+
+`mode=save_pcd_map` 只封装 FAST-LIO2 的 `/map_save` 服务，用于把当前在线建图累计的 3D 点云保存成 `maps/h1_2_lab.pcd`。这份 PCD 必须和 `maps/h1_2_lab.yaml`、`maps/h1_2_lab.pgm` 来自同一次在线建图，确保 2D 栅格和 3D PCD 处于同一坐标系。
+
+之后每次演示推荐加载同一份 2D 栅格和 3D PCD，用 `global_gicp` 做全局初始化、GICP 跟踪和失败恢复：
+
+```bash
+./run_ai_slam_nav.sh mode=navigation \
+  map=$PWD/maps/h1_2_lab.yaml \
+  localization=global_gicp \
+  pcd=$PWD/maps/h1_2_lab.pcd
+```
+
+旧版局部 ICP 后端仍可用于对比测试。它依赖 RViz 或记忆点给定初始位姿，不会做全局粗定位：
+
+```bash
+./run_ai_slam_nav.sh mode=navigation \
+  map=$PWD/maps/h1_2_lab.yaml \
+  localization=icp \
+  pcd=$PWD/maps/h1_2_lab.pcd
+```
+
+`global_gicp` 会先订阅 `/cloud_registered_body` 和 `/slam_odom`，在 PCD 地图上全局初始化，然后持续发布 `map -> camera_init`。如果记忆点文件里有 `START`，自动初始位姿节点也会发布 `/initialpose` 辅助收敛；需要手动干预时仍可在 RViz 里用 `2D Pose Estimate`。完成定位后再发送普通目标点；后续新增记忆点和循环巡航模块时，也应在这个 `map` 坐标系下保存 A/B/C 等演示点。
+
+`global_gicp` 常用调参入口：
+
+```bash
+./run_ai_slam_nav.sh mode=navigation \
+  map=$PWD/maps/h1_2_lab.yaml \
+  localization=global_gicp \
+  pcd=$PWD/maps/h1_2_lab.pcd
+```
+
+如果现场初始化慢或失败，可以直接用 launch 调这些参数：
+
+```bash
+ros2 launch h1_2_slam_bringup h1_2_nav2_navigation.launch.py \
+  map:=$PWD/maps/h1_2_lab.yaml \
+  localization_backend:=global_gicp \
+  pcd_map:=$PWD/maps/h1_2_lab.pcd \
+  global_voxel_resolution:=0.35 \
+  tracking_voxel_resolution:=0.20 \
+  global_score_threshold:=0.5 \
+  gicp_score_threshold:=0.35 \
+  global_max_accumulated_points:=120000
+```
+
+这条离线演示流程不会替换在线模式：在线模式负责建图和调试，离线模式负责固定地图下的可重复演示。
+
+## 可选 3D 重定位依赖
+
+KISS-Matcher 和 small_gicp 不作为默认硬依赖。新机器使用前，先准备源码，把已有 `third_party` 目录拷贝到工作区，目录里只保留源码和 `.git` 信息，不包含 build 或 install 产物：
+
+```text
+third_party/KISS-Matcher
+third_party/ROBIN
+third_party/pmc
+third_party/xenium
+third_party/small_gicp
+```
+
+然后在新环境本地编译安装：
+
+```bash
+./scripts/install_relocalization_deps.sh
+```
+
+脚本不会 clone 或 fetch，也不会访问网络；它只检查 `third_party/` 中已有源码是否完整，然后编译并安装到被忽略的本工作区路径：
+
+```text
+install/kiss_matcher
+install/small_gicp
+```
+
+推荐拷贝时排除构建缓存：
+
+```bash
+rsync -a --exclude '*/build/' --exclude '*/install/' third_party/ <new-machine-workspace>/third_party/
+```
+
+安装后可显式验证 H1 包能发现这两个依赖：
+
+```bash
+source /opt/ros/foxy/setup.bash
+colcon build --packages-select h1_2_icp_localization \
+  --cmake-args -DH1_USE_KISS_MATCHER=ON -DH1_USE_SMALL_GICP=ON
+```
+
+不加 `H1_USE_KISS_MATCHER=ON` 和 `H1_USE_SMALL_GICP=ON` 时，工程不会强制依赖这两个库，仍会使用当前 PCL 后端。
+
+离线导航启动并完成初始定位后，可以保存和查看记忆点：
+
+```bash
+ros2 run h1_2_nav_tools memory_point_cli save A
+ros2 run h1_2_nav_tools memory_point_cli list
+```
+
+配置路线后可以启动或停止循环巡航：
+
+```bash
+ros2 run h1_2_nav_tools route_runner_cli start
+ros2 run h1_2_nav_tools route_runner_cli stop
+ros2 run h1_2_nav_tools route_runner_cli status
+```
 
 常用调参：
 

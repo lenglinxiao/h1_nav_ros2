@@ -44,6 +44,7 @@ def generate_launch_description():
             DeclareLaunchArgument("use_sim_time", default_value="false"),
             DeclareLaunchArgument("autostart", default_value="true"),
             DeclareLaunchArgument("start_livox_driver", default_value="false"),
+            DeclareLaunchArgument("map_file_path", default_value="./test.pcd"),
             DeclareLaunchArgument("cloud_topic", default_value="/cloud_registered"),
             DeclareLaunchArgument("map_topic", default_value="/map"),
             DeclareLaunchArgument("odom_topic", default_value="/slam_odom"),
@@ -66,6 +67,11 @@ def generate_launch_description():
             DeclareLaunchArgument("max_linear_speed", default_value="0.20"),
             DeclareLaunchArgument("max_angular_speed", default_value="0.5"),
             DeclareLaunchArgument("robot_pelvis_z", default_value="-0.22"),
+            DeclareLaunchArgument("memory_points_file", default_value="maps/memory_points.json"),
+            DeclareLaunchArgument("memory_route", default_value="A,B,C"),
+            DeclareLaunchArgument("arrival_wait_sec", default_value="2.0"),
+            DeclareLaunchArgument("blocked_retry_wait_sec", default_value="5.0"),
+            DeclareLaunchArgument("max_retries_per_goal", default_value="3"),
             Node(
                 package="robot_state_publisher",
                 executable="robot_state_publisher",
@@ -98,6 +104,7 @@ def generate_launch_description():
                 PythonLaunchDescriptionSource(fastlio_launch),
                 launch_arguments={
                     "start_livox_driver": LaunchConfiguration("start_livox_driver"),
+                    "map_file_path": LaunchConfiguration("map_file_path"),
                 }.items(),
             ),
             Node(
@@ -154,6 +161,35 @@ def generate_launch_description():
                 parameters=[
                     {
                         "goal_topic": LaunchConfiguration("goal_topic"),
+                        "action_name": "navigate_to_pose",
+                    }
+                ],
+            ),
+            Node(
+                package="h1_2_nav_tools",
+                executable="memory_point_manager",
+                name="memory_point_manager",
+                output="screen",
+                parameters=[
+                    {
+                        "points_file": LaunchConfiguration("memory_points_file"),
+                        "odom_topic": LaunchConfiguration("odom_topic"),
+                        "target_frame": LaunchConfiguration("global_frame"),
+                    }
+                ],
+            ),
+            Node(
+                package="h1_2_nav_tools",
+                executable="memory_route_runner",
+                name="memory_route_runner",
+                output="screen",
+                parameters=[
+                    {
+                        "points_file": LaunchConfiguration("memory_points_file"),
+                        "route_names": LaunchConfiguration("memory_route"),
+                        "arrival_wait_sec": LaunchConfiguration("arrival_wait_sec"),
+                        "blocked_retry_wait_sec": LaunchConfiguration("blocked_retry_wait_sec"),
+                        "max_retries_per_goal": LaunchConfiguration("max_retries_per_goal"),
                         "action_name": "navigate_to_pose",
                     }
                 ],

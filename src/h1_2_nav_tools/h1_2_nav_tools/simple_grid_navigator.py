@@ -8,7 +8,7 @@ from nav_msgs.msg import OccupancyGrid, Odometry, Path
 from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
 from std_msgs.msg import String
-from tf2_ros import Buffer, TransformException, TransformListener
+from tf2_ros import Buffer, TransformListener
 
 
 GridCell = Tuple[int, int]
@@ -421,7 +421,7 @@ class SimpleGridNavigator(Node):
             return pose
         try:
             transform = self.tf_buffer.lookup_transform(target_frame, pose.header.frame_id, rclpy.time.Time())
-        except TransformException as exc:
+        except Exception as exc:
             self.get_logger().warn(
                 f"TF unavailable {pose.header.frame_id}->{target_frame}, using raw pose: {exc}",
                 throttle_duration_sec=2.0,

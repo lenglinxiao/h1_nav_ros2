@@ -7,6 +7,7 @@ from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 from launch_ros.substitutions import FindPackageShare
 
 
@@ -18,8 +19,10 @@ def generate_launch_description():
     return LaunchDescription(
         [
             DeclareLaunchArgument("fastlio_config", default_value=default_fastlio2_config),
+            DeclareLaunchArgument("map_file_path", default_value="./test.pcd"),
             DeclareLaunchArgument("livox_frame", default_value="livox_frame"),
             DeclareLaunchArgument("start_livox_driver", default_value="false"),
+            DeclareLaunchArgument("use_ros_time_stamps", default_value="false"),
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource(livox_launch),
                 launch_arguments={
@@ -33,7 +36,15 @@ def generate_launch_description():
                 executable="fastlio2_mapping",
                 name="fastlio2_mapping",
                 output="screen",
-                parameters=[LaunchConfiguration("fastlio_config")],
+                parameters=[
+                    LaunchConfiguration("fastlio_config"),
+                    {
+                        "map_file_path": LaunchConfiguration("map_file_path"),
+                        "publish.use_ros_time_stamps": ParameterValue(
+                            LaunchConfiguration("use_ros_time_stamps"), value_type=bool
+                        ),
+                    },
+                ],
                 remappings=[("/Odometry", "/slam_odom")],
             ),
         ]

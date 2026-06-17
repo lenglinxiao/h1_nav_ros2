@@ -2,20 +2,20 @@
 <package format="3">
   <name>h1_2_slam_bringup</name>
   <version>0.1.0</version>
-  <description>ROS2 bringup for Livox MID360 lidar, 2D SLAM, and H1-2 navigation helper nodes.</description>
+  <description>ROS2 bringup for Livox MID360 lidar, FAST-LIO localization, and H1-2 navigation helper nodes.</description>
   <maintainer email="user@example.com">user</maintainer>
   <license>MIT</license>
 
   <buildtool_depend>ament_python</buildtool_depend>
 
   <exec_depend>h1_2_nav_tools</exec_depend>
+  <exec_depend>h1_2_icp_localization</exec_depend>
   <exec_depend>h1_2_description</exec_depend>
   <exec_depend>h1_2_loco_bridge</exec_depend>
   <exec_depend>fast_lio2</exec_depend>
   <exec_depend>dwb_core</exec_depend>
   <exec_depend>dwb_critics</exec_depend>
   <exec_depend>dwb_plugins</exec_depend>
-  <exec_depend>nav2_amcl</exec_depend>
   <exec_depend>nav2_bringup</exec_depend>
   <exec_depend>nav2_bt_navigator</exec_depend>
   <exec_depend>nav2_controller</exec_depend>

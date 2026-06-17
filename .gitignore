@@ -15,3 +15,8 @@ __pycache__/
 .codex/
 .codex-tools/
 .codegraph/
+.codex_tmp/
+
+# Third-party sources are kept for offline builds; generated artifacts are not.
+third_party/**/build/
+third_party/**/build_*/

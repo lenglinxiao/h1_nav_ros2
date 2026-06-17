@@ -1,0 +1,8 @@
+string pcd_path
+geometry_msgs/Pose initial_pose
+bool use_multi_align
+---
+bool success
+float64 score
+geometry_msgs/Pose aligned_pose
+string message

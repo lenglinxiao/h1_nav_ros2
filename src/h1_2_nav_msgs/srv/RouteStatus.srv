@@ -1,0 +1,6 @@
+---
+bool success
+string state
+string current_goal
+uint32 current_index
+string message
