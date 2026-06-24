@@ -26,6 +26,20 @@ double clamp(double value, double low, double high) {
   return std::max(low, std::min(high, value));
 }
 
+void send_response(int sock, const sockaddr_in& peer, socklen_t peer_len, const std::string& response) {
+  sendto(sock, response.data(), response.size(), 0,
+         reinterpret_cast<const sockaddr*>(&peer), peer_len);
+}
+
+std::string rest_of_line(std::istringstream& in) {
+  std::string rest;
+  std::getline(in, rest);
+  if (!rest.empty() && rest.front() == ' ') {
+    rest.erase(0, 1);
+  }
+  return rest;
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -35,6 +49,7 @@ int main(int argc, char** argv) {
   double max_x = 0.10;
   double max_y = 0.0;
   double max_yaw = 0.30;
+  double shake_hand_duration = 10.0;
   bool auto_start = false;
   bool started = false;
 
@@ -53,6 +68,7 @@ int main(int argc, char** argv) {
     else if (arg == "--max-x") max_x = std::atof(next());
     else if (arg == "--max-y") max_y = std::atof(next());
     else if (arg == "--max-yaw") max_yaw = std::atof(next());
+    else if (arg == "--shake-hand-duration") shake_hand_duration = std::atof(next());
     else if (arg == "--auto-start") auto_start = true;
     else if (arg == "--auto-start-value") {
       std::string value = next();
@@ -98,7 +114,10 @@ int main(int argc, char** argv) {
 
   char buf[256];
   while (running) {
-    const ssize_t n = recv(sock, buf, sizeof(buf) - 1, 0);
+    sockaddr_in peer{};
+    socklen_t peer_len = sizeof(peer);
+    const ssize_t n = recvfrom(sock, buf, sizeof(buf) - 1, 0,
+                               reinterpret_cast<sockaddr*>(&peer), &peer_len);
     if (n <= 0) {
       continue;
     }
@@ -129,6 +148,57 @@ int main(int argc, char** argv) {
       } else if (std::abs(vx) > 1e-4 || std::abs(vy) > 1e-4 || std::abs(wz) > 1e-4) {
         std::cout << "SetVelocity OK vx=" << vx << " vy=" << vy << " wz=" << wz << std::endl;
       }
+    } else if (cmd == "gesture") {
+      std::string name;
+      in >> name;
+      if (name.empty()) {
+        send_response(sock, peer, peer_len, "error -2 missing gesture name");
+        continue;
+      }
+
+      int ret = 0;
+      std::string message;
+      if (name == "wave_hand") {
+        client.StopMove();
+        ret = client.WaveHand();
+        message = "wave_hand sent";
+      } else if (name == "shake_hand" || name == "reach_hand") {
+        double duration = shake_hand_duration;
+        in >> duration;
+        if (duration < 0.0) {
+          duration = shake_hand_duration;
+        }
+        client.StopMove();
+        const int start_ret = client.ShakeHand(0);
+        if (start_ret != 0) {
+          ret = start_ret;
+          message = "shake_hand start failed";
+        } else {
+          const auto sleep_time = std::chrono::milliseconds(static_cast<int>(duration * 1000.0));
+          std::this_thread::sleep_for(sleep_time);
+          ret = client.ShakeHand(1);
+          message = (ret == 0) ? "shake_hand finished" : "shake_hand finish failed";
+        }
+      } else if (name == "set_task_id") {
+        int task_id = -1;
+        in >> task_id;
+        if (task_id < 0) {
+          send_response(sock, peer, peer_len, "error -2 missing task id");
+          continue;
+        }
+        client.StopMove();
+        ret = client.SetTaskId(task_id);
+        message = "set_task_id " + std::to_string(task_id);
+      } else {
+        send_response(sock, peer, peer_len, "error -2 unsupported gesture " + name);
+        continue;
+      }
+
+      const std::string status = (ret == 0) ? "ok " : "error ";
+      std::cout << "Gesture " << name << " ret=" << ret << " " << message << std::endl;
+      send_response(sock, peer, peer_len, status + std::to_string(ret) + " " + message);
+    } else {
+      send_response(sock, peer, peer_len, "error -2 unsupported command " + cmd + " " + rest_of_line(in));
     }
   }
 

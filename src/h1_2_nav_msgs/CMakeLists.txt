@@ -7,6 +7,7 @@ find_package(rosidl_default_generators REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   "srv/DeleteMemoryPoint.srv"
+  "srv/ExecuteGesture.srv"
   "srv/ListMemoryPoints.srv"
   "srv/RouteStatus.srv"
   "srv/SaveMemoryPoint.srv"

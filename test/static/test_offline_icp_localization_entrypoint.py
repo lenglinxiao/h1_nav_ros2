@@ -17,8 +17,8 @@ def test_navigation_script_exposes_icp_localization_arguments():
     assert "pcd=*" in script
     assert "global_gicp" in script
     assert "localization=amcl" not in script
-    assert 'localization_backend:="${LOCALIZATION_BACKEND}"' in script
-    assert 'pcd_map:="${PCD_MAP_FILE}"' in script
+    assert '"localization_backend:=${LOCALIZATION_BACKEND}"' in script
+    assert '"pcd_map:=${PCD_MAP_FILE}"' in script
 
 
 def test_offline_navigation_launch_accepts_backend_and_pcd_without_touching_online_launch():

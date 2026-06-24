@@ -9,20 +9,29 @@ class VelocitySmootherEma(Node):
         self.declare_parameter("alpha_v", 0.4)
         self.declare_parameter("alpha_w", 0.4)
         self.declare_parameter("raw_cmd_topic", "/cmd_vel")
+        self.declare_parameter("priority_cmd_topic", "/cmd_vel_voice")
         self.declare_parameter("cmd_topic", "/cmd_vel_smooth")
         self.declare_parameter("cmd_rate", 30.0)
         self.declare_parameter("stop_counter", 3)
+        self.declare_parameter("priority_timeout_sec", 0.6)
 
         self.alpha_v = float(self.get_parameter("alpha_v").value)
         self.alpha_w = float(self.get_parameter("alpha_w").value)
         self.stop_counter_limit = int(self.get_parameter("stop_counter").value)
+        self.priority_timeout_sec = float(self.get_parameter("priority_timeout_sec").value)
         self.stop_counter = 0
+        self.priority_stop_counter = 0
         self.previous_x = 0.0
         self.previous_y = 0.0
         self.previous_w = 0.0
         self.cmd = Twist()
+        self.priority_cmd = Twist()
+        self.last_priority_time = None
 
         self.create_subscription(Twist, self.get_parameter("raw_cmd_topic").value, self.twist_callback, 10)
+        self.create_subscription(
+            Twist, self.get_parameter("priority_cmd_topic").value, self.priority_twist_callback, 10
+        )
         self.pub = self.create_publisher(Twist, self.get_parameter("cmd_topic").value, 10)
         rate = max(float(self.get_parameter("cmd_rate").value), 1.0)
         self.create_timer(1.0 / rate, self.update)
@@ -31,21 +40,35 @@ class VelocitySmootherEma(Node):
         self.cmd = msg
         self.stop_counter = self.stop_counter_limit
 
+    def priority_twist_callback(self, msg):
+        self.priority_cmd = msg
+        self.priority_stop_counter = self.stop_counter_limit
+        self.last_priority_time = self.get_clock().now()
+
     def update(self):
-        if self.stop_counter <= 0:
+        active_cmd = self.cmd
+        if self.priority_active():
+            active_cmd = self.priority_cmd
+            self.priority_stop_counter -= 1
+        elif self.stop_counter <= 0:
             self.cmd.linear.x = 0.0
             self.cmd.linear.y = 0.0
             self.cmd.angular.z = 0.0
         else:
             self.stop_counter -= 1
 
-        sx = self.alpha_v * self.cmd.linear.x + (1.0 - self.alpha_v) * self.previous_x
-        sy = self.alpha_v * self.cmd.linear.y + (1.0 - self.alpha_v) * self.previous_y
-        sw = self.alpha_w * self.cmd.angular.z + (1.0 - self.alpha_w) * self.previous_w
+        if not self.priority_active():
+            self.priority_cmd.linear.x = 0.0
+            self.priority_cmd.linear.y = 0.0
+            self.priority_cmd.angular.z = 0.0
+
+        sx = self.alpha_v * active_cmd.linear.x + (1.0 - self.alpha_v) * self.previous_x
+        sy = self.alpha_v * active_cmd.linear.y + (1.0 - self.alpha_v) * self.previous_y
+        sw = self.alpha_w * active_cmd.angular.z + (1.0 - self.alpha_w) * self.previous_w
 
         out = Twist()
-        out.linear = self.cmd.linear
-        out.angular = self.cmd.angular
+        out.linear = active_cmd.linear
+        out.angular = active_cmd.angular
         out.linear.x = sx
         out.linear.y = sy
         out.angular.z = sw
@@ -55,6 +78,11 @@ class VelocitySmootherEma(Node):
         self.previous_w = sw
         self.pub.publish(out)
 
+    def priority_active(self):
+        if self.priority_stop_counter <= 0 or self.last_priority_time is None:
+            return False
+        age = (self.get_clock().now() - self.last_priority_time).nanoseconds / 1e9
+        return age <= self.priority_timeout_sec
 
 def main():
     rclpy.init()

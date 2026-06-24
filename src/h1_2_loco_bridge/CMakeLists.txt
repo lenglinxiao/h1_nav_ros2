@@ -11,13 +11,21 @@ endif()
 
 find_package(ament_cmake REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(h1_2_nav_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
-find_package(unitree_sdk2 REQUIRED
-  PATHS /home/llx/unitree_slam/unitree_robotics/lib/cmake
-)
+find_package(Threads REQUIRED)
 
-set(UNITREE_ROBOTICS_ROOT "/home/llx/unitree_slam/unitree_robotics")
-set(UNITREE_ROBOTICS_LIB_DIR "${UNITREE_ROBOTICS_ROOT}/lib/x86_64")
+set(UNITREE_SDK2_ROOT "/home/llx/unitree_sdk2")
+set(UNITREE_SDK2_LIB_DIR "${UNITREE_SDK2_ROOT}/lib/${CMAKE_SYSTEM_PROCESSOR}")
+set(UNITREE_SDK2_THIRDPARTY_LIB_DIR "${UNITREE_SDK2_ROOT}/thirdparty/lib/${CMAKE_SYSTEM_PROCESSOR}")
+set(UNITREE_SDK2_THIRDPARTY_INCLUDE_DIR "${UNITREE_SDK2_ROOT}/thirdparty/include")
+
+find_library(UNITREE_SDK2_LIB unitree_sdk2 PATHS "${UNITREE_SDK2_LIB_DIR}" NO_DEFAULT_PATH)
+find_library(UNITREE_DDSCXX_LIB ddscxx PATHS "${UNITREE_SDK2_THIRDPARTY_LIB_DIR}" NO_DEFAULT_PATH)
+find_library(UNITREE_DDSC_LIB ddsc PATHS "${UNITREE_SDK2_THIRDPARTY_LIB_DIR}" NO_DEFAULT_PATH)
+if(NOT UNITREE_SDK2_LIB OR NOT UNITREE_DDSCXX_LIB OR NOT UNITREE_DDSC_LIB)
+  message(FATAL_ERROR "unitree_sdk2 libraries not found under ${UNITREE_SDK2_ROOT}")
+endif()
 
 add_executable(cmd_vel_to_h1_2_loco src/cmd_vel_to_h1_2_loco.cpp)
 ament_target_dependencies(cmd_vel_to_h1_2_loco
@@ -27,20 +35,28 @@ ament_target_dependencies(cmd_vel_to_h1_2_loco
 
 add_executable(h1_2_loco_udp_daemon src/h1_2_loco_udp_daemon.cpp)
 target_include_directories(h1_2_loco_udp_daemon PRIVATE
-  ${UNITREE_ROBOTICS_ROOT}/include
-)
-target_link_directories(h1_2_loco_udp_daemon PRIVATE
-  ${UNITREE_ROBOTICS_LIB_DIR}
+  ${UNITREE_SDK2_ROOT}/include
+  ${UNITREE_SDK2_THIRDPARTY_INCLUDE_DIR}
+  ${UNITREE_SDK2_THIRDPARTY_INCLUDE_DIR}/ddscxx
 )
 target_link_libraries(h1_2_loco_udp_daemon
-  unitree_sdk2
+  ${UNITREE_SDK2_LIB}
+  ${UNITREE_DDSCXX_LIB}
+  ${UNITREE_DDSC_LIB}
+  Threads::Threads
 )
 set_target_properties(h1_2_loco_udp_daemon PROPERTIES
-  BUILD_RPATH "${UNITREE_ROBOTICS_LIB_DIR}"
-  INSTALL_RPATH "${UNITREE_ROBOTICS_LIB_DIR}"
+  BUILD_RPATH "${UNITREE_SDK2_THIRDPARTY_LIB_DIR}"
+  INSTALL_RPATH "${UNITREE_SDK2_THIRDPARTY_LIB_DIR}"
 )
 
-install(TARGETS cmd_vel_to_h1_2_loco h1_2_loco_udp_daemon
+add_executable(gesture_to_h1_2_loco src/gesture_to_h1_2_loco.cpp)
+ament_target_dependencies(gesture_to_h1_2_loco
+  h1_2_nav_msgs
+  rclcpp
+)
+
+install(TARGETS cmd_vel_to_h1_2_loco h1_2_loco_udp_daemon gesture_to_h1_2_loco
   DESTINATION lib/${PROJECT_NAME}
 )
 

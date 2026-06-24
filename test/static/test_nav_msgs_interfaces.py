@@ -44,3 +44,16 @@ def test_route_control_services_have_expected_contracts():
     assert "string state" in status_srv
     assert "string current_goal" in status_srv
     assert "uint32 current_index" in status_srv
+
+
+def test_execute_gesture_service_has_expected_contract():
+    gesture_srv = read("srv/ExecuteGesture.srv")
+
+    assert gesture_srv.strip().splitlines() == [
+        "string name",
+        "---",
+        "bool success",
+        "int32 sdk_ret",
+        "string message",
+    ]
+    assert '"srv/ExecuteGesture.srv"' in read("CMakeLists.txt")

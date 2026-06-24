@@ -87,6 +87,10 @@ def generate_launch_description():
             DeclareLaunchArgument("goal_topic", default_value="/goal_pose"),
             DeclareLaunchArgument("memory_points_file", default_value="maps/memory_points.json"),
             DeclareLaunchArgument("memory_route", default_value="A,B,C"),
+            DeclareLaunchArgument("gesture_route", default_value=""),
+            DeclareLaunchArgument("gesture_service_name", default_value="/h1_2_loco/execute_gesture"),
+            DeclareLaunchArgument("gesture_timeout_sec", default_value="20.0"),
+            DeclareLaunchArgument("shake_hand_duration", default_value="10.0"),
             DeclareLaunchArgument("arrival_wait_sec", default_value="2.0"),
             DeclareLaunchArgument("blocked_retry_wait_sec", default_value="5.0"),
             DeclareLaunchArgument("max_retries_per_goal", default_value="3"),
@@ -402,6 +406,11 @@ def generate_launch_description():
                     {
                         "points_file": LaunchConfiguration("memory_points_file"),
                         "route_names": LaunchConfiguration("memory_route"),
+                        "gesture_route": LaunchConfiguration("gesture_route"),
+                        "gesture_service_name": LaunchConfiguration("gesture_service_name"),
+                        "gesture_timeout_sec": ParameterValue(
+                            LaunchConfiguration("gesture_timeout_sec"), value_type=float
+                        ),
                         "arrival_wait_sec": LaunchConfiguration("arrival_wait_sec"),
                         "blocked_retry_wait_sec": LaunchConfiguration("blocked_retry_wait_sec"),
                         "max_retries_per_goal": LaunchConfiguration("max_retries_per_goal"),
@@ -421,6 +430,7 @@ def generate_launch_description():
                 parameters=[
                     {
                         "raw_cmd_topic": "/cmd_vel",
+                        "priority_cmd_topic": "/cmd_vel_voice",
                         "cmd_topic": "/cmd_vel_nav",
                         "cmd_rate": 20.0,
                         "alpha_v": 0.45,
@@ -440,6 +450,9 @@ def generate_launch_description():
                     "max_x": LaunchConfiguration("max_linear_speed"),
                     "max_y": "0.0",
                     "max_yaw": LaunchConfiguration("max_angular_speed"),
+                    "gesture_service_name": LaunchConfiguration("gesture_service_name"),
+                    "gesture_timeout": LaunchConfiguration("gesture_timeout_sec"),
+                    "shake_hand_duration": LaunchConfiguration("shake_hand_duration"),
                 }.items(),
             ),
         ]

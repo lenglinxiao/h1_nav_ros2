@@ -72,9 +72,9 @@ def test_navigation_script_exposes_auto_initial_pose_demo_arguments():
     assert "initial_pose=*" in script
     assert "auto_start_route=*" in script
     assert "memory_route=*" in script
-    assert 'initial_pose_name:="${INITIAL_POSE_NAME}"' in script
-    assert 'auto_start_route:="${AUTO_START_ROUTE}"' in script
-    assert 'memory_route:="${MEMORY_ROUTE}"' in script
+    assert '"initial_pose_name:=${INITIAL_POSE_NAME}"' in script
+    assert '"auto_start_route:=${AUTO_START_ROUTE}"' in script
+    assert '"memory_route:=${MEMORY_ROUTE}"' in script
 
 
 def test_auto_initial_pose_starts_route_only_after_publishing_and_settling():

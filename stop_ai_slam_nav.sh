@@ -22,6 +22,7 @@ patterns=(
   "install/h1_2_nav_tools/lib/h1_2_nav_tools/simple_grid_navigator"
   "install/h1_2_nav_tools/lib/h1_2_nav_tools/slam_grid_navigator"
   "install/h1_2_loco_bridge/lib/h1_2_loco_bridge/cmd_vel_to_h1_2_loco"
+  "install/h1_2_loco_bridge/lib/h1_2_loco_bridge/gesture_to_h1_2_loco"
   "install/h1_2_loco_bridge/lib/h1_2_loco_bridge/h1_2_loco_udp_daemon"
   "nav2_amcl"
   "nav2_bt_navigator"

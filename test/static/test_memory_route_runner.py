@@ -79,4 +79,25 @@ def test_memory_route_runner_can_return_to_start_before_looping_route():
     assert '"start_point_name": LaunchConfiguration("initial_pose_name")' in launch
     assert "RETURN_TO_START" in script
     assert "return_to_start=*" in script
-    assert 'return_to_start:="${RETURN_TO_START}"' in script
+    assert '"return_to_start:=${RETURN_TO_START}"' in script
+
+
+def test_memory_route_runner_executes_configured_gestures_after_arrival():
+    source = RUNNER.read_text(encoding="utf-8")
+    launch = (ROOT / "src" / "h1_2_slam_bringup" / "launch" / "h1_2_nav2_navigation.launch.py").read_text(encoding="utf-8")
+    script = (ROOT / "run_ai_slam_nav.sh").read_text(encoding="utf-8")
+
+    assert "ExecuteGesture" in source
+    assert 'self.declare_parameter("gesture_route", "")' in source
+    assert 'self.state = "gesturing"' in source
+    assert "parse_gesture_route" in source
+    assert "handle_goal_arrival" in source
+    assert "execute_arrival_gesture" in source
+    assert "finish_goal_arrival" in source
+    assert "call_async" in source
+    assert 'DeclareLaunchArgument("gesture_route"' in launch
+    assert '"gesture_route": LaunchConfiguration("gesture_route")' in launch
+    assert "GESTURE_ROUTE" in script
+    assert "gesture_route=*" in script
+    assert 'if [[ -n "${GESTURE_ROUTE}" ]]' in script
+    assert 'NAV_LAUNCH_ARGS+=("gesture_route:=${GESTURE_ROUTE}")' in script

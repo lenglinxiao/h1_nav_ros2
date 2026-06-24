@@ -1,0 +1,5 @@
+string name
+---
+bool success
+int32 sdk_ret
+string message

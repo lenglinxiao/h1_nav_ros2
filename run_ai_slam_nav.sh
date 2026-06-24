@@ -11,6 +11,7 @@ LOCALIZATION_BACKEND="global_gicp"
 PCD_MAP_FILE=""
 INITIAL_POSE_NAME="START"
 MEMORY_ROUTE="A,B,C"
+GESTURE_ROUTE=""
 AUTO_START_ROUTE="false"
 RETURN_TO_START="false"
 
@@ -24,7 +25,7 @@ Usage:
   ./run_ai_slam_nav.sh mode=save_pcd_map pcd_prefix=maps/h1_2_lab
   ./run_ai_slam_nav.sh mode=navigation map=/absolute/path/to/map.yaml localization=global_gicp pcd=/absolute/path/to/map.pcd
   ./run_ai_slam_nav.sh mode=navigation map=/absolute/path/to/map.yaml localization=icp pcd=/absolute/path/to/map.pcd
-  ./run_ai_slam_nav.sh mode=navigation map=/absolute/path/to/map.yaml pcd=/absolute/path/to/map.pcd initial_pose=START memory_route=A,B,C auto_start_route=true
+  ./run_ai_slam_nav.sh mode=navigation map=/absolute/path/to/map.yaml pcd=/absolute/path/to/map.pcd initial_pose=START memory_route=A,B,C gesture_route=B:wave_hand,C:shake_hand auto_start_route=true
 
 Modes:
   mode=online      Online camera_init mapping + Nav2 navigation. This is the default.
@@ -37,6 +38,7 @@ Modes:
   pcd=...          3D PCD map for offline localization.
   initial_pose=... START memory point used for automatic PCD localization initialization. Default: START.
   memory_route=... Route names for memory route runner. Default: A,B,C.
+  gesture_route=... Optional per-point gestures, for example B:wave_hand,C:shake_hand.
   auto_start_route=true|false Start memory route after localization TF is available. Default: false.
   return_to_start=true|false Navigate to initial_pose before looping memory_route. Default: false.
 
@@ -81,6 +83,9 @@ for arg in "$@"; do
       ;;
     memory_route=*)
       MEMORY_ROUTE="${arg#memory_route=}"
+      ;;
+    gesture_route=*)
+      GESTURE_ROUTE="${arg#gesture_route=}"
       ;;
     auto_start_route=*)
       AUTO_START_ROUTE="${arg#auto_start_route=}"
@@ -221,6 +226,7 @@ pkill -f "install/h1_2_nav_tools/lib/h1_2_nav_tools/simple_grid_navigator" || tr
 pkill -f "install/h1_2_nav_tools/lib/h1_2_nav_tools/slam_grid_navigator" || true
 pkill -f "install/h1_2_icp_localization/lib/h1_2_icp_localization/global_relocalization_node" || true
 pkill -f "install/h1_2_loco_bridge/lib/h1_2_loco_bridge/cmd_vel_to_h1_2_loco" || true
+pkill -f "install/h1_2_loco_bridge/lib/h1_2_loco_bridge/gesture_to_h1_2_loco" || true
 pkill -f "install/h1_2_loco_bridge/lib/h1_2_loco_bridge/h1_2_loco_udp_daemon" || true
 pkill -f "nav2_bt_navigator" || true
 pkill -f "nav2_controller" || true
@@ -253,18 +259,25 @@ if [[ "${MODE}" == "online" ]]; then
 fi
 
 echo "Starting H1-2 Nav2 navigation with map: ${MAP_FILE}"
-exec ros2 launch h1_2_slam_bringup h1_2_nav2_navigation.launch.py \
-  map:="${MAP_FILE}" \
-  localization_backend:="${LOCALIZATION_BACKEND}" \
-  pcd_map:="${PCD_MAP_FILE}" \
-  start_livox_driver:=false \
-  map_file_path:="${PCD_SAVE_PREFIX}.pcd" \
-  enable_sport_bridge:=true \
-  network_interface:=enp45s0 \
-  max_linear_speed:=0.12 \
-  max_angular_speed:=0.50 \
-  odom_yaw_offset:=3.141592653589793 \
-  initial_pose_name:="${INITIAL_POSE_NAME}" \
-  memory_route:="${MEMORY_ROUTE}" \
-  auto_start_route:="${AUTO_START_ROUTE}" \
-  return_to_start:="${RETURN_TO_START}"
+NAV_LAUNCH_ARGS=(
+  "map:=${MAP_FILE}"
+  "localization_backend:=${LOCALIZATION_BACKEND}"
+  "pcd_map:=${PCD_MAP_FILE}"
+  "start_livox_driver:=false"
+  "map_file_path:=${PCD_SAVE_PREFIX}.pcd"
+  "enable_sport_bridge:=true"
+  "network_interface:=enp45s0"
+  "max_linear_speed:=0.12"
+  "max_angular_speed:=0.50"
+  "odom_yaw_offset:=3.141592653589793"
+  "initial_pose_name:=${INITIAL_POSE_NAME}"
+  "memory_route:=${MEMORY_ROUTE}"
+  "auto_start_route:=${AUTO_START_ROUTE}"
+  "return_to_start:=${RETURN_TO_START}"
+)
+
+if [[ -n "${GESTURE_ROUTE}" ]]; then
+  NAV_LAUNCH_ARGS+=("gesture_route:=${GESTURE_ROUTE}")
+fi
+
+exec ros2 launch h1_2_slam_bringup h1_2_nav2_navigation.launch.py "${NAV_LAUNCH_ARGS[@]}"

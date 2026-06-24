@@ -150,6 +150,7 @@ def generate_launch_description():
                 parameters=[
                     {
                         "raw_cmd_topic": "/cmd_vel",
+                        "priority_cmd_topic": "/cmd_vel_voice",
                         "cmd_topic": "/cmd_vel_nav",
                         "cmd_rate": 20.0,
                         "alpha_v": 0.45,

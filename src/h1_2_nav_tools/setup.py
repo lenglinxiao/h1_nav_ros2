@@ -32,6 +32,7 @@ setup(
             "pointcloud_frame_adapter = h1_2_nav_tools.pointcloud_frame_adapter:main",
             "goal_pose_to_nav2 = h1_2_nav_tools.goal_pose_to_nav2:main",
             "velocity_smoother_ema = h1_2_nav_tools.velocity_smoother_ema:main",
+            "h1_2_voice_action_bridge = h1_2_nav_tools.h1_2_voice_action_bridge:main",
             "costmap_clear_on_initialpose = h1_2_nav_tools.costmap_clear_on_initialpose:main",
             "pointcloud_to_occupancy_grid = h1_2_nav_tools.pointcloud_to_occupancy_grid:main",
             "simple_pointcloud_to_laserscan = h1_2_nav_tools.simple_pointcloud_to_laserscan:main",
@@ -46,6 +47,8 @@ setup(
             "memory_route_runner = h1_2_nav_tools.memory_route_runner:main",
             "memory_point_cli = h1_2_nav_tools.memory_point_cli:main",
             "route_runner_cli = h1_2_nav_tools.route_runner_cli:main",
+            "h1_2_nav_gui = h1_2_nav_tools.h1_2_nav_gui:main",
+            "h1_2_nav_web_gui = h1_2_nav_tools.h1_2_nav_web_gui:main",
         ],
     },
 )

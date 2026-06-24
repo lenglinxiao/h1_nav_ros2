@@ -12,7 +12,7 @@ from launch_ros.parameter_descriptions import ParameterValue
 def generate_launch_description():
     package_prefix = get_package_prefix("h1_2_loco_bridge")
     daemon_path = os.path.join(package_prefix, "lib", "h1_2_loco_bridge", "h1_2_loco_udp_daemon")
-    unitree_lib = "/home/llx/unitree_slam/unitree_robotics/lib/x86_64"
+    unitree_lib = "/home/llx/unitree_sdk2/thirdparty/lib/x86_64"
     daemon_env = {
         "LD_LIBRARY_PATH": unitree_lib + ":" + os.environ.get("LD_LIBRARY_PATH", ""),
         "ROS_LOCALHOST_ONLY": "0",
@@ -25,6 +25,8 @@ def generate_launch_description():
             DeclareLaunchArgument("udp_port", default_value="39001"),
             DeclareLaunchArgument("enabled", default_value="false"),
             DeclareLaunchArgument("start_ros_shim", default_value="true"),
+            DeclareLaunchArgument("start_gesture_service", default_value="true"),
+            DeclareLaunchArgument("gesture_service_name", default_value="/h1_2_loco/execute_gesture"),
             DeclareLaunchArgument("auto_start", default_value="false"),
             DeclareLaunchArgument("continuous_move", default_value="true"),
             DeclareLaunchArgument("network_interface", default_value=""),
@@ -33,8 +35,10 @@ def generate_launch_description():
             DeclareLaunchArgument("max_y", default_value="0.0"),
             DeclareLaunchArgument("max_yaw", default_value="0.30"),
             DeclareLaunchArgument("timeout", default_value="0.4"),
+            DeclareLaunchArgument("gesture_timeout", default_value="20.0"),
             DeclareLaunchArgument("publish_rate", default_value="10.0"),
             DeclareLaunchArgument("command_duration", default_value="0.5"),
+            DeclareLaunchArgument("shake_hand_duration", default_value="10.0"),
             ExecuteProcess(
                 cmd=[
                     "/usr/bin/env",
@@ -48,6 +52,7 @@ def generate_launch_description():
                     "--max-x", LaunchConfiguration("max_x"),
                     "--max-y", LaunchConfiguration("max_y"),
                     "--max-yaw", LaunchConfiguration("max_yaw"),
+                    "--shake-hand-duration", LaunchConfiguration("shake_hand_duration"),
                 ],
                 output="screen",
                 additional_env=daemon_env,
@@ -75,6 +80,24 @@ def generate_launch_description():
                         "timeout": ParameterValue(LaunchConfiguration("timeout"), value_type=float),
                         "publish_rate": ParameterValue(LaunchConfiguration("publish_rate"), value_type=float),
                         "command_duration": ParameterValue(LaunchConfiguration("command_duration"), value_type=float),
+                    }
+                ],
+            ),
+            Node(
+                package="h1_2_loco_bridge",
+                executable="gesture_to_h1_2_loco",
+                name="gesture_to_h1_2_loco",
+                output="screen",
+                condition=IfCondition(LaunchConfiguration("start_gesture_service")),
+                parameters=[
+                    {
+                        "udp_host": LaunchConfiguration("udp_host"),
+                        "udp_port": ParameterValue(LaunchConfiguration("udp_port"), value_type=int),
+                        "service_name": LaunchConfiguration("gesture_service_name"),
+                        "timeout": ParameterValue(LaunchConfiguration("gesture_timeout"), value_type=float),
+                        "shake_hand_duration": ParameterValue(
+                            LaunchConfiguration("shake_hand_duration"), value_type=float
+                        ),
                     }
                 ],
             ),
