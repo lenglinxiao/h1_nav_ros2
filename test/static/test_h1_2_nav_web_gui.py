@@ -4,6 +4,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 TOOLS = ROOT / "src" / "h1_2_nav_tools"
 WEB_GUI = TOOLS / "h1_2_nav_tools" / "h1_2_nav_web_gui.py"
+CAMERA_STREAM = TOOLS / "h1_2_nav_tools" / "camera_stream.py"
 RUN_SCRIPT = ROOT / "run_ai_slam_nav.sh"
 
 
@@ -93,6 +94,78 @@ def test_h1_2_nav_web_gui_exposes_expected_api_routes():
     assert "/api/voice/start" in source
     assert "/api/voice/stop" in source
     assert "/api/logs" in source
+    assert "/api/camera/status" in source
+    assert "/api/camera/reconnect" in source
+    assert "/api/camera/rgb.mjpg" in source
+    assert "/api/camera/depth.mjpg" in source
+    assert "/api/vision/status" in source
+    assert "/api/vision/start" in source
+    assert "/api/vision/stop" in source
+    assert "/api/vision/annotated.mjpg" in source
+
+
+def test_h1_2_nav_web_gui_subscribes_to_configurable_realsense_topics():
+    source = WEB_GUI.read_text(encoding="utf-8")
+
+    assert "/camera/camera/color/image_raw" in source
+    assert "/camera/camera/aligned_depth_to_color/image_raw" in source
+    assert "/camera/camera/color/camera_info" in source
+    assert "camera_rgb_topic" in source
+    assert "camera_depth_topic" in source
+    assert "camera_info_topic" in source
+    assert "QoSReliabilityPolicy.BEST_EFFORT" in source
+    assert "QoSHistoryPolicy.KEEP_LAST" in source
+    assert "depth=1" in source
+    assert "create_subscription" in source
+    assert "destroy_subscription" in source
+
+
+def test_h1_2_nav_web_gui_has_camera_preview_panel():
+    source = WEB_GUI.read_text(encoding="utf-8")
+
+    assert "Camera Preview" in source
+    assert 'id="camera_rgb"' in source
+    assert 'id="camera_depth"' in source
+    assert 'id="camera_state"' in source
+    assert "重新连接" in source
+    assert "等待相机话题" in source
+    assert "refreshCameraStatus" in source
+    assert 'id="vision_annotated"' in source
+    assert 'id="vision_state"' in source
+    assert "YOLO Detection" in source
+    assert "启动识别" in source
+    assert "停止识别" in source
+
+
+def test_h1_2_nav_web_gui_manages_remote_yolo_without_stopping_camera():
+    source = WEB_GUI.read_text(encoding="utf-8")
+
+    assert "vision_process" in source
+    assert "vision_remote_host" in source
+    assert "vision_workspace" in source
+    assert "vision_ros_setup" in source
+    assert "vision_annotated_topic" in source
+    assert "ros2 launch h1_2_vision yolo_detector.launch.py" in source
+    assert "pkill -f 'yolo_detector.launch.py|h1_2_vision/yolo_detector|h1_2_vision.*yolo_detector'" in source
+    assert "realsense2_camera" not in source[source.index("def _vision_stop_command"):source.index("def open_rviz")]
+
+
+def test_camera_stream_helpers_are_kept_ros_independent():
+    source = CAMERA_STREAM.read_text(encoding="utf-8")
+
+    assert "def encode_rgb_jpeg" in source
+    assert "def encode_depth_jpeg" in source
+    assert "class CameraFrameStore" in source
+    assert "import rclpy" not in source
+    assert "from sensor_msgs" not in source
+
+
+def test_h1_2_nav_tools_declares_camera_preview_dependencies():
+    package_xml = (TOOLS / "package.xml").read_text(encoding="utf-8")
+
+    assert "<exec_depend>cv_bridge</exec_depend>" in package_xml
+    assert "<exec_depend>python3-opencv</exec_depend>" in package_xml
+    assert "<exec_depend>python3-numpy</exec_depend>" in package_xml
 
 
 def test_h1_2_nav_web_gui_can_start_voice_control_on_robot_over_ssh():

@@ -77,6 +77,10 @@ def test_offline_navigation_wires_gesture_service_to_loco_bridge():
     assert "client.WaveHand()" in daemon
     assert "client.ShakeHand(0)" in daemon
     assert "client.ShakeHand(1)" in daemon
+    assert "client.LowStand()" in daemon
+    assert "client.HighStand()" in daemon
+    assert 'name == "reach_hand"' in daemon
+    assert 'name == "retract_hand"' in daemon
     assert "client.SetTaskId(task_id)" in daemon
     assert "gesture_to_h1_2_loco" in cmake
 

@@ -162,7 +162,7 @@ int main(int argc, char** argv) {
         client.StopMove();
         ret = client.WaveHand();
         message = "wave_hand sent";
-      } else if (name == "shake_hand" || name == "reach_hand") {
+      } else if (name == "shake_hand") {
         double duration = shake_hand_duration;
         in >> duration;
         if (duration < 0.0) {
@@ -179,6 +179,22 @@ int main(int argc, char** argv) {
           ret = client.ShakeHand(1);
           message = (ret == 0) ? "shake_hand finished" : "shake_hand finish failed";
         }
+      } else if (name == "reach_hand") {
+        client.StopMove();
+        ret = client.ShakeHand(0);
+        message = (ret == 0) ? "reach_hand sent" : "reach_hand failed";
+      } else if (name == "retract_hand") {
+        client.StopMove();
+        ret = client.ShakeHand(1);
+        message = (ret == 0) ? "retract_hand sent" : "retract_hand failed";
+      } else if (name == "low_stand") {
+        client.StopMove();
+        ret = client.LowStand();
+        message = (ret == 0) ? "low_stand sent" : "low_stand failed";
+      } else if (name == "high_stand") {
+        client.StopMove();
+        ret = client.HighStand();
+        message = (ret == 0) ? "high_stand sent" : "high_stand failed";
       } else if (name == "set_task_id") {
         int task_id = -1;
         in >> task_id;

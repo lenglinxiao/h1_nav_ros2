@@ -1,15 +1,27 @@
+from collections import deque
+
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Int32
 
 
-DEFAULT_CODE_STOP = [0, 1, 2]
+DEFAULT_CODE_STOP = [1, 2]
 DEFAULT_CODE_FORWARD = [4]
-DEFAULT_CODE_BACKWARD = [5]
-DEFAULT_CODE_LEFT = [6]
+DEFAULT_CODE_SQUAT = [5]
+DEFAULT_CODE_STAND = [6]
 DEFAULT_CODE_RIGHT = [7]
+DEFAULT_CODE_NAV_A = [19]
+DEFAULT_CODE_NAV_B = [20]
+DEFAULT_CODE_NAV_C = [21]
+DEFAULT_CODE_NAV_START = [33]
+DEFAULT_CODE_REACH_HAND = [45]
+DEFAULT_CODE_RETRACT_HAND = [46]
 DEFAULT_CODE_WAVE = [52]
 NO_SPEECH_CODE = 999
+FRAME_HEADER = b"\xAA\x55"
+FRAME_SIZE = 5
+FRAME_FOOTER = 0xFB
+COMMAND_FRAME_TYPE = 0x00
 
 
 def parse_code_list(value):
@@ -21,6 +33,30 @@ def parse_code_list(value):
     return [int(value)]
 
 
+def extract_command_codes(buffer):
+    codes = []
+    while True:
+        header_index = buffer.find(FRAME_HEADER)
+        if header_index < 0:
+            if buffer[-1:] == FRAME_HEADER[:1]:
+                del buffer[:-1]
+            else:
+                buffer.clear()
+            break
+        if header_index:
+            del buffer[:header_index]
+        if len(buffer) < FRAME_SIZE:
+            break
+        if buffer[FRAME_SIZE - 1] != FRAME_FOOTER:
+            del buffer[0]
+            continue
+        frame = bytes(buffer[:FRAME_SIZE])
+        del buffer[:FRAME_SIZE]
+        if frame[2] == COMMAND_FRAME_TYPE:
+            codes.append(frame[3])
+    return codes
+
+
 class H12VoiceControl(Node):
     def __init__(self, speech_factory=None):
         super().__init__("h1_2_voice_control")
@@ -30,24 +66,42 @@ class H12VoiceControl(Node):
         self.declare_parameter("poll_rate", 10.0)
         self.declare_parameter("code_stop", DEFAULT_CODE_STOP)
         self.declare_parameter("code_forward", DEFAULT_CODE_FORWARD)
-        self.declare_parameter("code_backward", DEFAULT_CODE_BACKWARD)
-        self.declare_parameter("code_left", DEFAULT_CODE_LEFT)
+        self.declare_parameter("code_squat", DEFAULT_CODE_SQUAT)
+        self.declare_parameter("code_stand", DEFAULT_CODE_STAND)
         self.declare_parameter("code_right", DEFAULT_CODE_RIGHT)
+        self.declare_parameter("code_nav_a", DEFAULT_CODE_NAV_A)
+        self.declare_parameter("code_nav_b", DEFAULT_CODE_NAV_B)
+        self.declare_parameter("code_nav_c", DEFAULT_CODE_NAV_C)
+        self.declare_parameter("code_nav_start", DEFAULT_CODE_NAV_START)
+        self.declare_parameter("code_reach_hand", DEFAULT_CODE_REACH_HAND)
+        self.declare_parameter("code_retract_hand", DEFAULT_CODE_RETRACT_HAND)
         self.declare_parameter("code_wave", DEFAULT_CODE_WAVE)
 
         self.serial_port = self.get_parameter("serial_port").value
         self.code_stop = set(parse_code_list(self.get_parameter("code_stop").value))
         self.code_forward = set(parse_code_list(self.get_parameter("code_forward").value))
-        self.code_backward = set(parse_code_list(self.get_parameter("code_backward").value))
-        self.code_left = set(parse_code_list(self.get_parameter("code_left").value))
+        self.code_squat = set(parse_code_list(self.get_parameter("code_squat").value))
+        self.code_stand = set(parse_code_list(self.get_parameter("code_stand").value))
         self.code_right = set(parse_code_list(self.get_parameter("code_right").value))
+        self.code_nav_a = set(parse_code_list(self.get_parameter("code_nav_a").value))
+        self.code_nav_b = set(parse_code_list(self.get_parameter("code_nav_b").value))
+        self.code_nav_c = set(parse_code_list(self.get_parameter("code_nav_c").value))
+        self.code_nav_start = set(parse_code_list(self.get_parameter("code_nav_start").value))
+        self.code_reach_hand = set(parse_code_list(self.get_parameter("code_reach_hand").value))
+        self.code_retract_hand = set(parse_code_list(self.get_parameter("code_retract_hand").value))
         self.code_wave = set(parse_code_list(self.get_parameter("code_wave").value))
         self.known_codes = (
             self.code_stop
             | self.code_forward
-            | self.code_backward
-            | self.code_left
+            | self.code_squat
+            | self.code_stand
             | self.code_right
+            | self.code_nav_a
+            | self.code_nav_b
+            | self.code_nav_c
+            | self.code_nav_start
+            | self.code_reach_hand
+            | self.code_retract_hand
             | self.code_wave
         )
 
@@ -60,6 +114,8 @@ class H12VoiceControl(Node):
 
         self.speech = None
         self.speech_error_logged = False
+        self.rx_buffer = bytearray()
+        self.pending_codes = deque()
 
         self.speech_factory = speech_factory or self.create_speech
         self.try_open_speech()
@@ -100,10 +156,22 @@ class H12VoiceControl(Node):
         if self.speech is None:
             return None
         try:
+            if self.pending_codes:
+                return self.pending_codes.popleft()
+            if hasattr(self.speech, "ser"):
+                waiting = getattr(self.speech.ser, "in_waiting", None)
+                if waiting is None:
+                    waiting = self.speech.ser.inWaiting()
+                if waiting:
+                    self.rx_buffer.extend(self.speech.ser.read(waiting))
+                    self.pending_codes.extend(extract_command_codes(self.rx_buffer))
+                return self.pending_codes.popleft() if self.pending_codes else None
             return int(self.speech.speech_read())
         except Exception as exc:
             self.get_logger().error(f"Failed to read voice command: {exc}")
             self.speech = None
+            self.rx_buffer.clear()
+            self.pending_codes.clear()
             return None
 
     def handle_code(self, code):
@@ -128,7 +196,6 @@ class H12VoiceControl(Node):
             self.speech.void_write(code)
         except Exception as exc:
             self.get_logger().warn(f"Failed to play voice feedback for code {code}: {exc}")
-
 
 def main():
     rclpy.init()

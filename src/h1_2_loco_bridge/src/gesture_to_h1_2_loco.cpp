@@ -87,9 +87,6 @@ class GestureToH12Loco : public rclcpp::Node {
     }
     const auto last = name.find_last_not_of(" \t\r\n");
     name = name.substr(first, last - first + 1);
-    if (name == "reach_hand") {
-      return "shake_hand";
-    }
     return name;
   }
 

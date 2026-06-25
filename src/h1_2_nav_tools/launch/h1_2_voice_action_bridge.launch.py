@@ -12,8 +12,9 @@ def generate_launch_description():
             DeclareLaunchArgument("voice_feedback_topic", default_value="/h1_2/voice_feedback"),
             DeclareLaunchArgument("cmd_topic", default_value="/cmd_vel_voice"),
             DeclareLaunchArgument("gesture_service_name", default_value="/h1_2_loco/execute_gesture"),
+            DeclareLaunchArgument("memory_points_service_name", default_value="list_memory_points"),
+            DeclareLaunchArgument("navigation_action_name", default_value="navigate_to_pose"),
             DeclareLaunchArgument("forward_speed", default_value="0.12"),
-            DeclareLaunchArgument("backward_speed", default_value="-0.08"),
             DeclareLaunchArgument("turn_yaw_speed", default_value="0.30"),
             DeclareLaunchArgument("publish_rate", default_value="10.0"),
             DeclareLaunchArgument("continuous_move", default_value="true"),
@@ -28,11 +29,14 @@ def generate_launch_description():
                         "voice_feedback_topic": LaunchConfiguration("voice_feedback_topic"),
                         "cmd_topic": LaunchConfiguration("cmd_topic"),
                         "gesture_service_name": LaunchConfiguration("gesture_service_name"),
+                        "memory_points_service_name": LaunchConfiguration(
+                            "memory_points_service_name"
+                        ),
+                        "navigation_action_name": LaunchConfiguration(
+                            "navigation_action_name"
+                        ),
                         "forward_speed": ParameterValue(
                             LaunchConfiguration("forward_speed"), value_type=float
-                        ),
-                        "backward_speed": ParameterValue(
-                            LaunchConfiguration("backward_speed"), value_type=float
                         ),
                         "turn_yaw_speed": ParameterValue(
                             LaunchConfiguration("turn_yaw_speed"), value_type=float
@@ -43,11 +47,17 @@ def generate_launch_description():
                         "continuous_move": ParameterValue(
                             LaunchConfiguration("continuous_move"), value_type=bool
                         ),
-                        "code_stop": [0, 1, 2],
+                        "code_stop": [1, 2],
                         "code_forward": [4],
-                        "code_backward": [5],
-                        "code_left": [6],
+                        "code_squat": [5],
+                        "code_stand": [6],
                         "code_right": [7],
+                        "code_nav_a": [19],
+                        "code_nav_b": [20],
+                        "code_nav_c": [21],
+                        "code_nav_start": [33],
+                        "code_reach_hand": [45],
+                        "code_retract_hand": [46],
                         "code_wave": [52],
                     }
                 ],

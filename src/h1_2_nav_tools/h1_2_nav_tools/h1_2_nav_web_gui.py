@@ -13,9 +13,23 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 import rclpy
+from cv_bridge import CvBridge
 from h1_2_nav_msgs.srv import ExecuteGesture, RouteStatus, StartRoute, StopRoute
+from sensor_msgs.msg import CameraInfo, Image
+
+from h1_2_nav_tools.camera_stream import (
+    CameraFrameStore,
+    encode_depth_jpeg,
+    encode_rgb_jpeg,
+)
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.node import Node
+from rclpy.qos import (
+    QoSDurabilityPolicy,
+    QoSHistoryPolicy,
+    QoSProfile,
+    QoSReliabilityPolicy,
+)
 
 
 CONFIG_PATH = Path.home() / ".ros" / "h1_2_nav_web_gui.json"
@@ -180,11 +194,15 @@ class LogStore:
 
 
 class RosServiceBridge:
-    def __init__(self, logs):
+    def __init__(self, logs, config):
         self.logs = logs
         if not rclpy.ok():
             rclpy.init(args=None)
         self.node = Node("h1_2_nav_web_gui")
+        self.cv_bridge = CvBridge()
+        self.camera_frames = CameraFrameStore()
+        self.camera_subscriptions = []
+        self.camera_topics = {}
         self.executor = MultiThreadedExecutor()
         self.executor.add_node(self.node)
         self.thread = threading.Thread(target=self.executor.spin, daemon=True)
@@ -193,6 +211,7 @@ class RosServiceBridge:
         self.stop_client = self.node.create_client(StopRoute, "stop_memory_route")
         self.status_client = self.node.create_client(RouteStatus, "memory_route_status")
         self.gesture_client = self.node.create_client(ExecuteGesture, "/h1_2_loco/execute_gesture")
+        self.configure_camera(config)
 
     def shutdown(self):
         self.executor.shutdown()
@@ -244,6 +263,120 @@ class RosServiceBridge:
             return {"success": False, "message": str(result), "sdk_ret": -1}
         return {"success": bool(result.success), "message": result.message, "sdk_ret": int(result.sdk_ret)}
 
+    def configure_camera(self, config):
+        for subscription in self.camera_subscriptions:
+            self.node.destroy_subscription(subscription)
+        self.camera_subscriptions = []
+        self.camera_topics = {
+            "rgb": str(config.get("camera_rgb_topic", "")).strip(),
+            "depth": str(config.get("camera_depth_topic", "")).strip(),
+            "info": str(config.get("camera_info_topic", "")).strip(),
+            "annotated": str(config.get("vision_annotated_topic", "")).strip(),
+        }
+        qos = QoSProfile(
+            history=QoSHistoryPolicy.KEEP_LAST,
+            depth=1,
+            reliability=QoSReliabilityPolicy.BEST_EFFORT,
+            durability=QoSDurabilityPolicy.VOLATILE,
+        )
+        if self.camera_topics["rgb"]:
+            self.camera_subscriptions.append(
+                self.node.create_subscription(
+                    Image,
+                    self.camera_topics["rgb"],
+                    self._on_rgb_image,
+                    qos,
+                )
+            )
+        if self.camera_topics["depth"]:
+            self.camera_subscriptions.append(
+                self.node.create_subscription(
+                    Image,
+                    self.camera_topics["depth"],
+                    self._on_depth_image,
+                    qos,
+                )
+            )
+        if self.camera_topics["info"]:
+            self.camera_subscriptions.append(
+                self.node.create_subscription(
+                    CameraInfo,
+                    self.camera_topics["info"],
+                    self._on_camera_info,
+                    qos,
+                )
+            )
+        if self.camera_topics["annotated"]:
+            self.camera_subscriptions.append(
+                self.node.create_subscription(
+                    Image,
+                    self.camera_topics["annotated"],
+                    self._on_annotated_image,
+                    qos,
+                )
+            )
+        self.logs.add(
+            "camera",
+            "subscribed rgb={rgb} depth={depth} info={info}".format(**self.camera_topics),
+        )
+
+    def camera_status(self):
+        return self.camera_frames.status(
+            self.camera_topics.get("rgb", ""),
+            self.camera_topics.get("depth", ""),
+            self.camera_topics.get("info", ""),
+        )
+
+    def vision_status(self):
+        stream = self.camera_frames.stream_status("annotated")
+        if stream["online"]:
+            state = "online"
+            message = "YOLO 检测画面在线"
+        elif stream["received"]:
+            state = "stale"
+            message = "YOLO 检测画面已超时"
+        else:
+            state = "waiting"
+            message = "等待 YOLO 检测话题"
+        return {
+            "state": state,
+            "message": message,
+            "annotated_topic": self.camera_topics.get("annotated", ""),
+            "annotated": stream,
+        }
+
+    def _on_rgb_image(self, message):
+        try:
+            image = self.cv_bridge.imgmsg_to_cv2(message, desired_encoding="passthrough")
+            jpeg = encode_rgb_jpeg(image, message.encoding)
+            self.camera_frames.update_rgb(jpeg, message.width, message.height, message.encoding)
+        except Exception as exc:
+            self.camera_frames.set_error(f"RGB 转换失败: {exc}")
+
+    def _on_depth_image(self, message):
+        try:
+            image = self.cv_bridge.imgmsg_to_cv2(message, desired_encoding="passthrough")
+            jpeg = encode_depth_jpeg(image, message.encoding)
+            self.camera_frames.update_depth(jpeg, message.width, message.height, message.encoding)
+        except Exception as exc:
+            self.camera_frames.set_error(f"深度图转换失败: {exc}")
+
+    def _on_annotated_image(self, message):
+        try:
+            image = self.cv_bridge.imgmsg_to_cv2(message, desired_encoding="passthrough")
+            jpeg = encode_rgb_jpeg(image, message.encoding)
+            self.camera_frames.update_annotated(
+                jpeg,
+                message.width,
+                message.height,
+                message.encoding,
+            )
+        except Exception as exc:
+            self.logs.add("vision", f"检测图转换失败: {exc}")
+
+    def _on_camera_info(self, message):
+        self.camera_frames.update_camera_info(message.width, message.height)
+
     def _call_simple(self, label, client, request):
         if not client.wait_for_service(timeout_sec=0.2):
             return {"success": False, "message": f"{label} is not available"}
@@ -271,6 +404,7 @@ class ProcessManager:
         self.rviz_process = None
         self.voice_process = None
         self.voice_bridge_process = None
+        self.vision_process = None
         self.lock = threading.Lock()
 
     def status(self):
@@ -279,6 +413,7 @@ class ProcessManager:
             "rviz": self._process_state(self.rviz_process),
             "voice": self._process_state(self.voice_process),
             "voice_bridge": self._process_state(self.voice_bridge_process),
+            "vision": self._process_state(self.vision_process),
         }
 
     def start_navigation(self, args):
@@ -344,6 +479,56 @@ class ProcessManager:
             return None
         return ["ssh", remote_host, "pkill -f 'h1_2_voice_control.launch.py|h1_2_voice_control' || true"]
 
+    def start_vision(self, payload=None):
+        with self.lock:
+            if self._is_running(self.vision_process):
+                return {"success": False, "message": "YOLO vision is already running"}
+            payload = payload or {}
+            self.vision_process = self._start("vision", self._vision_start_command(payload))
+            return {"success": True, "message": "YOLO vision start requested"}
+
+    def stop_vision(self, payload=None):
+        with self.lock:
+            stopped = False
+            if self._is_running(self.vision_process):
+                self.logs.add("vision", "terminating YOLO launch process")
+                self.vision_process.terminate()
+                stopped = True
+            command = self._vision_stop_command(payload or {})
+            if command:
+                self._start("vision-stop", command)
+                return {"success": True, "message": "remote YOLO vision stop requested"}
+            if stopped:
+                return {"success": True, "message": "YOLO vision terminate requested"}
+            return {"success": False, "message": "YOLO vision is not running"}
+
+    def _vision_start_command(self, payload):
+        remote_host = normalize_ssh_target(payload.get("vision_remote_host", ""))
+        if not remote_host:
+            return ["ros2", "launch", "h1_2_vision", "yolo_detector.launch.py"]
+        workspace = normalize_voice_workspace(payload.get("vision_workspace", "~/ros2_ws"))
+        ros_setup = str(payload.get("vision_ros_setup", "/opt/ros/humble/setup.bash")).strip()
+        commands = [f"cd {quote_remote_path(workspace)}"]
+        if ros_setup:
+            commands.append(f"source {quote_remote_path(ros_setup)}")
+        commands.extend(
+            [
+                "source install/setup.bash",
+                "ros2 launch h1_2_vision yolo_detector.launch.py",
+            ]
+        )
+        return ["ssh", remote_host, "bash -lc " + shlex.quote(" && ".join(commands))]
+
+    def _vision_stop_command(self, payload):
+        remote_host = normalize_ssh_target(payload.get("vision_remote_host", ""))
+        if not remote_host:
+            return None
+        return [
+            "ssh",
+            remote_host,
+            "pkill -f 'yolo_detector.launch.py|h1_2_vision/yolo_detector|h1_2_vision.*yolo_detector' || true",
+        ]
+
     @staticmethod
     def _remote_voice_shell_command(workspace, ros_setup):
         commands = [f"cd {quote_remote_path(workspace)}"]
@@ -393,6 +578,7 @@ class ProcessManager:
                 ("rviz", self.rviz_process),
                 ("voice-reader", self.voice_process),
                 ("voice-bridge", self.voice_bridge_process),
+                ("vision", self.vision_process),
             ]:
                 if self._is_running(process):
                     self.logs.add(label, "terminating on server shutdown")
@@ -440,7 +626,7 @@ class WebGuiApp:
         self.points_file = workspace_root / "maps" / "memory_points.json"
         self.logs = LogStore()
         self.processes = ProcessManager(workspace_root, self.logs)
-        self.ros = RosServiceBridge(self.logs)
+        self.ros = RosServiceBridge(self.logs, self.default_config())
         self.logs.add("web", f"workspace={workspace_root}")
 
     def shutdown(self):
@@ -464,6 +650,22 @@ class WebGuiApp:
             "voice_remote_host": os.environ.get("H1_2_VOICE_REMOTE", ""),
             "voice_workspace": os.environ.get("H1_2_VOICE_WORKSPACE", "~/ros2_ws"),
             "voice_ros_setup": os.environ.get("H1_2_VOICE_ROS_SETUP", "/opt/ros/humble/setup.bash"),
+            "camera_rgb_topic": "/camera/camera/color/image_raw",
+            "camera_depth_topic": "/camera/camera/aligned_depth_to_color/image_raw",
+            "camera_info_topic": "/camera/camera/color/camera_info",
+            "vision_annotated_topic": "/h1_2/vision/annotated_image",
+            "vision_remote_host": os.environ.get(
+                "H1_2_VISION_REMOTE",
+                os.environ.get("H1_2_VOICE_REMOTE", ""),
+            ),
+            "vision_workspace": os.environ.get(
+                "H1_2_VISION_WORKSPACE",
+                os.environ.get("H1_2_VOICE_WORKSPACE", "~/ros2_ws"),
+            ),
+            "vision_ros_setup": os.environ.get(
+                "H1_2_VISION_ROS_SETUP",
+                os.environ.get("H1_2_VOICE_ROS_SETUP", "/opt/ros/humble/setup.bash"),
+            ),
         }
         try:
             saved = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
@@ -472,6 +674,10 @@ class WebGuiApp:
             pass
         config["voice_remote_host"] = normalize_ssh_target(config.get("voice_remote_host", ""))
         config["voice_workspace"] = normalize_voice_workspace(config.get("voice_workspace", "~/ros2_ws"))
+        config["vision_remote_host"] = normalize_ssh_target(config.get("vision_remote_host", ""))
+        config["vision_workspace"] = normalize_voice_workspace(
+            config.get("vision_workspace", "~/ros2_ws")
+        )
         return config
 
     def save_config(self, config):
@@ -479,8 +685,22 @@ class WebGuiApp:
             config["voice_remote_host"] = normalize_ssh_target(config["voice_remote_host"])
         if "voice_workspace" in config:
             config["voice_workspace"] = normalize_voice_workspace(config["voice_workspace"])
+        if "vision_remote_host" in config:
+            config["vision_remote_host"] = normalize_ssh_target(config["vision_remote_host"])
+        if "vision_workspace" in config:
+            config["vision_workspace"] = normalize_voice_workspace(config["vision_workspace"])
         CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
         CONFIG_PATH.write_text(json.dumps(config, indent=2, sort_keys=True), encoding="utf-8")
+
+    def reconnect_camera(self, config):
+        self.save_config(config)
+        self.ros.configure_camera(config)
+        return {"success": True, "message": "相机话题订阅已重新连接"}
+
+    def vision_status(self):
+        status = self.ros.vision_status()
+        status["process"] = self.processes.status()["vision"]
+        return status
 
     def memory_points(self):
         try:
@@ -564,7 +784,24 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._send_json({"points": self.app.memory_points(), "gestures": GESTURE_OPTIONS})
         elif parsed.path == "/api/status":
             route = self.app.ros.route_status()
-            self._send_json({"route": route, "processes": self.app.processes.status()})
+            self._send_json(
+                {
+                    "route": route,
+                    "processes": self.app.processes.status(),
+                    "camera": self.app.ros.camera_status(),
+                    "vision": self.app.ros.vision_status(),
+                }
+            )
+        elif parsed.path == "/api/camera/status":
+            self._send_json(self.app.ros.camera_status())
+        elif parsed.path == "/api/camera/rgb.mjpg":
+            self._send_mjpeg("rgb")
+        elif parsed.path == "/api/camera/depth.mjpg":
+            self._send_mjpeg("depth")
+        elif parsed.path == "/api/vision/status":
+            self._send_json(self.app.vision_status())
+        elif parsed.path == "/api/vision/annotated.mjpg":
+            self._send_mjpeg("annotated")
         elif parsed.path == "/api/logs":
             query = parse_qs(parsed.query)
             after = int(query.get("after", ["0"])[0] or 0)
@@ -592,6 +829,14 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._send_json(self.app.processes.start_voice_control(payload))
         elif parsed.path == "/api/voice/stop":
             self._send_json(self.app.processes.stop_voice_control(payload))
+        elif parsed.path == "/api/camera/reconnect":
+            self._send_json(self.app.reconnect_camera(payload))
+        elif parsed.path == "/api/vision/start":
+            self.app.save_config(payload)
+            self.app.ros.configure_camera(payload)
+            self._send_json(self.app.processes.start_vision(payload))
+        elif parsed.path == "/api/vision/stop":
+            self._send_json(self.app.processes.stop_vision(payload))
         elif parsed.path == "/api/rviz/open":
             self._send_json(
                 self.app.processes.open_rviz(
@@ -650,6 +895,28 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
+
+    def _send_mjpeg(self, stream):
+        self.send_response(200)
+        self.send_header("Content-Type", "multipart/x-mixed-replace; boundary=frame")
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        sequence = 0
+        try:
+            while True:
+                frame = self.app.ros.camera_frames.wait_for_frame(stream, sequence, timeout=1.0)
+                if frame is None:
+                    continue
+                sequence = frame["sequence"]
+                jpeg = frame["jpeg"]
+                self.wfile.write(b"--frame\r\n")
+                self.wfile.write(b"Content-Type: image/jpeg\r\n")
+                self.wfile.write(f"Content-Length: {len(jpeg)}\r\n\r\n".encode("ascii"))
+                self.wfile.write(jpeg)
+                self.wfile.write(b"\r\n")
+                self.wfile.flush()
+        except (BrokenPipeError, ConnectionResetError):
+            return
 
 INDEX_HTML = r"""<!doctype html>
 <html lang="zh-CN">
@@ -811,6 +1078,57 @@ INDEX_HTML = r"""<!doctype html>
     }
     .pill.ok { background: #ecfdf5; color: #047857; }
     .pill.warn { background: #fff7ed; color: #c2410c; }
+    .camera-section { margin: 0 14px 14px; }
+    .camera-config {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr auto;
+      gap: 10px;
+      align-items: end;
+      padding: 14px;
+      border-bottom: 1px solid var(--line);
+    }
+    .camera-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      padding: 14px;
+    }
+    .vision-config {
+      display: grid;
+      grid-template-columns: 1.3fr 1fr 1fr 1fr auto auto;
+      gap: 10px;
+      align-items: end;
+      padding: 14px;
+      border-bottom: 1px solid var(--line);
+      background: #fbfbf9;
+    }
+    .camera-view {
+      position: relative;
+      min-height: 260px;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #111827;
+    }
+    .camera-view img { width: 100%; height: auto; display: none; }
+    .camera-view.online img { display: block; }
+    .camera-placeholder {
+      position: absolute;
+      color: #cbd5e1;
+      font-weight: 750;
+    }
+    .camera-view.online .camera-placeholder { display: none; }
+    .camera-caption {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 8px 10px;
+      color: var(--muted);
+      background: #fff;
+      font-size: 12px;
+    }
     footer {
       display: grid;
       grid-template-columns: minmax(0, 1fr) 420px;
@@ -833,7 +1151,7 @@ INDEX_HTML = r"""<!doctype html>
     #logs { user-select: text; }
     #command { background: #fafafa; color: #334155; }
     @media (max-width: 1120px) {
-      main, footer { grid-template-columns: 1fr; }
+      main, footer, .camera-grid, .camera-config, .vision-config { grid-template-columns: 1fr; }
       header { height: auto; padding: 12px 14px; align-items: flex-start; flex-direction: column; }
       .actions { justify-content: flex-start; }
     }
@@ -929,6 +1247,53 @@ INDEX_HTML = r"""<!doctype html>
       </aside>
     </main>
 
+    <section class="panel camera-section">
+      <div class="panel-head">
+        <span>Camera Preview</span>
+        <span id="camera_state" class="pill warn">等待相机话题</span>
+      </div>
+      <div class="camera-config">
+        <div><label>RGB Topic</label><input id="camera_rgb_topic"></div>
+        <div><label>Aligned Depth Topic</label><input id="camera_depth_topic"></div>
+        <div><label>CameraInfo Topic</label><input id="camera_info_topic"></div>
+        <button class="btn soft" onclick="reconnectCamera()">重新连接</button>
+      </div>
+      <div class="vision-config">
+        <div><label>YOLO Annotated Topic</label><input id="vision_annotated_topic"></div>
+        <div><label>Vision SSH</label><input id="vision_remote_host" placeholder="unitree@192.168.x.x"></div>
+        <div><label>Vision Workspace</label><input id="vision_workspace" value="~/ros2_ws"></div>
+        <div><label>Vision ROS setup</label><input id="vision_ros_setup" value="/opt/ros/humble/setup.bash"></div>
+        <button class="btn soft" onclick="postAction('/api/vision/start', true)">启动识别</button>
+        <button class="btn" onclick="postAction('/api/vision/stop', true)">停止识别</button>
+      </div>
+      <div class="camera-grid">
+        <div>
+          <div id="camera_rgb_view" class="camera-view">
+            <img id="camera_rgb" alt="RealSense RGB">
+            <div class="camera-placeholder">等待 RGB 相机话题</div>
+          </div>
+          <div class="camera-caption"><strong>RGB</strong><span id="camera_rgb_meta">-</span></div>
+        </div>
+        <div>
+          <div id="camera_depth_view" class="camera-view">
+            <img id="camera_depth" alt="RealSense aligned depth">
+            <div class="camera-placeholder">等待对齐深度话题</div>
+          </div>
+          <div class="camera-caption"><strong>Aligned Depth</strong><span id="camera_depth_meta">-</span></div>
+        </div>
+        <div>
+          <div id="vision_annotated_view" class="camera-view">
+            <img id="vision_annotated" alt="YOLO detection">
+            <div class="camera-placeholder">等待 YOLO 检测话题</div>
+          </div>
+          <div class="camera-caption">
+            <strong>YOLO Detection</strong>
+            <span><span id="vision_state">waiting</span> · <span id="vision_annotated_meta">-</span></span>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <footer>
       <section class="panel">
         <div class="panel-head">Logs</div>
@@ -970,7 +1335,14 @@ INDEX_HTML = r"""<!doctype html>
         gesture_route: gestures.join(","),
         voice_remote_host: $("voice_remote_host").value.trim(),
         voice_workspace: $("voice_workspace").value.trim() || "~/ros2_ws",
-        voice_ros_setup: $("voice_ros_setup").value.trim() || "/opt/ros/humble/setup.bash"
+        voice_ros_setup: $("voice_ros_setup").value.trim() || "/opt/ros/humble/setup.bash",
+        camera_rgb_topic: $("camera_rgb_topic").value.trim(),
+        camera_depth_topic: $("camera_depth_topic").value.trim(),
+        camera_info_topic: $("camera_info_topic").value.trim(),
+        vision_annotated_topic: $("vision_annotated_topic").value.trim(),
+        vision_remote_host: $("vision_remote_host").value.trim(),
+        vision_workspace: $("vision_workspace").value.trim() || "~/ros2_ws",
+        vision_ros_setup: $("vision_ros_setup").value.trim() || "/opt/ros/humble/setup.bash"
       };
     }
 
@@ -1015,6 +1387,13 @@ INDEX_HTML = r"""<!doctype html>
       $("voice_remote_host").value = config.voice_remote_host || "";
       $("voice_workspace").value = config.voice_workspace || "~/ros2_ws";
       $("voice_ros_setup").value = config.voice_ros_setup || "/opt/ros/humble/setup.bash";
+      $("camera_rgb_topic").value = config.camera_rgb_topic || "/camera/camera/color/image_raw";
+      $("camera_depth_topic").value = config.camera_depth_topic || "/camera/camera/aligned_depth_to_color/image_raw";
+      $("camera_info_topic").value = config.camera_info_topic || "/camera/camera/color/camera_info";
+      $("vision_annotated_topic").value = config.vision_annotated_topic || "/h1_2/vision/annotated_image";
+      $("vision_remote_host").value = config.vision_remote_host || config.voice_remote_host || "";
+      $("vision_workspace").value = config.vision_workspace || config.voice_workspace || "~/ros2_ws";
+      $("vision_ros_setup").value = config.vision_ros_setup || config.voice_ros_setup || "/opt/ros/humble/setup.bash";
       $("auto_start_route").checked = config.auto_start_route !== false;
       $("return_to_start").checked = !!config.return_to_start;
       routeState.__memory_route = config.memory_route || "A,B,C";
@@ -1107,6 +1486,48 @@ INDEX_HTML = r"""<!doctype html>
       appendLog("gesture", `${name}: ${result.success ? "ok" : "failed"} ${result.message || ""}`);
     }
 
+    function restartCameraImages() {
+      const stamp = Date.now();
+      $("camera_rgb").src = `/api/camera/rgb.mjpg?t=${stamp}`;
+      $("camera_depth").src = `/api/camera/depth.mjpg?t=${stamp}`;
+      $("vision_annotated").src = `/api/vision/annotated.mjpg?t=${stamp}`;
+    }
+
+    async function reconnectCamera() {
+      const result = await api("/api/camera/reconnect", { method: "POST", body: JSON.stringify(payload()) });
+      appendLog("camera", result.message || JSON.stringify(result));
+      restartCameraImages();
+      await refreshCameraStatus();
+    }
+
+    function renderCameraStream(name, stream) {
+      const view = $(`camera_${name}_view`);
+      const meta = $(`camera_${name}_meta`);
+      view.classList.toggle("online", !!stream.online);
+      const age = stream.age_sec == null ? "-" : `${stream.age_sec.toFixed(1)}s`;
+      meta.textContent = `${stream.resolution || "-"} · ${stream.encoding || "-"} · age ${age}`;
+    }
+
+    async function refreshCameraStatus(cameraData = null) {
+      const camera = cameraData || await api("/api/camera/status");
+      const state = $("camera_state");
+      state.textContent = camera.message || "等待相机话题";
+      state.className = "pill " + (camera.state === "online" ? "ok" : "warn");
+      renderCameraStream("rgb", camera.rgb || {});
+      renderCameraStream("depth", camera.depth || {});
+    }
+
+    async function refreshVisionStatus(visionData = null) {
+      const vision = visionData || await api("/api/vision/status");
+      const stream = vision.annotated || {};
+      $("vision_state").textContent = vision.state || "waiting";
+      $("vision_annotated_view").classList.toggle("online", !!stream.online);
+      const age = stream.age_sec == null ? "-" : `${stream.age_sec.toFixed(1)}s`;
+      const fps = stream.fps == null ? "0.0" : stream.fps.toFixed(1);
+      $("vision_annotated_meta").textContent =
+        `${stream.resolution || "-"} · ${fps} FPS · age ${age}`;
+    }
+
     async function refreshStatus() {
       const data = await api("/api/status");
       const route = data.route || {};
@@ -1115,7 +1536,9 @@ INDEX_HTML = r"""<!doctype html>
       $("goal").textContent = `${route.current_goal || "-"} / index ${route.current_index || 0}`;
       $("message").textContent = route.message || "-";
       const processes = data.processes || {};
-      $("processes").textContent = `nav=${processes.navigation?.running ? "running" : "idle"}, rviz=${processes.rviz?.running ? "running" : "idle"}, voice_reader=${processes.voice?.running ? "running" : "idle"}, voice_bridge=${processes.voice_bridge?.running ? "running" : "idle"}`;
+      $("processes").textContent = `nav=${processes.navigation?.running ? "running" : "idle"}, rviz=${processes.rviz?.running ? "running" : "idle"}, voice_reader=${processes.voice?.running ? "running" : "idle"}, voice_bridge=${processes.voice_bridge?.running ? "running" : "idle"}, vision=${processes.vision?.running ? "running" : "idle"}`;
+      await refreshCameraStatus(data.camera || null);
+      await refreshVisionStatus(data.vision || null);
     }
 
     function appendLog(source, message) {
@@ -1173,13 +1596,14 @@ INDEX_HTML = r"""<!doctype html>
       });
     }
 
-    for (const id of ["run_mode", "rviz_mode", "map", "pcd", "map_prefix", "pcd_prefix", "localization", "initial_pose", "voice_remote_host", "voice_workspace", "voice_ros_setup", "auto_start_route", "return_to_start"]) {
+    for (const id of ["run_mode", "rviz_mode", "map", "pcd", "map_prefix", "pcd_prefix", "localization", "initial_pose", "voice_remote_host", "voice_workspace", "voice_ros_setup", "camera_rgb_topic", "camera_depth_topic", "camera_info_topic", "vision_annotated_topic", "vision_remote_host", "vision_workspace", "vision_ros_setup", "auto_start_route", "return_to_start"]) {
       document.addEventListener("input", (event) => { if (event.target.id === id) updateCommand(); });
       document.addEventListener("change", (event) => { if (event.target.id === id) updateCommand(); });
     }
 
     (async function boot() {
       await loadConfig();
+      restartCameraImages();
       await loadPoints();
       await refreshStatus();
       await pollLogs();
