@@ -8,8 +8,11 @@ from geometry_msgs.msg import PoseStamped
 from h1_2_nav_msgs.srv import ExecuteGesture, RouteStatus, StartRoute, StopRoute
 from nav2_msgs.action import NavigateToPose
 from rclpy.action import ActionClient
+from rclpy.executors import MultiThreadedExecutor
 from rclpy.node import Node
 from tf2_ros import Buffer, TransformListener
+
+from .route_activity_guard import RouteActivityGuard
 
 
 class MemoryRouteRunner(Node):
@@ -33,6 +36,8 @@ class MemoryRouteRunner(Node):
         self.declare_parameter("gesture_route", "")
         self.declare_parameter("gesture_service_name", "/h1_2_loco/execute_gesture")
         self.declare_parameter("gesture_timeout_sec", 20.0)
+        self.declare_parameter("peer_status_service", "teaching_route_status")
+        self.declare_parameter("route_guard_timeout_sec", 0.5)
 
         self.points_file = Path(self.get_parameter("points_file").value).expanduser()
         self.route_names = self.parse_route_names(self.get_parameter("route_names").value)
@@ -51,6 +56,12 @@ class MemoryRouteRunner(Node):
 
         self.action_client = ActionClient(self, NavigateToPose, self.get_parameter("action_name").value)
         self.gesture_client = self.create_client(ExecuteGesture, self.gesture_service_name)
+        self.route_guard = RouteActivityGuard(
+            self,
+            self.get_parameter("peer_status_service").value,
+            "teaching route",
+            self.get_parameter("route_guard_timeout_sec").value,
+        )
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
         self.active_goal_handle = None
@@ -80,6 +91,13 @@ class MemoryRouteRunner(Node):
             response.success = False
             response.message = f"Route is already active: {self.state}"
             return response
+        allowed, guard_message = self.route_guard.check_peer_inactive()
+        if not allowed:
+            response.success = False
+            response.message = guard_message
+            return response
+        if guard_message:
+            self.get_logger().info(guard_message)
         if not self.route_names:
             response.success = False
             response.message = "Route names are empty."
@@ -410,8 +428,11 @@ class MemoryRouteRunner(Node):
 def main():
     rclpy.init()
     node = MemoryRouteRunner()
+    executor = MultiThreadedExecutor(num_threads=2)
+    executor.add_node(node)
     try:
-        rclpy.spin(node)
+        executor.spin()
     finally:
+        executor.remove_node(node)
         node.destroy_node()
         rclpy.shutdown()

@@ -78,6 +78,11 @@ def test_h1_2_nav_web_gui_uses_ros_services():
     assert "start_memory_route" in source
     assert "stop_memory_route" in source
     assert "memory_route_status" in source
+    assert "start_teaching_route" in source
+    assert "stop_teaching_route" in source
+    assert "teaching_route_status" in source
+    assert "start_teaching_path_recording" in source
+    assert "stop_and_save_teaching_path" in source
     assert "/h1_2_loco/execute_gesture" in source
 
 
@@ -90,6 +95,14 @@ def test_h1_2_nav_web_gui_exposes_expected_api_routes():
     assert "/api/rviz/close" in source
     assert "/api/route/start" in source
     assert "/api/route/stop" in source
+    assert "/api/teaching_route/process/start" in source
+    assert "/api/teaching_route/process/stop" in source
+    assert "/api/teaching_route/start" in source
+    assert "/api/teaching_route/stop" in source
+    assert "/api/teaching_record/process/start" in source
+    assert "/api/teaching_record/process/stop" in source
+    assert "/api/teaching_record/start" in source
+    assert "/api/teaching_record/stop_save" in source
     assert "/api/gesture" in source
     assert "/api/voice/start" in source
     assert "/api/voice/stop" in source
@@ -240,6 +253,36 @@ def test_h1_2_nav_web_gui_defaults_to_manual_offline_route_start():
     assert 'config.auto_start_route === true' in source
 
 
+def test_h1_2_nav_web_gui_exposes_teaching_route_controls():
+    source = WEB_GUI.read_text(encoding="utf-8")
+
+    assert '"teaching_path_file"' in source
+    assert '"teaching_events_file"' in source
+    assert '"teaching_loop": True' in source
+    assert '"nav2_params_file": ""' in source
+    assert 'id="nav2_params_file"' in source
+    assert "params_file=" in source
+    assert 'id="teaching_path_file"' in source
+    assert 'id="teaching_events_file"' in source
+    assert "启动示教录制" in source
+    assert "开始录制" in source
+    assert "结束并保存" in source
+    assert "record_teaching_path.launch.py" in source
+    assert "path_topic:=/teaching_route_path" in source
+    assert "interactive_console:=false" in source
+    assert 'id="teaching_loop"' in source
+    assert "启动示教节点" in source
+    assert "停止示教节点" in source
+    assert "开始示教巡航" in source
+    assert "停止示教巡航" in source
+    assert "startTeachingRoute" in source
+    assert "start_teaching_route_button" in source
+    assert "teaching_route_runner.launch.py" in source
+    assert "teaching_route_process" in source
+    assert "processes.teaching_route" in source
+    assert "data.teaching_route" in source
+
+
 def test_h1_2_nav_web_gui_keeps_start_out_of_navigation_route():
     source = WEB_GUI.read_text(encoding="utf-8")
 
@@ -300,3 +343,5 @@ def test_run_script_still_exposes_online_and_offline_modes():
     assert "mode=navigation" in script
     assert "mode=save_map" in script
     assert "mode=save_pcd_map" in script
+    assert "params_file=*" in script
+    assert '"params_file:=${NAV2_PARAMS_FILE}"' in script

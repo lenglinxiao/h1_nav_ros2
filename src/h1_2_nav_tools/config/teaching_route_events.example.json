@@ -1,0 +1,10 @@
+{
+  "events": [
+    {
+      "point": "A",
+      "trigger_radius": 0.45,
+      "gesture": "wave_hand",
+      "voice_code": 52
+    }
+  ]
+}

@@ -17,6 +17,7 @@ from cv_bridge import CvBridge
 from h1_2_icp_localization.msg import LocalizationStatus
 from h1_2_nav_msgs.srv import ExecuteGesture, RouteStatus, StartRoute, StopRoute
 from sensor_msgs.msg import CameraInfo, Image
+from std_srvs.srv import Trigger
 
 from h1_2_nav_tools.camera_stream import (
     CameraFrameStore,
@@ -243,6 +244,11 @@ class RosServiceBridge:
         self.start_client = self.node.create_client(StartRoute, "start_memory_route")
         self.stop_client = self.node.create_client(StopRoute, "stop_memory_route")
         self.status_client = self.node.create_client(RouteStatus, "memory_route_status")
+        self.teaching_start_client = self.node.create_client(StartRoute, "start_teaching_route")
+        self.teaching_stop_client = self.node.create_client(StopRoute, "stop_teaching_route")
+        self.teaching_status_client = self.node.create_client(RouteStatus, "teaching_route_status")
+        self.teaching_record_start_client = self.node.create_client(Trigger, "start_teaching_path_recording")
+        self.teaching_record_stop_save_client = self.node.create_client(Trigger, "stop_and_save_teaching_path")
         self.gesture_client = self.node.create_client(ExecuteGesture, "/h1_2_loco/execute_gesture")
         self.localization_sub = self.node.create_subscription(
             LocalizationStatus,
@@ -268,15 +274,52 @@ class RosServiceBridge:
         return self._call_simple("stop_memory_route", self.stop_client, StopRoute.Request())
 
     def route_status(self):
-        if not self.status_client.wait_for_service(timeout_sec=0.05):
+        return self._route_status("memory_route_status", self.status_client)
+
+    def teaching_route_start(self):
+        localization = self.localization_status()
+        if not localization["ready"]:
+            return {"success": False, "message": localization["message"]}
+        return self._call_simple(
+            "start_teaching_route",
+            self.teaching_start_client,
+            StartRoute.Request(),
+        )
+
+    def teaching_route_stop(self):
+        return self._call_simple(
+            "stop_teaching_route",
+            self.teaching_stop_client,
+            StopRoute.Request(),
+        )
+
+    def teaching_route_status(self):
+        return self._route_status("teaching_route_status", self.teaching_status_client)
+
+    def teaching_record_start(self):
+        return self._call_simple(
+            "start_teaching_path_recording",
+            self.teaching_record_start_client,
+            Trigger.Request(),
+        )
+
+    def teaching_record_stop_save(self):
+        return self._call_simple(
+            "stop_and_save_teaching_path",
+            self.teaching_record_stop_save_client,
+            Trigger.Request(),
+        )
+
+    def _route_status(self, label, client):
+        if not client.wait_for_service(timeout_sec=0.05):
             return {
                 "success": False,
                 "state": "unavailable",
                 "current_goal": "",
                 "current_index": 0,
-                "message": "memory_route_status is not available",
+                "message": f"{label} is not available",
             }
-        ok, result = self._wait_future(self.status_client.call_async(RouteStatus.Request()))
+        ok, result = self._wait_future(client.call_async(RouteStatus.Request()))
         if not ok:
             return {
                 "success": False,
@@ -524,6 +567,8 @@ class ProcessManager:
         self.voice_process = None
         self.voice_bridge_process = None
         self.vision_process = None
+        self.teaching_route_process = None
+        self.teaching_record_process = None
         self.lock = threading.Lock()
 
     def status(self):
@@ -533,6 +578,8 @@ class ProcessManager:
             "voice": self._process_state(self.voice_process),
             "voice_bridge": self._process_state(self.voice_bridge_process),
             "vision": self._process_state(self.vision_process),
+            "teaching_route": self._process_state(self.teaching_route_process),
+            "teaching_record": self._process_state(self.teaching_record_process),
         }
 
     def start_navigation(self, args):
@@ -550,6 +597,8 @@ class ProcessManager:
         if not script.is_file():
             return {"success": False, "message": f"missing script: {script}"}
         self.stop_voice_control(payload or {})
+        self.stop_teaching_record_runner()
+        self.stop_teaching_route_runner()
         self._start("stop", [str(script)])
         return {"success": True, "message": "stop script started"}
 
@@ -620,6 +669,70 @@ class ProcessManager:
             if stopped:
                 return {"success": True, "message": "YOLO vision terminate requested"}
             return {"success": False, "message": "YOLO vision is not running"}
+
+    def start_teaching_route_runner(self, payload=None):
+        with self.lock:
+            if self._is_running(self.teaching_route_process):
+                return {"success": False, "message": "teaching route runner is already running"}
+            payload = payload or {}
+            path_file = Path(str(payload.get("teaching_path_file", ""))).expanduser()
+            events_file = Path(str(payload.get("teaching_events_file", ""))).expanduser()
+            if not path_file.is_file():
+                return {"success": False, "message": f"teaching path file does not exist: {path_file}"}
+            if not events_file.is_file():
+                return {"success": False, "message": f"teaching events file does not exist: {events_file}"}
+            self.teaching_route_process = self._start(
+                "teaching-route",
+                [
+                    "ros2",
+                    "launch",
+                    "h1_2_nav_tools",
+                    "teaching_route_runner.launch.py",
+                    f"path_file:={path_file}",
+                    f"events_file:={events_file}",
+                    f"memory_points_file:={self.workspace_root / 'maps' / 'memory_points.json'}",
+                    f"loop:={str(bool(payload.get('teaching_loop', True))).lower()}",
+                ],
+            )
+            return {"success": True, "message": "teaching route runner process started"}
+
+    def start_teaching_record_runner(self, payload=None):
+        with self.lock:
+            if self._is_running(self.teaching_record_process):
+                return {"success": False, "message": "teaching path recorder is already running"}
+            path_value = str((payload or {}).get("teaching_path_file", "")).strip()
+            if not path_value:
+                return {"success": False, "message": "teaching path file is empty"}
+            path_file = Path(path_value).expanduser()
+            self.teaching_record_process = self._start(
+                "teaching-record",
+                [
+                    "ros2",
+                    "launch",
+                    "h1_2_nav_tools",
+                    "record_teaching_path.launch.py",
+                    f"file_path:={path_file}",
+                    "path_topic:=/teaching_route_path",
+                    "interactive_console:=false",
+                ],
+            )
+            return {"success": True, "message": "teaching path recorder process started"}
+
+    def stop_teaching_record_runner(self):
+        with self.lock:
+            if not self._is_running(self.teaching_record_process):
+                return {"success": False, "message": "teaching path recorder is not running"}
+            self.logs.add("teaching-record", "terminating teaching path recorder")
+            self.teaching_record_process.terminate()
+            return {"success": True, "message": "teaching path recorder terminate requested"}
+
+    def stop_teaching_route_runner(self):
+        with self.lock:
+            if not self._is_running(self.teaching_route_process):
+                return {"success": False, "message": "teaching route runner is not running"}
+            self.logs.add("teaching-route", "terminating teaching route runner")
+            self.teaching_route_process.terminate()
+            return {"success": True, "message": "teaching route runner terminate requested"}
 
     def _vision_start_command(self, payload):
         remote_host = normalize_ssh_target(payload.get("vision_remote_host", ""))
@@ -698,6 +811,8 @@ class ProcessManager:
                 ("voice-reader", self.voice_process),
                 ("voice-bridge", self.voice_bridge_process),
                 ("vision", self.vision_process),
+                ("teaching-route", self.teaching_route_process),
+                ("teaching-record", self.teaching_record_process),
             ]:
                 if self._is_running(process):
                     self.logs.add(label, "terminating on server shutdown")
@@ -766,6 +881,18 @@ class WebGuiApp:
             "return_to_start": False,
             "memory_route": "A,B,C",
             "gesture_route": "",
+            "nav2_params_file": "",
+            "teaching_path_file": str(
+                self.workspace_root / "src" / "h1_2_nav_tools" / "path" / "teaching_paths.txt"
+            ),
+            "teaching_events_file": str(
+                self.workspace_root
+                / "src"
+                / "h1_2_nav_tools"
+                / "config"
+                / "teaching_route_events.example.json"
+            ),
+            "teaching_loop": True,
             "workflow_version": CONFIG_WORKFLOW_VERSION,
             "voice_remote_host": os.environ.get("H1_2_VOICE_REMOTE", ""),
             "voice_workspace": os.environ.get("H1_2_VOICE_WORKSPACE", "~/ros2_ws"),
@@ -815,6 +942,10 @@ class WebGuiApp:
         config["memory_route"] = normalize_memory_route(
             config.get("memory_route", "A,B,C")
         )
+        config["nav2_params_file"] = str(config.get("nav2_params_file", "")).strip()
+        config["teaching_path_file"] = str(config.get("teaching_path_file", "")).strip()
+        config["teaching_events_file"] = str(config.get("teaching_events_file", "")).strip()
+        config["teaching_loop"] = bool(config.get("teaching_loop", True))
         config["workflow_version"] = CONFIG_WORKFLOW_VERSION
         if "voice_remote_host" in config:
             config["voice_remote_host"] = normalize_ssh_target(config["voice_remote_host"])
@@ -824,6 +955,14 @@ class WebGuiApp:
             config["vision_remote_host"] = normalize_ssh_target(config["vision_remote_host"])
         if "vision_workspace" in config:
             config["vision_workspace"] = normalize_voice_workspace(config["vision_workspace"])
+        if "teaching_path_file" in config:
+            config["teaching_path_file"] = str(config["teaching_path_file"]).strip()
+        if "teaching_events_file" in config:
+            config["teaching_events_file"] = str(config["teaching_events_file"]).strip()
+        if "teaching_loop" in config:
+            config["teaching_loop"] = bool(config["teaching_loop"])
+        if "nav2_params_file" in config:
+            config["nav2_params_file"] = str(config["nav2_params_file"]).strip()
         CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
         CONFIG_PATH.write_text(json.dumps(config, indent=2, sort_keys=True), encoding="utf-8")
 
@@ -885,6 +1024,9 @@ class WebGuiApp:
             return False, f"Map file does not exist: {map_path}"
         if mode == "navigation" and not pcd_path.is_file():
             return False, f"PCD file does not exist: {pcd_path}"
+        params_file = str(payload.get("nav2_params_file", "")).strip()
+        if params_file and not Path(params_file).expanduser().is_file():
+            return False, f"Nav2 params file does not exist: {params_file}"
         if mode == "navigation" and not memory_route:
             return False, "Select at least one route point."
         if mode == "save_map" and not str(payload.get("map_prefix", "")).strip():
@@ -917,6 +1059,9 @@ class WebGuiApp:
             f"return_to_start={str(bool(payload.get('return_to_start', False))).lower()}",
             ]
         )
+        params_file = str(payload.get("nav2_params_file", "")).strip()
+        if params_file:
+            args.append(f"params_file={Path(params_file).expanduser()}")
         return args
 
 class RequestHandler(BaseHTTPRequestHandler):
@@ -932,9 +1077,11 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._send_json({"points": self.app.memory_points(), "gestures": GESTURE_OPTIONS})
         elif parsed.path == "/api/status":
             route = self.app.ros.route_status()
+            teaching_route = self.app.ros.teaching_route_status()
             self._send_json(
                 {
                     "route": route,
+                    "teaching_route": teaching_route,
                     "localization": self.app.ros.localization_status(),
                     "processes": self.app.processes.status(),
                     "camera": self.app.ros.camera_status(),
@@ -972,6 +1119,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.app.save_config(payload)
             self._send_json(self.app.processes.start_navigation(self.app.navigation_args(payload)))
         elif parsed.path == "/api/navigation/stop_all":
+            self.app.ros.teaching_route_stop()
             self._send_json(self.app.processes.stop_all(payload))
         elif parsed.path == "/api/voice/start":
             self.app.save_config(payload)
@@ -1010,6 +1158,40 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._send_json(self.app.ros.route_start())
         elif parsed.path == "/api/route/stop":
             self._send_json(self.app.ros.route_stop())
+        elif parsed.path == "/api/teaching_route/process/start":
+            self.app.save_config(payload)
+            self._send_json(self.app.processes.start_teaching_route_runner(payload))
+        elif parsed.path == "/api/teaching_record/process/start":
+            self.app.save_config(payload)
+            self._send_json(self.app.processes.start_teaching_record_runner(payload))
+        elif parsed.path == "/api/teaching_record/process/stop":
+            record_stop = self.app.ros.teaching_record_stop_save()
+            process_stop = self.app.processes.stop_teaching_record_runner()
+            message = f"{record_stop.get('message', '')}; {process_stop.get('message', '')}".strip("; ")
+            self._send_json(
+                {
+                    "success": bool(record_stop.get("success") or process_stop.get("success")),
+                    "message": message,
+                }
+            )
+        elif parsed.path == "/api/teaching_record/start":
+            self._send_json(self.app.ros.teaching_record_start())
+        elif parsed.path == "/api/teaching_record/stop_save":
+            self._send_json(self.app.ros.teaching_record_stop_save())
+        elif parsed.path == "/api/teaching_route/process/stop":
+            route_stop = self.app.ros.teaching_route_stop()
+            process_stop = self.app.processes.stop_teaching_route_runner()
+            message = f"{route_stop.get('message', '')}; {process_stop.get('message', '')}".strip("; ")
+            self._send_json(
+                {
+                    "success": bool(route_stop.get("success") or process_stop.get("success")),
+                    "message": message,
+                }
+            )
+        elif parsed.path == "/api/teaching_route/start":
+            self._send_json(self.app.ros.teaching_route_start())
+        elif parsed.path == "/api/teaching_route/stop":
+            self._send_json(self.app.ros.teaching_route_stop())
         elif parsed.path == "/api/gesture":
             self._send_json(self.app.ros.execute_gesture(str(payload.get("name", ""))))
         else:
@@ -1367,11 +1549,15 @@ INDEX_HTML = r"""<!doctype html>
           <div><label>PCD Prefix</label><input id="pcd_prefix" value="maps/h1_2_lab"></div>
           <div><label>Localization</label><select id="localization"><option>global_gicp</option><option>icp</option></select></div>
           <div><label>Initial Pose</label><input id="initial_pose" value="START"></div>
+          <div><label>Nav2 Params</label><input id="nav2_params_file" placeholder="/home/llx/h1_nav2_ros2_ws/src/h1_2_nav_tools/config/nav2_h1_2_rpp.yaml"></div>
           <div><label>Voice SSH</label><input id="voice_remote_host" placeholder="unitree@192.168.x.x"></div>
           <div><label>Voice Workspace</label><input id="voice_workspace" value="~/ros2_ws"></div>
           <div><label>Voice ROS setup</label><input id="voice_ros_setup" value="/opt/ros/humble/setup.bash"></div>
+          <div><label>Teaching Path</label><input id="teaching_path_file"></div>
+          <div><label>Teaching Events</label><input id="teaching_events_file"></div>
           <label class="check"><input id="auto_start_route" type="checkbox"> auto_start_route</label>
           <label class="check"><input id="return_to_start" type="checkbox"> return_to_start</label>
+          <label class="check"><input id="teaching_loop" type="checkbox"> teaching_loop</label>
           <button class="btn" onclick="saveConfig()">保存配置</button>
         </div>
       </section>
@@ -1405,6 +1591,22 @@ INDEX_HTML = r"""<!doctype html>
             <button class="btn" onclick="postAction('/api/route/stop')">停止巡航</button>
             </div>
             <div class="two">
+              <button class="btn soft" onclick="postAction('/api/teaching_record/process/start', true)">启动示教录制</button>
+              <button class="btn" onclick="postAction('/api/teaching_record/process/stop')">停止录制节点</button>
+            </div>
+            <div class="two">
+              <button class="btn primary" onclick="postAction('/api/teaching_record/start')">开始录制</button>
+              <button class="btn" onclick="postAction('/api/teaching_record/stop_save')">结束并保存</button>
+            </div>
+            <div class="two">
+              <button class="btn soft" onclick="postAction('/api/teaching_route/process/start', true)">启动示教节点</button>
+              <button class="btn" onclick="postAction('/api/teaching_route/process/stop')">停止示教节点</button>
+            </div>
+            <div class="two">
+              <button id="start_teaching_route_button" class="btn primary" onclick="startTeachingRoute()" disabled>开始示教巡航</button>
+              <button class="btn" onclick="postAction('/api/teaching_route/stop')">停止示教巡航</button>
+            </div>
+            <div class="two">
               <button class="btn soft" onclick="postAction('/api/voice/start', true)">启动语音控制</button>
               <button class="btn" onclick="postAction('/api/voice/stop', true)">停止语音控制</button>
             </div>
@@ -1424,7 +1626,10 @@ INDEX_HTML = r"""<!doctype html>
           <div class="body">
             <div class="status-row"><div class="key">state</div><div><span id="state" class="pill">-</span></div></div>
             <div class="status-row"><div class="key">goal</div><div id="goal">-</div></div>
+            <div class="status-row"><div class="key">teaching</div><div><span id="teaching_state" class="pill">-</span></div></div>
+            <div class="status-row"><div class="key">teach goal</div><div id="teaching_goal">-</div></div>
             <div class="status-row"><div class="key">message</div><div id="message">-</div></div>
+            <div class="status-row"><div class="key">teach msg</div><div id="teaching_message">-</div></div>
             <div class="status-row"><div class="key">localization</div><div id="localization_state">定位未稳定</div></div>
             <div class="status-row"><div class="key">process</div><div id="processes">-</div></div>
           </div>
@@ -1517,8 +1722,12 @@ INDEX_HTML = r"""<!doctype html>
         pcd_prefix: $("pcd_prefix").value.trim(),
         localization: $("localization").value,
         initial_pose: $("initial_pose").value.trim() || "START",
+        nav2_params_file: $("nav2_params_file").value.trim(),
         auto_start_route: $("auto_start_route").checked,
         return_to_start: $("return_to_start").checked,
+        teaching_path_file: $("teaching_path_file").value.trim(),
+        teaching_events_file: $("teaching_events_file").value.trim(),
+        teaching_loop: $("teaching_loop").checked,
         memory_route: selected.join(","),
         gesture_route: gestures.join(","),
         voice_remote_host: $("voice_remote_host").value.trim(),
@@ -1549,6 +1758,7 @@ INDEX_HTML = r"""<!doctype html>
           `map=${p.map}`,
           `localization=${p.localization}`,
           `pcd=${p.pcd}`,
+          ...(p.nav2_params_file ? [`params_file=${p.nav2_params_file}`] : []),
           `initial_pose=${p.initial_pose}`,
           `memory_route=${p.memory_route}`,
           `gesture_route=${p.gesture_route}`,
@@ -1556,6 +1766,13 @@ INDEX_HTML = r"""<!doctype html>
           `return_to_start=${p.return_to_start}`
         );
       }
+      command.push(
+        "",
+        "ros2 launch h1_2_nav_tools teaching_route_runner.launch.py",
+        `  path_file:=${p.teaching_path_file}`,
+        `  events_file:=${p.teaching_events_file}`,
+        `  loop:=${p.teaching_loop}`
+      );
       $("command").textContent = command.join(" \\\n  ");
     }
     async function api(path, options = {}) {
@@ -1573,9 +1790,13 @@ INDEX_HTML = r"""<!doctype html>
       $("pcd_prefix").value = config.pcd_prefix || "maps/h1_2_lab";
       $("localization").value = config.localization || "global_gicp";
       $("initial_pose").value = config.initial_pose || "START";
+      $("nav2_params_file").value = config.nav2_params_file || "";
       $("voice_remote_host").value = config.voice_remote_host || "";
       $("voice_workspace").value = config.voice_workspace || "~/ros2_ws";
       $("voice_ros_setup").value = config.voice_ros_setup || "/opt/ros/humble/setup.bash";
+      $("teaching_path_file").value = config.teaching_path_file || "";
+      $("teaching_events_file").value = config.teaching_events_file || "";
+      $("teaching_loop").checked = config.teaching_loop !== false;
       $("camera_rgb_topic").value = config.camera_rgb_topic || "/camera/camera/color/image_raw";
       $("camera_depth_topic").value = config.camera_depth_topic || "/camera/camera/aligned_depth_to_color/image_raw";
       $("camera_info_topic").value = config.camera_info_topic || "/camera/camera/color/camera_info";
@@ -1678,6 +1899,12 @@ INDEX_HTML = r"""<!doctype html>
       refreshStatus();
     }
 
+    async function startTeachingRoute() {
+      const result = await api("/api/teaching_route/start", { method: "POST", body: "{}" });
+      appendLog("teaching-route", result.message || JSON.stringify(result));
+      refreshStatus();
+    }
+
     async function gesture(name) {
       const result = await api("/api/gesture", { method: "POST", body: JSON.stringify({ name }) });
       appendLog("gesture", `${name}: ${result.success ? "ok" : "failed"} ${result.message || ""}`);
@@ -1757,10 +1984,15 @@ INDEX_HTML = r"""<!doctype html>
     async function refreshStatus() {
       const data = await api("/api/status");
       const route = data.route || {};
+      const teachingRoute = data.teaching_route || {};
       $("state").textContent = route.state || "-";
       $("state").className = "pill " + (route.success ? "ok" : "warn");
       $("goal").textContent = `${route.current_goal || "-"} / index ${route.current_index || 0}`;
       $("message").textContent = route.message || "-";
+      $("teaching_state").textContent = teachingRoute.state || "-";
+      $("teaching_state").className = "pill " + (teachingRoute.success ? "ok" : "warn");
+      $("teaching_goal").textContent = `${teachingRoute.current_goal || "-"} / segment ${teachingRoute.current_index || 0}`;
+      $("teaching_message").textContent = teachingRoute.message || "-";
       const localization = data.localization || {};
       $("localization_state").textContent = localization.message || "定位未稳定";
       const localizationIndicator = $("localization_indicator");
@@ -1779,8 +2011,11 @@ INDEX_HTML = r"""<!doctype html>
       const startButton = $("start_route_button");
       startButton.disabled = !localization.ready;
       startButton.title = localization.message || "定位未稳定";
+      const startTeachingButton = $("start_teaching_route_button");
+      startTeachingButton.disabled = !localization.ready;
+      startTeachingButton.title = localization.message || "定位未稳定";
       const processes = data.processes || {};
-      $("processes").textContent = `nav=${processes.navigation?.running ? "running" : "idle"}, rviz=${processes.rviz?.running ? "running" : "idle"}, voice_reader=${processes.voice?.running ? "running" : "idle"}, voice_bridge=${processes.voice_bridge?.running ? "running" : "idle"}, vision=${processes.vision?.running ? "running" : "idle"}`;
+      $("processes").textContent = `nav=${processes.navigation?.running ? "running" : "idle"}, rviz=${processes.rviz?.running ? "running" : "idle"}, teaching_record=${processes.teaching_record?.running ? "running" : "idle"}, teaching=${processes.teaching_route?.running ? "running" : "idle"}, voice_reader=${processes.voice?.running ? "running" : "idle"}, voice_bridge=${processes.voice_bridge?.running ? "running" : "idle"}, vision=${processes.vision?.running ? "running" : "idle"}`;
       await refreshCameraStatus(data.camera || null);
       await refreshVisionStatus(data.vision || null);
     }
@@ -1840,7 +2075,7 @@ INDEX_HTML = r"""<!doctype html>
       });
     }
 
-    for (const id of ["run_mode", "rviz_mode", "map", "pcd", "map_prefix", "pcd_prefix", "localization", "initial_pose", "voice_remote_host", "voice_workspace", "voice_ros_setup", "camera_rgb_topic", "camera_depth_topic", "camera_info_topic", "vision_annotated_topic", "vision_remote_host", "vision_workspace", "vision_ros_setup", "auto_start_route", "return_to_start"]) {
+    for (const id of ["run_mode", "rviz_mode", "map", "pcd", "map_prefix", "pcd_prefix", "localization", "initial_pose", "nav2_params_file", "voice_remote_host", "voice_workspace", "voice_ros_setup", "teaching_path_file", "teaching_events_file", "camera_rgb_topic", "camera_depth_topic", "camera_info_topic", "vision_annotated_topic", "vision_remote_host", "vision_workspace", "vision_ros_setup", "auto_start_route", "return_to_start", "teaching_loop"]) {
       document.addEventListener("input", (event) => { if (event.target.id === id) updateCommand(); });
       document.addEventListener("change", (event) => { if (event.target.id === id) updateCommand(); });
     }

@@ -1,10 +1,13 @@
 import math
 import threading
+from pathlib import Path as FilePath
 
 import rclpy
 from geometry_msgs.msg import PoseStamped
 from nav_msgs.msg import Odometry, Path
 from rclpy.node import Node
+from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
+from std_srvs.srv import Trigger
 from tf2_ros import Buffer, TransformListener
 
 from .transform_utils import transform_pose
@@ -18,6 +21,7 @@ class RecordTeachingPath(Node):
         self.declare_parameter("frame_id", "map")
         self.declare_parameter("odom_topic", "/slam_odom")
         self.declare_parameter("path_topic", "/teaching_path")
+        self.declare_parameter("interactive_console", True)
 
         self.file_path = self.get_parameter("file_path").value
         self.distance_threshold = float(self.get_parameter("distance_threshold").value)
@@ -30,7 +34,13 @@ class RecordTeachingPath(Node):
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
         self.create_subscription(Odometry, self.get_parameter("odom_topic").value, self.odom_callback, 10)
-        self.path_pub = self.create_publisher(Path, self.get_parameter("path_topic").value, 1)
+        self.path_pub = self.create_publisher(
+            Path,
+            self.get_parameter("path_topic").value,
+            QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL, reliability=ReliabilityPolicy.RELIABLE),
+        )
+        self.create_service(Trigger, "start_teaching_path_recording", self.start_recording_callback)
+        self.create_service(Trigger, "stop_and_save_teaching_path", self.stop_and_save_callback)
         self.print_hint()
 
     def odom_callback(self, msg):
@@ -65,10 +75,13 @@ class RecordTeachingPath(Node):
         msg.poses = list(self.current_path)
         self.path_pub.publish(msg)
 
-    def start_recording(self):
+    def start_recording(self, replace=False):
         with self.lock:
+            if replace:
+                self.all_paths = []
             self.current_path = []
             self.is_recording = True
+        self.publish_current_path()
         self.get_logger().info("Recording started")
 
     def stop_recording(self):
@@ -83,17 +96,40 @@ class RecordTeachingPath(Node):
 
     def save_to_file(self):
         with self.lock:
+            if not self.all_paths:
+                message = "No teaching path data recorded; file was not changed."
+                self.get_logger().warn(message)
+                return False, message
             try:
-                with open(self.file_path, "w", encoding="utf-8") as stream:
-                    for path in self.all_paths:
-                        for pose in path:
+                output_path = FilePath(self.file_path).expanduser()
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                with output_path.open("w", encoding="utf-8") as stream:
+                    for recorded_path in self.all_paths:
+                        for pose in recorded_path:
                             p = pose.pose.position
                             q = pose.pose.orientation
                             stream.write(f"{p.x} {p.y} {p.z} {q.x} {q.y} {q.z} {q.w}\n")
                         stream.write("EOP\n")
-                self.get_logger().info(f"Paths written to file: {self.file_path}")
+                message = f"Teaching path saved: {output_path}"
+                self.get_logger().info(message)
+                return True, message
             except OSError as exc:
-                self.get_logger().error(f"Failed to write file {self.file_path}: {exc}")
+                message = f"Failed to write file {self.file_path}: {exc}"
+                self.get_logger().error(message)
+                return False, message
+
+    def start_recording_callback(self, request, response):
+        del request
+        self.start_recording(replace=True)
+        response.success = True
+        response.message = "Teaching path recording started."
+        return response
+
+    def stop_and_save_callback(self, request, response):
+        del request
+        self.stop_recording()
+        response.success, response.message = self.save_to_file()
+        return response
 
     @staticmethod
     def print_hint():
@@ -126,10 +162,13 @@ class RecordTeachingPath(Node):
 def main():
     rclpy.init()
     node = RecordTeachingPath()
-    spin_thread = threading.Thread(target=rclpy.spin, args=(node,), daemon=True)
-    spin_thread.start()
     try:
-        node.console_loop()
+        if node.get_parameter("interactive_console").value:
+            spin_thread = threading.Thread(target=rclpy.spin, args=(node,), daemon=True)
+            spin_thread.start()
+            node.console_loop()
+        else:
+            rclpy.spin(node)
     finally:
         node.destroy_node()
         if rclpy.ok():

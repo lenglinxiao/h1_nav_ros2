@@ -14,6 +14,7 @@ MEMORY_ROUTE="A,B,C"
 GESTURE_ROUTE=""
 AUTO_START_ROUTE="false"
 RETURN_TO_START="false"
+NAV2_PARAMS_FILE=""
 
 print_usage() {
   cat <<'EOF'
@@ -41,6 +42,7 @@ Modes:
   gesture_route=... Optional per-point gestures, for example B:wave_hand,C:shake_hand.
   auto_start_route=true|false Start memory route after localization TF is available. Default: false.
   return_to_start=true|false Navigate to initial_pose before looping memory_route. Default: false.
+  params_file=...  Optional Nav2 params file. Leave empty to use launch defaults.
 
 Offline map demo workflow:
   1. Start online mode and build the site map.
@@ -92,6 +94,9 @@ for arg in "$@"; do
       ;;
     return_to_start=*)
       RETURN_TO_START="${arg#return_to_start=}"
+      ;;
+    params_file=*)
+      NAV2_PARAMS_FILE="${arg#params_file=}"
       ;;
     *)
       echo "Unknown argument: ${arg}"
@@ -249,13 +254,18 @@ unset FASTRTPS_DEFAULT_PROFILES_FILE
 
 if [[ "${MODE}" == "online" ]]; then
   echo "Starting H1-2 camera_init map + Nav2 navigation..."
-  exec ros2 launch h1_2_slam_bringup h1_2_nav2_camera_init_navigation.launch.py \
-    start_livox_driver:=false \
-    map_file_path:="${PCD_SAVE_PREFIX}.pcd" \
-    enable_sport_bridge:=true \
-    network_interface:=enp45s0 \
-    max_linear_speed:=0.12 \
-    max_angular_speed:=0.50
+  ONLINE_LAUNCH_ARGS=(
+    "start_livox_driver:=false"
+    map_file_path:="${PCD_SAVE_PREFIX}.pcd"
+    "enable_sport_bridge:=true"
+    "network_interface:=enp45s0"
+    "max_linear_speed:=0.12"
+    "max_angular_speed:=0.50"
+  )
+  if [[ -n "${NAV2_PARAMS_FILE}" ]]; then
+    ONLINE_LAUNCH_ARGS+=("params_file:=${NAV2_PARAMS_FILE}")
+  fi
+  exec ros2 launch h1_2_slam_bringup h1_2_nav2_camera_init_navigation.launch.py "${ONLINE_LAUNCH_ARGS[@]}"
 fi
 
 echo "Starting H1-2 Nav2 navigation with map: ${MAP_FILE}"
@@ -278,6 +288,10 @@ NAV_LAUNCH_ARGS=(
 
 if [[ -n "${GESTURE_ROUTE}" ]]; then
   NAV_LAUNCH_ARGS+=("gesture_route:=${GESTURE_ROUTE}")
+fi
+
+if [[ -n "${NAV2_PARAMS_FILE}" ]]; then
+  NAV_LAUNCH_ARGS+=("params_file:=${NAV2_PARAMS_FILE}")
 fi
 
 exec ros2 launch h1_2_slam_bringup h1_2_nav2_navigation.launch.py "${NAV_LAUNCH_ARGS[@]}"
