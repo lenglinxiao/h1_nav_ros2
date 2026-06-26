@@ -120,6 +120,20 @@ def test_h1_2_nav_web_gui_subscribes_to_configurable_realsense_topics():
     assert "destroy_subscription" in source
 
 
+def test_h1_2_nav_web_gui_keeps_camera_processing_off_until_requested():
+    source = WEB_GUI.read_text(encoding="utf-8")
+
+    assert '"camera_preview_enabled": False' in source
+    assert "self.camera_preview_enabled = False" in source
+    assert "def start_camera_preview" in source
+    assert "def stop_camera_preview" in source
+    assert '"/api/camera/start"' in source
+    assert '"/api/camera/stop"' in source
+    assert "开启相机预览" in source
+    assert "关闭相机预览" in source
+    assert 'if not self.camera_preview_enabled:' in source
+
+
 def test_h1_2_nav_web_gui_has_camera_preview_panel():
     source = WEB_GUI.read_text(encoding="utf-8")
 
@@ -216,6 +230,67 @@ def test_h1_2_nav_web_gui_supports_online_offline_and_save_modes():
     assert "save_pcd_map" in source
     assert "map_prefix" in source
     assert "pcd_prefix" in source
+
+
+def test_h1_2_nav_web_gui_defaults_to_manual_offline_route_start():
+    source = WEB_GUI.read_text(encoding="utf-8")
+
+    assert '"auto_start_route": False' in source
+    assert "payload.get('auto_start_route', False)" in source
+    assert 'config.auto_start_route === true' in source
+
+
+def test_h1_2_nav_web_gui_keeps_start_out_of_navigation_route():
+    source = WEB_GUI.read_text(encoding="utf-8")
+
+    assert "def normalize_memory_route" in source
+    assert 'name != "START"' in source
+    assert 'config["memory_route"] = normalize_memory_route' in source
+    assert "memory_route={normalize_memory_route" in source
+    assert 'point.name === "START" ? "disabled" : ""' in source
+    assert 'if (name === "START") return;' in source
+
+
+def test_h1_2_nav_web_gui_migrates_legacy_automatic_route_config():
+    source = WEB_GUI.read_text(encoding="utf-8")
+
+    assert 'CONFIG_WORKFLOW_VERSION = 2' in source
+    assert 'saved.get("workflow_version", 1) < CONFIG_WORKFLOW_VERSION' in source
+    assert 'saved["auto_start_route"] = False' in source
+    assert 'config["workflow_version"] = CONFIG_WORKFLOW_VERSION' in source
+
+
+def test_h1_2_nav_web_gui_gates_route_start_on_stable_localization():
+    source = WEB_GUI.read_text(encoding="utf-8")
+
+    assert "LocalizationStatus" in source
+    assert '"/icp_localization/status"' in source
+    assert "LOCALIZATION_REQUIRED_STABLE_SAMPLES = 5" in source
+    assert "LOCALIZATION_MAX_SCORE = 0.15" in source
+    assert '"manual initial pose accepted"' in source
+    assert "localization_status" in source
+    assert "定位稳定，可开始巡航" in source
+    assert "定位未稳定" in source
+    assert 'id="localization_indicator"' in source
+    assert "localization-indicator waiting" in source
+    assert ".localization-indicator.ready" in source
+    assert 'localizationIndicator.className = `localization-indicator ${indicatorState}`' in source
+    assert 'id="start_route_button"' in source
+    assert "startRoute()" in source
+    assert "startButton.disabled = !localization.ready" in source
+    assert "LOCALIZATION_STATUS_TIMEOUT_SEC = 10.0" in source
+
+
+def test_h1_2_nav_web_gui_uses_cli_ros_dds_environment_before_rclpy_init():
+    source = WEB_GUI.read_text(encoding="utf-8")
+
+    assert "def configure_ros_environment" in source
+    assert 'os.environ["ROS_LOCALHOST_ONLY"] = "0"' in source
+    assert 'os.environ.setdefault("ROS_DOMAIN_ID", "0")' in source
+    assert 'os.environ["RMW_IMPLEMENTATION"] = "rmw_cyclonedds_cpp"' in source
+    assert 'os.environ.pop("CYCLONEDDS_URI", None)' in source
+    assert 'os.environ.pop("FASTRTPS_DEFAULT_PROFILES_FILE", None)' in source
+    assert source.index("configure_ros_environment()") < source.index("rclpy.init(args=None)")
 
 
 def test_run_script_still_exposes_online_and_offline_modes():

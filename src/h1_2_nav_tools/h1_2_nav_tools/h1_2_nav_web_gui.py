@@ -14,6 +14,7 @@ from urllib.parse import parse_qs, urlparse
 
 import rclpy
 from cv_bridge import CvBridge
+from h1_2_icp_localization.msg import LocalizationStatus
 from h1_2_nav_msgs.srv import ExecuteGesture, RouteStatus, StartRoute, StopRoute
 from sensor_msgs.msg import CameraInfo, Image
 
@@ -33,7 +34,21 @@ from rclpy.qos import (
 
 
 CONFIG_PATH = Path.home() / ".ros" / "h1_2_nav_web_gui.json"
+CONFIG_WORKFLOW_VERSION = 2
+LOCALIZATION_REQUIRED_STABLE_SAMPLES = 5
+LOCALIZATION_MAX_SCORE = 0.15
+LOCALIZATION_STATUS_TIMEOUT_SEC = 10.0
 GESTURE_OPTIONS = ["", "wave_hand", "shake_hand"]
+
+
+def configure_ros_environment():
+    os.environ["ROS_LOCALHOST_ONLY"] = "0"
+    os.environ.setdefault("ROS_DOMAIN_ID", "0")
+    os.environ["RMW_IMPLEMENTATION"] = "rmw_cyclonedds_cpp"
+    os.environ.pop("ROS_HOSTNAME", None)
+    os.environ.pop("ROS_IP", None)
+    os.environ.pop("CYCLONEDDS_URI", None)
+    os.environ.pop("FASTRTPS_DEFAULT_PROFILES_FILE", None)
 
 
 def find_workspace_root():
@@ -54,6 +69,18 @@ def point_sort_key(name):
     if name == "START":
         return (0, name)
     return (1, name)
+
+
+def normalize_memory_route(value):
+    if isinstance(value, str):
+        names = value.split(",")
+    else:
+        names = value or []
+    return ",".join(
+        name
+        for name in (str(item).strip() for item in names)
+        if name and name != "START"
+    )
 
 
 def bind_http_server(host, port, handler, port_tries):
@@ -197,12 +224,18 @@ class RosServiceBridge:
     def __init__(self, logs, config):
         self.logs = logs
         if not rclpy.ok():
+            configure_ros_environment()
             rclpy.init(args=None)
         self.node = Node("h1_2_nav_web_gui")
         self.cv_bridge = CvBridge()
         self.camera_frames = CameraFrameStore()
         self.camera_subscriptions = []
         self.camera_topics = {}
+        self.camera_preview_enabled = False
+        self.localization_lock = threading.Lock()
+        self.localization_stable_samples = 0
+        self.latest_localization_status = None
+        self.latest_localization_time = None
         self.executor = MultiThreadedExecutor()
         self.executor.add_node(self.node)
         self.thread = threading.Thread(target=self.executor.spin, daemon=True)
@@ -211,6 +244,12 @@ class RosServiceBridge:
         self.stop_client = self.node.create_client(StopRoute, "stop_memory_route")
         self.status_client = self.node.create_client(RouteStatus, "memory_route_status")
         self.gesture_client = self.node.create_client(ExecuteGesture, "/h1_2_loco/execute_gesture")
+        self.localization_sub = self.node.create_subscription(
+            LocalizationStatus,
+            "/icp_localization/status",
+            self._on_localization_status,
+            10,
+        )
         self.configure_camera(config)
 
     def shutdown(self):
@@ -220,6 +259,9 @@ class RosServiceBridge:
             rclpy.shutdown()
 
     def route_start(self):
+        localization = self.localization_status()
+        if not localization["ready"]:
+            return {"success": False, "message": localization["message"]}
         return self._call_simple("start_memory_route", self.start_client, StartRoute.Request())
 
     def route_stop(self):
@@ -267,12 +309,16 @@ class RosServiceBridge:
         for subscription in self.camera_subscriptions:
             self.node.destroy_subscription(subscription)
         self.camera_subscriptions = []
+        self.camera_preview_enabled = bool(config.get("camera_preview_enabled", False))
         self.camera_topics = {
             "rgb": str(config.get("camera_rgb_topic", "")).strip(),
             "depth": str(config.get("camera_depth_topic", "")).strip(),
             "info": str(config.get("camera_info_topic", "")).strip(),
             "annotated": str(config.get("vision_annotated_topic", "")).strip(),
         }
+        if not self.camera_preview_enabled:
+            self.logs.add("camera", "camera preview disabled; no image subscriptions created")
+            return
         qos = QoSProfile(
             history=QoSHistoryPolicy.KEEP_LAST,
             depth=1,
@@ -321,6 +367,17 @@ class RosServiceBridge:
         )
 
     def camera_status(self):
+        if not self.camera_preview_enabled:
+            return {
+                "state": "disabled",
+                "message": "相机预览已关闭",
+                "rgb_topic": self.camera_topics.get("rgb", ""),
+                "depth_topic": self.camera_topics.get("depth", ""),
+                "info_topic": self.camera_topics.get("info", ""),
+                "rgb": self.camera_frames.stream_status("rgb"),
+                "depth": self.camera_frames.stream_status("depth"),
+                "camera_info": {"received": False, "width": 0, "height": 0, "last_frame": None},
+            }
         return self.camera_frames.status(
             self.camera_topics.get("rgb", ""),
             self.camera_topics.get("depth", ""),
@@ -343,6 +400,68 @@ class RosServiceBridge:
             "message": message,
             "annotated_topic": self.camera_topics.get("annotated", ""),
             "annotated": stream,
+        }
+
+    def _on_localization_status(self, message):
+        is_tracking_result = message.message not in (
+            "manual initial pose accepted",
+            "manual relocalize pose accepted",
+        )
+        stable = (
+            message.initialized
+            and message.converged
+            and not message.degraded
+            and message.score <= LOCALIZATION_MAX_SCORE
+            and is_tracking_result
+        )
+        with self.localization_lock:
+            self.latest_localization_status = message
+            self.latest_localization_time = time.monotonic()
+            self.localization_stable_samples = (
+                self.localization_stable_samples + 1 if stable else 0
+            )
+
+    def localization_status(self):
+        with self.localization_lock:
+            message = self.latest_localization_status
+            stable_samples = self.localization_stable_samples
+            updated_at = self.latest_localization_time
+        if message is None or updated_at is None:
+            return {
+                "ready": False,
+                "stable_samples": 0,
+                "required_stable_samples": LOCALIZATION_REQUIRED_STABLE_SAMPLES,
+                "score": None,
+                "message": "定位未稳定：等待 /icp_localization/status",
+            }
+        age = max(0.0, time.monotonic() - updated_at)
+        ready = (
+            age <= LOCALIZATION_STATUS_TIMEOUT_SEC
+            and stable_samples >= LOCALIZATION_REQUIRED_STABLE_SAMPLES
+        )
+        if ready:
+            status_message = (
+                f"定位稳定，可开始巡航（score={message.score:.3f}，"
+                f"{stable_samples}/{LOCALIZATION_REQUIRED_STABLE_SAMPLES}）"
+            )
+        elif age > LOCALIZATION_STATUS_TIMEOUT_SEC:
+            status_message = f"定位未稳定：状态已超时 {age:.1f}s"
+        else:
+            status_message = (
+                f"定位未稳定：score={message.score:.3f}，"
+                f"{stable_samples}/{LOCALIZATION_REQUIRED_STABLE_SAMPLES}，"
+                f"{message.message}"
+            )
+        return {
+            "ready": ready,
+            "stable_samples": stable_samples,
+            "required_stable_samples": LOCALIZATION_REQUIRED_STABLE_SAMPLES,
+            "score": float(message.score),
+            "initialized": bool(message.initialized),
+            "converged": bool(message.converged),
+            "degraded": bool(message.degraded),
+            "age_sec": round(age, 3),
+            "message": status_message,
         }
 
     def _on_rgb_image(self, message):
@@ -643,16 +762,18 @@ class WebGuiApp:
             "pcd_prefix": "maps/h1_2_lab",
             "localization": "global_gicp",
             "initial_pose": "START",
-            "auto_start_route": True,
+            "auto_start_route": False,
             "return_to_start": False,
             "memory_route": "A,B,C",
             "gesture_route": "",
+            "workflow_version": CONFIG_WORKFLOW_VERSION,
             "voice_remote_host": os.environ.get("H1_2_VOICE_REMOTE", ""),
             "voice_workspace": os.environ.get("H1_2_VOICE_WORKSPACE", "~/ros2_ws"),
             "voice_ros_setup": os.environ.get("H1_2_VOICE_ROS_SETUP", "/opt/ros/humble/setup.bash"),
             "camera_rgb_topic": "/camera/camera/color/image_raw",
             "camera_depth_topic": "/camera/camera/aligned_depth_to_color/image_raw",
             "camera_info_topic": "/camera/camera/color/camera_info",
+            "camera_preview_enabled": False,
             "vision_annotated_topic": "/h1_2/vision/annotated_image",
             "vision_remote_host": os.environ.get(
                 "H1_2_VISION_REMOTE",
@@ -669,9 +790,19 @@ class WebGuiApp:
         }
         try:
             saved = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+            if saved.get("workflow_version", 1) < CONFIG_WORKFLOW_VERSION:
+                saved["auto_start_route"] = False
+                saved["memory_route"] = normalize_memory_route(
+                    saved.get("memory_route", "A,B,C")
+                )
             config.update(saved)
         except (OSError, json.JSONDecodeError):
             pass
+        config["memory_route"] = normalize_memory_route(
+            config.get("memory_route", "A,B,C")
+        )
+        config["camera_preview_enabled"] = False
+        config["workflow_version"] = CONFIG_WORKFLOW_VERSION
         config["voice_remote_host"] = normalize_ssh_target(config.get("voice_remote_host", ""))
         config["voice_workspace"] = normalize_voice_workspace(config.get("voice_workspace", "~/ros2_ws"))
         config["vision_remote_host"] = normalize_ssh_target(config.get("vision_remote_host", ""))
@@ -681,6 +812,10 @@ class WebGuiApp:
         return config
 
     def save_config(self, config):
+        config["memory_route"] = normalize_memory_route(
+            config.get("memory_route", "A,B,C")
+        )
+        config["workflow_version"] = CONFIG_WORKFLOW_VERSION
         if "voice_remote_host" in config:
             config["voice_remote_host"] = normalize_ssh_target(config["voice_remote_host"])
         if "voice_workspace" in config:
@@ -693,9 +828,22 @@ class WebGuiApp:
         CONFIG_PATH.write_text(json.dumps(config, indent=2, sort_keys=True), encoding="utf-8")
 
     def reconnect_camera(self, config):
+        config["camera_preview_enabled"] = True
         self.save_config(config)
         self.ros.configure_camera(config)
         return {"success": True, "message": "相机话题订阅已重新连接"}
+
+    def start_camera_preview(self, config):
+        config["camera_preview_enabled"] = True
+        self.save_config(config)
+        self.ros.configure_camera(config)
+        return {"success": True, "message": "相机预览已开启"}
+
+    def stop_camera_preview(self, config):
+        config["camera_preview_enabled"] = False
+        self.save_config(config)
+        self.ros.configure_camera(config)
+        return {"success": True, "message": "相机预览已关闭"}
 
     def vision_status(self):
         status = self.ros.vision_status()
@@ -730,7 +878,7 @@ class WebGuiApp:
         mode = str(payload.get("run_mode", "online"))
         map_path = Path(str(payload.get("map", ""))).expanduser()
         pcd_path = Path(str(payload.get("pcd", ""))).expanduser()
-        memory_route = str(payload.get("memory_route", "")).strip()
+        memory_route = normalize_memory_route(payload.get("memory_route", ""))
         if mode not in ("online", "navigation", "save_map", "save_pcd_map"):
             return False, f"Unsupported mode: {mode}"
         if mode == "navigation" and not map_path.is_file():
@@ -763,9 +911,9 @@ class WebGuiApp:
             f"localization={payload.get('localization', 'global_gicp')}",
             f"pcd={Path(str(payload.get('pcd', ''))).expanduser()}",
             f"initial_pose={payload.get('initial_pose') or 'START'}",
-            f"memory_route={payload.get('memory_route', '')}",
+            f"memory_route={normalize_memory_route(payload.get('memory_route', ''))}",
             f"gesture_route={payload.get('gesture_route', '')}",
-            f"auto_start_route={str(bool(payload.get('auto_start_route', True))).lower()}",
+            f"auto_start_route={str(bool(payload.get('auto_start_route', False))).lower()}",
             f"return_to_start={str(bool(payload.get('return_to_start', False))).lower()}",
             ]
         )
@@ -787,6 +935,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._send_json(
                 {
                     "route": route,
+                    "localization": self.app.ros.localization_status(),
                     "processes": self.app.processes.status(),
                     "camera": self.app.ros.camera_status(),
                     "vision": self.app.ros.vision_status(),
@@ -831,6 +980,10 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._send_json(self.app.processes.stop_voice_control(payload))
         elif parsed.path == "/api/camera/reconnect":
             self._send_json(self.app.reconnect_camera(payload))
+        elif parsed.path == "/api/camera/start":
+            self._send_json(self.app.start_camera_preview(payload))
+        elif parsed.path == "/api/camera/stop":
+            self._send_json(self.app.stop_camera_preview(payload))
         elif parsed.path == "/api/vision/start":
             self.app.save_config(payload)
             self.app.ros.configure_camera(payload)
@@ -1078,6 +1231,34 @@ INDEX_HTML = r"""<!doctype html>
     }
     .pill.ok { background: #ecfdf5; color: #047857; }
     .pill.warn { background: #fff7ed; color: #c2410c; }
+    .localization-indicator {
+      width: 100%;
+      min-height: 56px;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 15px;
+      font-weight: 900;
+      text-align: left;
+      cursor: default;
+      transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
+    }
+    .localization-indicator.waiting {
+      background: #f1f5f9;
+      border-color: #cbd5e1;
+      color: #64748b;
+    }
+    .localization-indicator.checking {
+      background: #fff7ed;
+      border-color: #fdba74;
+      color: #c2410c;
+    }
+    .localization-indicator.ready {
+      background: #dcfce7;
+      border-color: #4ade80;
+      color: #166534;
+      box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.18);
+    }
     .camera-section { margin: 0 14px 14px; }
     .camera-config {
       display: grid;
@@ -1216,8 +1397,11 @@ INDEX_HTML = r"""<!doctype html>
         <section class="panel">
           <div class="panel-head">Route Control</div>
           <div class="body stack">
+            <button id="localization_indicator" class="localization-indicator waiting" type="button" disabled>
+              ● 等待定位
+            </button>
             <div class="two">
-            <button class="btn primary" onclick="postAction('/api/route/start')">开始巡航</button>
+            <button id="start_route_button" class="btn primary" onclick="startRoute()" disabled>开始巡航</button>
             <button class="btn" onclick="postAction('/api/route/stop')">停止巡航</button>
             </div>
             <div class="two">
@@ -1241,6 +1425,7 @@ INDEX_HTML = r"""<!doctype html>
             <div class="status-row"><div class="key">state</div><div><span id="state" class="pill">-</span></div></div>
             <div class="status-row"><div class="key">goal</div><div id="goal">-</div></div>
             <div class="status-row"><div class="key">message</div><div id="message">-</div></div>
+            <div class="status-row"><div class="key">localization</div><div id="localization_state">定位未稳定</div></div>
             <div class="status-row"><div class="key">process</div><div id="processes">-</div></div>
           </div>
         </section>
@@ -1256,7 +1441,9 @@ INDEX_HTML = r"""<!doctype html>
         <div><label>RGB Topic</label><input id="camera_rgb_topic"></div>
         <div><label>Aligned Depth Topic</label><input id="camera_depth_topic"></div>
         <div><label>CameraInfo Topic</label><input id="camera_info_topic"></div>
-        <button class="btn soft" onclick="reconnectCamera()">重新连接</button>
+        <button class="btn soft" onclick="startCameraPreview()">开启相机预览</button>
+        <button class="btn" onclick="stopCameraPreview()">关闭相机预览</button>
+        <button class="btn" onclick="reconnectCamera()">重新连接</button>
       </div>
       <div class="vision-config">
         <div><label>YOLO Annotated Topic</label><input id="vision_annotated_topic"></div>
@@ -1312,11 +1499,12 @@ INDEX_HTML = r"""<!doctype html>
     let lastLogSeq = 0;
     let logsAutoFollow = true;
     let logsSelecting = false;
+    let cameraPreviewEnabled = false;
 
     const $ = (id) => document.getElementById(id);
 
     function payload() {
-      const selected = points.filter((p) => routeState[p.name]?.use).map((p) => p.name);
+      const selected = points.filter((p) => p.name !== "START" && routeState[p.name]?.use).map((p) => p.name);
       const gestures = points
         .filter((p) => routeState[p.name]?.use && routeState[p.name]?.gesture)
         .map((p) => `${p.name}:${routeState[p.name].gesture}`);
@@ -1339,6 +1527,7 @@ INDEX_HTML = r"""<!doctype html>
         camera_rgb_topic: $("camera_rgb_topic").value.trim(),
         camera_depth_topic: $("camera_depth_topic").value.trim(),
         camera_info_topic: $("camera_info_topic").value.trim(),
+        camera_preview_enabled: cameraPreviewEnabled,
         vision_annotated_topic: $("vision_annotated_topic").value.trim(),
         vision_remote_host: $("vision_remote_host").value.trim(),
         vision_workspace: $("vision_workspace").value.trim() || "~/ros2_ws",
@@ -1390,11 +1579,12 @@ INDEX_HTML = r"""<!doctype html>
       $("camera_rgb_topic").value = config.camera_rgb_topic || "/camera/camera/color/image_raw";
       $("camera_depth_topic").value = config.camera_depth_topic || "/camera/camera/aligned_depth_to_color/image_raw";
       $("camera_info_topic").value = config.camera_info_topic || "/camera/camera/color/camera_info";
+      cameraPreviewEnabled = false;
       $("vision_annotated_topic").value = config.vision_annotated_topic || "/h1_2/vision/annotated_image";
       $("vision_remote_host").value = config.vision_remote_host || config.voice_remote_host || "";
       $("vision_workspace").value = config.vision_workspace || config.voice_workspace || "~/ros2_ws";
       $("vision_ros_setup").value = config.vision_ros_setup || config.voice_ros_setup || "/opt/ros/humble/setup.bash";
-      $("auto_start_route").checked = config.auto_start_route !== false;
+      $("auto_start_route").checked = config.auto_start_route === true;
       $("return_to_start").checked = !!config.return_to_start;
       routeState.__memory_route = config.memory_route || "A,B,C";
       routeState.__gesture_route = config.gesture_route || "";
@@ -1411,7 +1601,7 @@ INDEX_HTML = r"""<!doctype html>
     async function loadPoints() {
       const data = await api("/api/points");
       points = data.points || [];
-      const route = new Set((routeState.__memory_route || "A,B,C").split(",").filter(Boolean));
+      const route = new Set((routeState.__memory_route || "A,B,C").split(",").filter((name) => name && name !== "START"));
       const gestures = Object.fromEntries((routeState.__gesture_route || "").split(",").filter((x) => x.includes(":")).map((x) => x.split(":")));
       for (const point of points) {
         if (!routeState[point.name]) {
@@ -1428,7 +1618,7 @@ INDEX_HTML = r"""<!doctype html>
         const tr = document.createElement("tr");
         const pos = point.position || {x: 0, y: 0, z: 0};
         tr.innerHTML = `
-          <td><input type="checkbox" ${state.use ? "checked" : ""} onchange="setUse('${point.name}', this.checked)"></td>
+          <td><input type="checkbox" ${state.use ? "checked" : ""} ${point.name === "START" ? "disabled" : ""} onchange="setUse('${point.name}', this.checked)"></td>
           <td><span class="point">${point.name}</span></td>
           <td>
             <select onchange="setGesture('${point.name}', this.value)">
@@ -1445,6 +1635,7 @@ INDEX_HTML = r"""<!doctype html>
     }
 
     function setUse(name, use) {
+      if (name === "START") return;
       routeState[name] = routeState[name] || { use: false, gesture: "" };
       routeState[name].use = use;
       updateCommand();
@@ -1481,6 +1672,12 @@ INDEX_HTML = r"""<!doctype html>
       refreshStatus();
     }
 
+    async function startRoute() {
+      const result = await api("/api/route/start", { method: "POST", body: "{}" });
+      appendLog("route", result.message || JSON.stringify(result));
+      refreshStatus();
+    }
+
     async function gesture(name) {
       const result = await api("/api/gesture", { method: "POST", body: JSON.stringify({ name }) });
       appendLog("gesture", `${name}: ${result.success ? "ok" : "failed"} ${result.message || ""}`);
@@ -1493,8 +1690,37 @@ INDEX_HTML = r"""<!doctype html>
       $("vision_annotated").src = `/api/vision/annotated.mjpg?t=${stamp}`;
     }
 
+    function stopCameraImages() {
+      $("camera_rgb").removeAttribute("src");
+      $("camera_depth").removeAttribute("src");
+      $("vision_annotated").removeAttribute("src");
+    }
+
+    async function startCameraPreview() {
+      const request = payload();
+      request.camera_preview_enabled = true;
+      const result = await api("/api/camera/start", { method: "POST", body: JSON.stringify(request) });
+      cameraPreviewEnabled = true;
+      appendLog("camera", result.message || JSON.stringify(result));
+      restartCameraImages();
+      await refreshCameraStatus();
+    }
+
+    async function stopCameraPreview() {
+      const request = payload();
+      request.camera_preview_enabled = false;
+      const result = await api("/api/camera/stop", { method: "POST", body: JSON.stringify(request) });
+      cameraPreviewEnabled = false;
+      appendLog("camera", result.message || JSON.stringify(result));
+      stopCameraImages();
+      await refreshCameraStatus();
+    }
+
     async function reconnectCamera() {
-      const result = await api("/api/camera/reconnect", { method: "POST", body: JSON.stringify(payload()) });
+      const request = payload();
+      request.camera_preview_enabled = true;
+      const result = await api("/api/camera/reconnect", { method: "POST", body: JSON.stringify(request) });
+      cameraPreviewEnabled = true;
       appendLog("camera", result.message || JSON.stringify(result));
       restartCameraImages();
       await refreshCameraStatus();
@@ -1535,6 +1761,24 @@ INDEX_HTML = r"""<!doctype html>
       $("state").className = "pill " + (route.success ? "ok" : "warn");
       $("goal").textContent = `${route.current_goal || "-"} / index ${route.current_index || 0}`;
       $("message").textContent = route.message || "-";
+      const localization = data.localization || {};
+      $("localization_state").textContent = localization.message || "定位未稳定";
+      const localizationIndicator = $("localization_indicator");
+      const indicatorState = localization.ready
+        ? "ready"
+        : localization.score == null
+          ? "waiting"
+          : "checking";
+      localizationIndicator.className = `localization-indicator ${indicatorState}`;
+      localizationIndicator.textContent = localization.ready
+        ? "● 可开始巡航"
+        : indicatorState === "checking"
+          ? "● 定位稳定性确认中"
+          : "● 等待定位";
+      localizationIndicator.title = localization.message || "定位未稳定";
+      const startButton = $("start_route_button");
+      startButton.disabled = !localization.ready;
+      startButton.title = localization.message || "定位未稳定";
       const processes = data.processes || {};
       $("processes").textContent = `nav=${processes.navigation?.running ? "running" : "idle"}, rviz=${processes.rviz?.running ? "running" : "idle"}, voice_reader=${processes.voice?.running ? "running" : "idle"}, voice_bridge=${processes.voice_bridge?.running ? "running" : "idle"}, vision=${processes.vision?.running ? "running" : "idle"}`;
       await refreshCameraStatus(data.camera || null);
@@ -1603,7 +1847,7 @@ INDEX_HTML = r"""<!doctype html>
 
     (async function boot() {
       await loadConfig();
-      restartCameraImages();
+      stopCameraImages();
       await loadPoints();
       await refreshStatus();
       await pollLogs();

@@ -2,9 +2,11 @@ import json
 import os
 import sys
 import threading
+import time
 from pathlib import Path
 
 import rclpy
+from h1_2_icp_localization.msg import LocalizationStatus
 from h1_2_nav_msgs.srv import ExecuteGesture, RouteStatus, StartRoute, StopRoute
 from PyQt5 import QtCore, QtWidgets
 from rclpy.executors import MultiThreadedExecutor
@@ -12,7 +14,21 @@ from rclpy.node import Node
 
 
 CONFIG_PATH = Path.home() / ".ros" / "h1_2_nav_gui.json"
+CONFIG_WORKFLOW_VERSION = 2
+LOCALIZATION_REQUIRED_STABLE_SAMPLES = 5
+LOCALIZATION_MAX_SCORE = 0.15
+LOCALIZATION_STATUS_TIMEOUT_SEC = 10.0
 GESTURE_OPTIONS = ["", "wave_hand", "shake_hand"]
+
+
+def configure_ros_environment():
+    os.environ["ROS_LOCALHOST_ONLY"] = "0"
+    os.environ.setdefault("ROS_DOMAIN_ID", "0")
+    os.environ["RMW_IMPLEMENTATION"] = "rmw_cyclonedds_cpp"
+    os.environ.pop("ROS_HOSTNAME", None)
+    os.environ.pop("ROS_IP", None)
+    os.environ.pop("CYCLONEDDS_URI", None)
+    os.environ.pop("FASTRTPS_DEFAULT_PROFILES_FILE", None)
 
 
 def find_workspace_root():
@@ -40,13 +56,23 @@ def point_sort_key(name):
     return (1, name)
 
 
+def normalize_memory_route(value):
+    return ",".join(
+        name
+        for name in (item.strip() for item in str(value or "").split(","))
+        if name and name != "START"
+    )
+
+
 class RosServiceBridge(QtCore.QObject):
     status_ready = QtCore.pyqtSignal(str, str, int, str)
     service_done = QtCore.pyqtSignal(str, bool, str)
+    localization_ready = QtCore.pyqtSignal(bool, str)
 
     def __init__(self):
         super().__init__()
         if not rclpy.ok():
+            configure_ros_environment()
             rclpy.init(args=None)
         self.node = Node("h1_2_nav_gui")
         self.executor = MultiThreadedExecutor()
@@ -57,6 +83,15 @@ class RosServiceBridge(QtCore.QObject):
         self.stop_client = self.node.create_client(StopRoute, "stop_memory_route")
         self.status_client = self.node.create_client(RouteStatus, "memory_route_status")
         self.gesture_client = self.node.create_client(ExecuteGesture, "/h1_2_loco/execute_gesture")
+        self.localization_stable_samples = 0
+        self.latest_localization_status = None
+        self.latest_localization_time = None
+        self.node.create_subscription(
+            LocalizationStatus,
+            "/icp_localization/status",
+            self._on_localization_status,
+            10,
+        )
 
     def shutdown(self):
         self.executor.shutdown()
@@ -65,12 +100,17 @@ class RosServiceBridge(QtCore.QObject):
             rclpy.shutdown()
 
     def call_start_route(self):
+        ready, message = self.localization_status()
+        if not ready:
+            self.service_done.emit("start_route", False, message)
+            return
         self._call_simple("start_route", self.start_client, StartRoute.Request())
 
     def call_stop_route(self):
         self._call_simple("stop_route", self.stop_client, StopRoute.Request())
 
     def call_status(self):
+        self.localization_ready.emit(*self.localization_status())
         if not self.status_client.service_is_ready():
             self.status_ready.emit("unavailable", "", 0, "memory_route_status is not available")
             return
@@ -85,6 +125,49 @@ class RosServiceBridge(QtCore.QObject):
         request.name = name
         future = self.gesture_client.call_async(request)
         future.add_done_callback(lambda done: self._gesture_done(done, name))
+
+    def _on_localization_status(self, message):
+        is_tracking_result = message.message not in (
+            "manual initial pose accepted",
+            "manual relocalize pose accepted",
+        )
+        stable = (
+            message.initialized
+            and message.converged
+            and not message.degraded
+            and message.score <= LOCALIZATION_MAX_SCORE
+            and is_tracking_result
+        )
+        self.localization_stable_samples = (
+            self.localization_stable_samples + 1 if stable else 0
+        )
+        self.latest_localization_status = message
+        self.latest_localization_time = time.monotonic()
+        self.localization_ready.emit(*self.localization_status())
+
+    def localization_status(self):
+        message = self.latest_localization_status
+        if message is None or self.latest_localization_time is None:
+            return False, "定位未稳定：等待 /icp_localization/status"
+        age = max(0.0, time.monotonic() - self.latest_localization_time)
+        ready = (
+            age <= LOCALIZATION_STATUS_TIMEOUT_SEC
+            and self.localization_stable_samples >= LOCALIZATION_REQUIRED_STABLE_SAMPLES
+        )
+        if ready:
+            return (
+                True,
+                f"定位稳定，可开始巡航（score={message.score:.3f}，"
+                f"{self.localization_stable_samples}/{LOCALIZATION_REQUIRED_STABLE_SAMPLES}）",
+            )
+        if age > LOCALIZATION_STATUS_TIMEOUT_SEC:
+            return False, f"定位未稳定：状态已超时 {age:.1f}s"
+        return (
+            False,
+            f"定位未稳定：score={message.score:.3f}，"
+            f"{self.localization_stable_samples}/{LOCALIZATION_REQUIRED_STABLE_SAMPLES}，"
+            f"{message.message}",
+        )
 
     def _call_simple(self, label, client, request):
         if not client.service_is_ready():
@@ -134,6 +217,7 @@ class H12NavGui(QtWidgets.QMainWindow):
         self.ros = RosServiceBridge()
         self.ros.status_ready.connect(self.on_status_ready)
         self.ros.service_done.connect(self.on_service_done)
+        self.ros.localization_ready.connect(self.on_localization_ready)
 
         self.setWindowTitle("H1-2 Offline Navigation Console")
         self.resize(1320, 820)
@@ -267,6 +351,24 @@ class H12NavGui(QtWidgets.QMainWindow):
                 background: #e9f7f5;
                 border-color: #bdd7d4;
                 color: #0f766e;
+            }
+            QPushButton#localizationIndicator {
+                min-height: 54px;
+                border-radius: 9px;
+                padding: 8px 14px;
+                text-align: left;
+                font-size: 15px;
+                font-weight: 900;
+            }
+            QPushButton#localizationIndicator[state="waiting"] {
+                background: #f1f5f9;
+                border-color: #cbd5e1;
+                color: #64748b;
+            }
+            QPushButton#localizationIndicator[state="ready"] {
+                background: #dcfce7;
+                border-color: #4ade80;
+                color: #166534;
             }
             QCheckBox {
                 color: #17202a;
@@ -494,7 +596,14 @@ class H12NavGui(QtWidgets.QMainWindow):
         control_layout = QtWidgets.QVBoxLayout(control_body)
         control_layout.setContentsMargins(16, 16, 16, 16)
         control_layout.setSpacing(10)
+        self.localization_indicator = QtWidgets.QPushButton("● 等待定位")
+        self.localization_indicator.setObjectName("localizationIndicator")
+        self.localization_indicator.setProperty("state", "waiting")
+        self.localization_indicator.setEnabled(False)
+        control_layout.addWidget(self.localization_indicator)
         self.start_route_button = self.make_button("Start Route", "primary")
+        self.start_route_button.setEnabled(False)
+        self.start_route_button.setToolTip("定位未稳定：等待 /icp_localization/status")
         self.stop_route_button = self.make_button("Stop Route")
         self.refresh_status_button = self.make_button("Refresh Status")
         self.wave_button = self.make_button("Test Wave")
@@ -520,12 +629,16 @@ class H12NavGui(QtWidgets.QMainWindow):
         self.goal_label = QtWidgets.QLabel("A / index 0")
         self.message_label = QtWidgets.QLabel("Waiting for offline navigation startup.")
         self.message_label.setWordWrap(True)
+        self.localization_label = QtWidgets.QLabel("定位未稳定：等待 /icp_localization/status")
+        self.localization_label.setWordWrap(True)
         status_layout.addWidget(self.make_field_label("State", "statusKey"), 0, 0)
         status_layout.addWidget(self.state_label, 0, 1)
         status_layout.addWidget(self.make_field_label("Current Goal", "statusKey"), 1, 0)
         status_layout.addWidget(self.goal_label, 1, 1)
         status_layout.addWidget(self.make_field_label("Message", "statusKey"), 2, 0)
         status_layout.addWidget(self.message_label, 2, 1)
+        status_layout.addWidget(self.make_field_label("Localization", "statusKey"), 3, 0)
+        status_layout.addWidget(self.localization_label, 3, 1)
         side_layout.addWidget(status_panel)
         side_layout.addStretch()
 
@@ -639,9 +752,16 @@ class H12NavGui(QtWidgets.QMainWindow):
 
     def load_config(self):
         try:
-            return json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+            config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
             return {}
+        if config.get("workflow_version", 1) < CONFIG_WORKFLOW_VERSION:
+            config["auto_start_route"] = False
+        config["memory_route"] = normalize_memory_route(
+            config.get("memory_route", "A,B,C")
+        )
+        config["workflow_version"] = CONFIG_WORKFLOW_VERSION
+        return config
 
     def save_config(self):
         data = {
@@ -651,8 +771,9 @@ class H12NavGui(QtWidgets.QMainWindow):
             "initial_pose": self.initial_pose_edit.text().strip(),
             "auto_start_route": self.auto_start_check.isChecked(),
             "return_to_start": self.return_to_start_check.isChecked(),
-            "memory_route": self.build_memory_route(),
+            "memory_route": normalize_memory_route(self.build_memory_route()),
             "gesture_route": self.build_gesture_route(),
+            "workflow_version": CONFIG_WORKFLOW_VERSION,
         }
         CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
         CONFIG_PATH.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
@@ -665,7 +786,7 @@ class H12NavGui(QtWidgets.QMainWindow):
         if index >= 0:
             self.localization_combo.setCurrentIndex(index)
         self.initial_pose_edit.setText(self.config.get("initial_pose", "START"))
-        self.auto_start_check.setChecked(bool(self.config.get("auto_start_route", True)))
+        self.auto_start_check.setChecked(bool(self.config.get("auto_start_route", False)))
         self.return_to_start_check.setChecked(bool(self.config.get("return_to_start", False)))
         self.apply_saved_route(self.config.get("memory_route", "A,B,C"), self.config.get("gesture_route", ""))
         self.update_command_preview()
@@ -688,7 +809,10 @@ class H12NavGui(QtWidgets.QMainWindow):
                 row = self.route_table.rowCount()
                 self.route_table.insertRow(row)
                 use_item = QtWidgets.QTableWidgetItem()
-                use_item.setFlags(QtCore.Qt.ItemIsUserCheckable | QtCore.Qt.ItemIsEnabled)
+                if name == "START":
+                    use_item.setFlags(QtCore.Qt.ItemIsEnabled)
+                else:
+                    use_item.setFlags(QtCore.Qt.ItemIsUserCheckable | QtCore.Qt.ItemIsEnabled)
                 use_item.setCheckState(QtCore.Qt.Unchecked if name == "START" else QtCore.Qt.Checked)
                 self.route_table.setItem(row, 0, use_item)
                 name_item = QtWidgets.QTableWidgetItem(name)
@@ -714,12 +838,20 @@ class H12NavGui(QtWidgets.QMainWindow):
         self.update_command_preview()
 
     def apply_saved_route(self, memory_route, gesture_route):
-        route_names = [name.strip() for name in memory_route.split(",") if name.strip()]
+        route_names = [
+            name
+            for name in normalize_memory_route(memory_route).split(",")
+            if name
+        ]
         gestures = self.parse_gesture_route(gesture_route)
         for row in range(self.route_table.rowCount()):
             name = self.route_table.item(row, 1).text()
             use_item = self.route_table.item(row, 0)
-            use_item.setCheckState(QtCore.Qt.Checked if name in route_names else QtCore.Qt.Unchecked)
+            use_item.setCheckState(
+                QtCore.Qt.Checked
+                if name != "START" and name in route_names
+                else QtCore.Qt.Unchecked
+            )
             combo = self.route_table.cellWidget(row, 2)
             gesture = gestures.get(name, "")
             index = combo.findText(gesture)
@@ -753,7 +885,8 @@ class H12NavGui(QtWidgets.QMainWindow):
     def selected_route_rows(self):
         rows = []
         for row in range(self.route_table.rowCount()):
-            if self.route_table.item(row, 0).checkState() == QtCore.Qt.Checked:
+            name = self.route_table.item(row, 1).text()
+            if name != "START" and self.route_table.item(row, 0).checkState() == QtCore.Qt.Checked:
                 rows.append(row)
         return rows
 
@@ -893,6 +1026,16 @@ class H12NavGui(QtWidgets.QMainWindow):
     def on_service_done(self, label, success, message):
         status = "ok" if success else "failed"
         self.append_log(f"[{label}] {status}: {message}")
+
+    def on_localization_ready(self, ready, message):
+        self.start_route_button.setEnabled(ready)
+        self.start_route_button.setToolTip(message)
+        self.localization_label.setText(message)
+        self.localization_indicator.setText("● 可开始巡航" if ready else "● 等待定位")
+        self.localization_indicator.setToolTip(message)
+        self.localization_indicator.setProperty("state", "ready" if ready else "waiting")
+        self.localization_indicator.style().unpolish(self.localization_indicator)
+        self.localization_indicator.style().polish(self.localization_indicator)
 
     def append_log(self, text):
         self.log_text.appendPlainText(text)
