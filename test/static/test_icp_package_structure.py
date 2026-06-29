@@ -93,6 +93,9 @@ def test_global_relocalization_tf_is_future_dated_for_nav2_transform_tolerance()
     assert "rclcpp::Duration::from_seconds(transform_tolerance_sec_)" in node
     assert "stamp = now() + rclcpp::Duration::from_seconds(transform_tolerance_sec_)" in node
     assert "stamp = latest_odom_stamp_" not in node
+    assert "Publishing TF %s -> %s" in node
+    assert "Stopped publishing TF %s -> %s" in node
+    assert "tf_is_publishing_" in node
 
 
 def test_icp_cmake_exposes_optional_kiss_matcher_dependency_without_requiring_it():

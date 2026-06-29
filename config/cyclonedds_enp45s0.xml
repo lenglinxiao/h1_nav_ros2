@@ -2,7 +2,7 @@
 <CycloneDDS>
   <Domain id="any">
     <General>
-      <NetworkInterfaceAddress>192.168.123.90</NetworkInterfaceAddress>
+      <NetworkInterfaceAddress>enp45s0</NetworkInterfaceAddress>
       <AllowMulticast>spdp</AllowMulticast>
     </General>
     <Discovery>

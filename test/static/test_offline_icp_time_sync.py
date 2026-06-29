@@ -36,3 +36,15 @@ def test_offline_icp_enables_fastlio_ros_time_stamps_without_touching_amcl_or_on
     assert "' == 'global_gicp'" in offline
     assert "publish.use_ros_time_stamps" not in online
     assert "use_ros_time_stamps" not in online
+
+
+def test_nav_scan_converter_stamps_scans_with_current_time_for_nav2_tf():
+    converter = read("src/h1_2_nav_tools/h1_2_nav_tools/simple_pointcloud_to_laserscan.py")
+    params = read("src/h1_2_slam_bringup/config/pointcloud_to_laserscan_body.yaml")
+
+    assert 'self.declare_parameter("stamp_with_current_time", True)' in converter
+    assert "scan.header.stamp = now.to_msg() if self.stamp_with_current_time else msg.header.stamp" in converter
+    assert 'self.declare_parameter("stale_stamp_warn_sec", 1.0)' in converter
+    assert "Input cloud stamp is" in converter
+    assert "stamp_with_current_time: true" in params
+    assert "stale_stamp_warn_sec: 1.0" in params

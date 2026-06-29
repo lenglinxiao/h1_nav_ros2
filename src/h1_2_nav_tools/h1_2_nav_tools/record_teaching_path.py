@@ -5,6 +5,7 @@ from pathlib import Path as FilePath
 import rclpy
 from geometry_msgs.msg import PoseStamped
 from nav_msgs.msg import Odometry, Path
+from rclpy.duration import Duration
 from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
 from std_srvs.srv import Trigger
@@ -17,15 +18,17 @@ class RecordTeachingPath(Node):
     def __init__(self):
         super().__init__("record_teaching_path")
         self.declare_parameter("file_path", "teaching_paths.txt")
-        self.declare_parameter("distance_threshold", 0.3)
+        self.declare_parameter("distance_threshold", 0.1)
         self.declare_parameter("frame_id", "map")
         self.declare_parameter("odom_topic", "/slam_odom")
         self.declare_parameter("path_topic", "/teaching_path")
         self.declare_parameter("interactive_console", True)
+        self.declare_parameter("required_tf_source_frame", "camera_init")
 
         self.file_path = self.get_parameter("file_path").value
         self.distance_threshold = float(self.get_parameter("distance_threshold").value)
         self.frame_id = self.get_parameter("frame_id").value
+        self.required_tf_source_frame = self.get_parameter("required_tf_source_frame").value
         self.lock = threading.Lock()
         self.current_path = []
         self.all_paths = []
@@ -120,10 +123,33 @@ class RecordTeachingPath(Node):
 
     def start_recording_callback(self, request, response):
         del request
+        if not self.required_tf_available():
+            response.success = False
+            response.message = (
+                f"Required TF is unavailable: {self.frame_id}->{self.required_tf_source_frame}. "
+                "Wait for offline localization before recording."
+            )
+            return response
         self.start_recording(replace=True)
         response.success = True
         response.message = "Teaching path recording started."
         return response
+
+    def required_tf_available(self):
+        try:
+            self.tf_buffer.lookup_transform(
+                self.frame_id,
+                self.required_tf_source_frame,
+                rclpy.time.Time(),
+                timeout=Duration(seconds=0.1),
+            )
+            return True
+        except Exception as exc:
+            self.get_logger().warn(
+                f"Required TF {self.frame_id}->{self.required_tf_source_frame} is unavailable: {exc}",
+                throttle_duration_sec=2.0,
+            )
+            return False
 
     def stop_and_save_callback(self, request, response):
         del request

@@ -4,6 +4,7 @@ import struct
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
+from rclpy.time import Time
 from sensor_msgs.msg import LaserScan, PointCloud2
 
 
@@ -23,6 +24,8 @@ class SimplePointCloudToLaserScan(Node):
         self.declare_parameter("range_max", 30.0)
         self.declare_parameter("use_inf", True)
         self.declare_parameter("inf_epsilon", 1.0)
+        self.declare_parameter("stamp_with_current_time", True)
+        self.declare_parameter("stale_stamp_warn_sec", 1.0)
 
         self.cloud_topic = self.get_parameter("cloud_topic").value
         self.scan_topic = self.get_parameter("scan_topic").value
@@ -37,6 +40,8 @@ class SimplePointCloudToLaserScan(Node):
         self.range_max = float(self.get_parameter("range_max").value)
         self.use_inf = bool(self.get_parameter("use_inf").value)
         self.inf_epsilon = float(self.get_parameter("inf_epsilon").value)
+        self.stamp_with_current_time = bool(self.get_parameter("stamp_with_current_time").value)
+        self.stale_stamp_warn_sec = float(self.get_parameter("stale_stamp_warn_sec").value)
         self.beam_count = int(math.ceil((self.angle_max - self.angle_min) / self.angle_increment))
 
         scan_qos = QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10)
@@ -80,8 +85,18 @@ class SimplePointCloudToLaserScan(Node):
             if 0 <= beam < self.beam_count and distance < ranges[beam]:
                 ranges[beam] = distance
 
+        now = self.get_clock().now()
+        cloud_stamp = Time.from_msg(msg.header.stamp)
+        stamp_age_sec = (now - cloud_stamp).nanoseconds / 1e9
+        if stamp_age_sec > self.stale_stamp_warn_sec:
+            self.get_logger().warn(
+                f"Input cloud stamp is {stamp_age_sec:.3f}s behind node time; "
+                "publishing scan with current time to keep Nav2 TF lookups valid",
+                throttle_duration_sec=2.0,
+            )
+
         scan = LaserScan()
-        scan.header.stamp = msg.header.stamp
+        scan.header.stamp = now.to_msg() if self.stamp_with_current_time else msg.header.stamp
         scan.header.frame_id = self.target_frame or msg.header.frame_id
         scan.angle_min = self.angle_min
         scan.angle_max = self.angle_max

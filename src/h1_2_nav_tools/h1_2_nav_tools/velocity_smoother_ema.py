@@ -14,11 +14,15 @@ class VelocitySmootherEma(Node):
         self.declare_parameter("cmd_rate", 30.0)
         self.declare_parameter("stop_counter", 3)
         self.declare_parameter("priority_timeout_sec", 0.6)
+        self.declare_parameter("min_linear_speed", 0.0)
+        self.declare_parameter("min_linear_speed_max_angular", 0.12)
 
         self.alpha_v = float(self.get_parameter("alpha_v").value)
         self.alpha_w = float(self.get_parameter("alpha_w").value)
         self.stop_counter_limit = int(self.get_parameter("stop_counter").value)
         self.priority_timeout_sec = float(self.get_parameter("priority_timeout_sec").value)
+        self.min_linear_speed = max(0.0, float(self.get_parameter("min_linear_speed").value))
+        self.min_linear_speed_max_angular = max(0.0, float(self.get_parameter("min_linear_speed_max_angular").value))
         self.stop_counter = 0
         self.priority_stop_counter = 0
         self.previous_x = 0.0
@@ -65,6 +69,14 @@ class VelocitySmootherEma(Node):
         sx = self.alpha_v * active_cmd.linear.x + (1.0 - self.alpha_v) * self.previous_x
         sy = self.alpha_v * active_cmd.linear.y + (1.0 - self.alpha_v) * self.previous_y
         sw = self.alpha_w * active_cmd.angular.z + (1.0 - self.alpha_w) * self.previous_w
+        should_raise_linear_speed = (
+            self.min_linear_speed > 0.0
+            and abs(active_cmd.linear.x) > 1e-4
+            and abs(sx) < self.min_linear_speed
+            and abs(sw) <= self.min_linear_speed_max_angular
+        )
+        if should_raise_linear_speed:
+            sx = self.min_linear_speed if active_cmd.linear.x > 0.0 else -self.min_linear_speed
 
         out = Twist()
         out.linear = active_cmd.linear

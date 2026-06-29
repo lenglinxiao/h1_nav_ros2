@@ -25,6 +25,17 @@ def generate_launch_description():
     global_relocalization_launch = os.path.join(bringup_share, "launch", "h1_2_global_relocalization.launch.py")
     p2l_params = os.path.join(bringup_share, "config", "pointcloud_to_laserscan_body.yaml")
     default_nav2_params = os.path.join(nav_tools_share, "config", "nav2_h1_2.yaml")
+    effective_min_linear_speed = PythonExpression(
+        [
+            "'0.20' if '",
+            LaunchConfiguration("params_file"),
+            "'.endswith('nav2_h1_2_rpp.yaml') and '",
+            LaunchConfiguration("min_linear_speed"),
+            "' == '0.0' else '",
+            LaunchConfiguration("min_linear_speed"),
+            "'",
+        ]
+    )
     robot_urdf = os.path.join(description_share, "h1_2_handless.urdf")
     with open(robot_urdf, "r", encoding="utf-8") as stream:
         robot_description = stream.read().replace(
@@ -83,6 +94,7 @@ def generate_launch_description():
             DeclareLaunchArgument("domain_id", default_value="0"),
             DeclareLaunchArgument("max_linear_speed", default_value="0.20"),
             DeclareLaunchArgument("max_angular_speed", default_value="0.5"),
+            DeclareLaunchArgument("min_linear_speed", default_value="0.0"),
             DeclareLaunchArgument("robot_pelvis_z", default_value="1.03"),
             DeclareLaunchArgument("goal_topic", default_value="/goal_pose"),
             DeclareLaunchArgument("memory_points_file", default_value="maps/memory_points.json"),
@@ -435,6 +447,8 @@ def generate_launch_description():
                         "cmd_rate": 20.0,
                         "alpha_v": 0.45,
                         "alpha_w": 0.45,
+                        "min_linear_speed": ParameterValue(effective_min_linear_speed, value_type=float),
+                        "min_linear_speed_max_angular": 0.12,
                     }
                 ],
             ),

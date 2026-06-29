@@ -12,3 +12,5 @@ pointcloud_to_laserscan:
     range_max: 30.0
     use_inf: true
     inf_epsilon: 1.0
+    stamp_with_current_time: true
+    stale_stamp_warn_sec: 1.0

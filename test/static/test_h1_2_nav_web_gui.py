@@ -6,6 +6,7 @@ TOOLS = ROOT / "src" / "h1_2_nav_tools"
 WEB_GUI = TOOLS / "h1_2_nav_tools" / "h1_2_nav_web_gui.py"
 CAMERA_STREAM = TOOLS / "h1_2_nav_tools" / "camera_stream.py"
 RUN_SCRIPT = ROOT / "run_ai_slam_nav.sh"
+CYCLONEDDS_CONFIG = ROOT / "config" / "cyclonedds_enp45s0.xml"
 
 
 def test_h1_2_nav_web_gui_console_script_is_registered():
@@ -259,24 +260,33 @@ def test_h1_2_nav_web_gui_exposes_teaching_route_controls():
     assert '"teaching_path_file"' in source
     assert '"teaching_events_file"' in source
     assert '"teaching_loop": True' in source
-    assert '"nav2_params_file": ""' in source
+    assert '"nav2_params_file": str(' in source
+    assert '"nav2_h1_2_rpp.yaml"' in source
+    assert 'if not str(config.get("nav2_params_file", "")).strip()' in source
     assert 'id="nav2_params_file"' in source
     assert "params_file=" in source
     assert 'id="teaching_path_file"' in source
     assert 'id="teaching_events_file"' in source
     assert "启动示教录制" in source
-    assert "开始录制" in source
-    assert "结束并保存" in source
+    assert "结束示教录制" in source
     assert "record_teaching_path.launch.py" in source
     assert "path_topic:=/teaching_route_path" in source
     assert "interactive_console:=false" in source
     assert 'id="teaching_loop"' in source
-    assert "启动示教节点" in source
-    assert "停止示教节点" in source
-    assert "开始示教巡航" in source
-    assert "停止示教巡航" in source
+    assert "启动示教节点" not in source
+    assert "停止示教节点" not in source
+    assert "启动示教巡航" in source
+    assert "结束示教巡航" in source
     assert "startTeachingRoute" in source
+    assert "def start_teaching_recording(self, payload):" in source
+    assert "self.processes.start_teaching_record_runner(payload)" in source
+    assert "teaching_record_service_available" in source
     assert "start_teaching_route_button" in source
+    assert 'body: JSON.stringify(payload())' in source
+    assert "def start_teaching_route(self, payload):" in source
+    assert "self.processes.start_teaching_route_runner(payload)" in source
+    assert "teaching_route_service_available" in source
+    assert "start_teaching_route service" in source
     assert "teaching_route_runner.launch.py" in source
     assert "teaching_route_process" in source
     assert "processes.teaching_route" in source
@@ -322,6 +332,13 @@ def test_h1_2_nav_web_gui_gates_route_start_on_stable_localization():
     assert "startRoute()" in source
     assert "startButton.disabled = !localization.ready" in source
     assert "LOCALIZATION_STATUS_TIMEOUT_SEC = 10.0" in source
+    assert "LOCALIZATION_TF_TARGET_FRAME = \"map\"" in source
+    assert "LOCALIZATION_TF_SOURCE_FRAME = \"camera_init\"" in source
+    assert "def localization_tf_available" in source
+    assert "定位状态正常，但 TF 未发布" in source
+    assert "TransformListener(self.tf_buffer, self.node, spin_thread=False)" in source
+    assert "start_teaching_record_button" in source
+    assert "startTeachingRecordButton.disabled = !localization.ready" in source
 
 
 def test_h1_2_nav_web_gui_uses_cli_ros_dds_environment_before_rclpy_init():
@@ -331,9 +348,17 @@ def test_h1_2_nav_web_gui_uses_cli_ros_dds_environment_before_rclpy_init():
     assert 'os.environ["ROS_LOCALHOST_ONLY"] = "0"' in source
     assert 'os.environ.setdefault("ROS_DOMAIN_ID", "0")' in source
     assert 'os.environ["RMW_IMPLEMENTATION"] = "rmw_cyclonedds_cpp"' in source
-    assert 'os.environ.pop("CYCLONEDDS_URI", None)' in source
+    assert '"cyclonedds_enp45s0.xml"' in source
+    assert 'os.environ["CYCLONEDDS_URI"] = f"file://{dds_config}"' in source
     assert 'os.environ.pop("FASTRTPS_DEFAULT_PROFILES_FILE", None)' in source
     assert source.index("configure_ros_environment()") < source.index("rclpy.init(args=None)")
+
+
+def test_cyclonedds_config_pins_the_navigation_interface_without_an_ip_address():
+    config = CYCLONEDDS_CONFIG.read_text(encoding="utf-8")
+
+    assert "<NetworkInterfaceAddress>enp45s0</NetworkInterfaceAddress>" in config
+    assert "192.168.123.90" not in config
 
 
 def test_run_script_still_exposes_online_and_offline_modes():
@@ -345,3 +370,14 @@ def test_run_script_still_exposes_online_and_offline_modes():
     assert "mode=save_pcd_map" in script
     assert "params_file=*" in script
     assert '"params_file:=${NAV2_PARAMS_FILE}"' in script
+    assert 'CYCLONEDDS_CONFIG="${WORKSPACE_DIR}/config/cyclonedds_enp45s0.xml"' in script
+    assert 'export CYCLONEDDS_URI="file://${CYCLONEDDS_CONFIG}"' in script
+    assert 'unset CYCLONEDDS_URI' not in script
+
+
+def test_h1_2_nav_web_gui_does_not_pass_launch_only_min_speed_to_script():
+    source = WEB_GUI.read_text(encoding="utf-8")
+
+    navigation_args = source[source.index("def navigation_args"):source.index("class RequestHandler")]
+    assert "params_file={params_path}" in navigation_args
+    assert "min_linear_speed=0.10" not in navigation_args

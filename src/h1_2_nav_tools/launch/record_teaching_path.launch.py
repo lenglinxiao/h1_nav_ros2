@@ -15,7 +15,8 @@ def generate_launch_description():
         [
             DeclareLaunchArgument("file_path", default_value=default_path_file),
             DeclareLaunchArgument("odom_topic", default_value="/slam_odom"),
-            DeclareLaunchArgument("distance_threshold", default_value="0.3"),
+            DeclareLaunchArgument("path_topic", default_value="/teaching_path"),
+            DeclareLaunchArgument("distance_threshold", default_value="0.1"),
             DeclareLaunchArgument("interactive_console", default_value="true"),
             Node(
                 package="h1_2_nav_tools",
@@ -27,6 +28,7 @@ def generate_launch_description():
                     {
                         "file_path": LaunchConfiguration("file_path"),
                         "odom_topic": LaunchConfiguration("odom_topic"),
+                        "path_topic": LaunchConfiguration("path_topic"),
                         "distance_threshold": LaunchConfiguration("distance_threshold"),
                         "interactive_console": ParameterValue(
                             LaunchConfiguration("interactive_console"), value_type=bool

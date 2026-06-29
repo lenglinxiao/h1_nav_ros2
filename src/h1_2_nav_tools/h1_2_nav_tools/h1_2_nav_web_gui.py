@@ -25,6 +25,7 @@ from h1_2_nav_tools.camera_stream import (
     encode_rgb_jpeg,
 )
 from rclpy.executors import MultiThreadedExecutor
+from rclpy.duration import Duration
 from rclpy.node import Node
 from rclpy.qos import (
     QoSDurabilityPolicy,
@@ -32,6 +33,7 @@ from rclpy.qos import (
     QoSProfile,
     QoSReliabilityPolicy,
 )
+from tf2_ros import Buffer, TransformListener
 
 
 CONFIG_PATH = Path.home() / ".ros" / "h1_2_nav_web_gui.json"
@@ -39,6 +41,8 @@ CONFIG_WORKFLOW_VERSION = 2
 LOCALIZATION_REQUIRED_STABLE_SAMPLES = 5
 LOCALIZATION_MAX_SCORE = 0.15
 LOCALIZATION_STATUS_TIMEOUT_SEC = 10.0
+LOCALIZATION_TF_TARGET_FRAME = "map"
+LOCALIZATION_TF_SOURCE_FRAME = "camera_init"
 GESTURE_OPTIONS = ["", "wave_hand", "shake_hand"]
 
 
@@ -48,7 +52,10 @@ def configure_ros_environment():
     os.environ["RMW_IMPLEMENTATION"] = "rmw_cyclonedds_cpp"
     os.environ.pop("ROS_HOSTNAME", None)
     os.environ.pop("ROS_IP", None)
-    os.environ.pop("CYCLONEDDS_URI", None)
+    dds_config = find_workspace_root() / "config" / "cyclonedds_enp45s0.xml"
+    if not dds_config.is_file():
+        raise RuntimeError(f"Cyclone DDS config does not exist: {dds_config}")
+    os.environ["CYCLONEDDS_URI"] = f"file://{dds_config}"
     os.environ.pop("FASTRTPS_DEFAULT_PROFILES_FILE", None)
 
 
@@ -237,6 +244,8 @@ class RosServiceBridge:
         self.localization_stable_samples = 0
         self.latest_localization_status = None
         self.latest_localization_time = None
+        self.tf_buffer = Buffer()
+        self.tf_listener = TransformListener(self.tf_buffer, self.node, spin_thread=False)
         self.executor = MultiThreadedExecutor()
         self.executor.add_node(self.node)
         self.thread = threading.Thread(target=self.executor.spin, daemon=True)
@@ -296,7 +305,16 @@ class RosServiceBridge:
     def teaching_route_status(self):
         return self._route_status("teaching_route_status", self.teaching_status_client)
 
+    def teaching_route_service_available(self, timeout_sec=0.2):
+        return self.teaching_start_client.wait_for_service(timeout_sec=timeout_sec)
+
+    def teaching_record_service_available(self, timeout_sec=0.2):
+        return self.teaching_record_start_client.wait_for_service(timeout_sec=timeout_sec)
+
     def teaching_record_start(self):
+        localization = self.localization_status()
+        if not localization["ready"]:
+            return {"success": False, "message": localization["message"]}
         return self._call_simple(
             "start_teaching_path_recording",
             self.teaching_record_start_client,
@@ -478,15 +496,19 @@ class RosServiceBridge:
                 "message": "定位未稳定：等待 /icp_localization/status",
             }
         age = max(0.0, time.monotonic() - updated_at)
-        ready = (
+        status_ready = (
             age <= LOCALIZATION_STATUS_TIMEOUT_SEC
             and stable_samples >= LOCALIZATION_REQUIRED_STABLE_SAMPLES
         )
-        if ready:
+        tf_ready, tf_message = self.localization_tf_available()
+        ready = status_ready and tf_ready
+        if status_ready and tf_ready:
             status_message = (
                 f"定位稳定，可开始巡航（score={message.score:.3f}，"
                 f"{stable_samples}/{LOCALIZATION_REQUIRED_STABLE_SAMPLES}）"
             )
+        elif status_ready:
+            status_message = f"定位状态正常，但 TF 未发布：{tf_message}"
         elif age > LOCALIZATION_STATUS_TIMEOUT_SEC:
             status_message = f"定位未稳定：状态已超时 {age:.1f}s"
         else:
@@ -506,6 +528,18 @@ class RosServiceBridge:
             "age_sec": round(age, 3),
             "message": status_message,
         }
+
+    def localization_tf_available(self):
+        try:
+            self.tf_buffer.lookup_transform(
+                LOCALIZATION_TF_TARGET_FRAME,
+                LOCALIZATION_TF_SOURCE_FRAME,
+                rclpy.time.Time(),
+                timeout=Duration(seconds=0.1),
+            )
+            return True, f"{LOCALIZATION_TF_TARGET_FRAME}->{LOCALIZATION_TF_SOURCE_FRAME} available"
+        except Exception as exc:
+            return False, str(exc)
 
     def _on_rgb_image(self, message):
         try:
@@ -691,6 +725,7 @@ class ProcessManager:
                     f"path_file:={path_file}",
                     f"events_file:={events_file}",
                     f"memory_points_file:={self.workspace_root / 'maps' / 'memory_points.json'}",
+                    "control_mode:=direct",
                     f"loop:={str(bool(payload.get('teaching_loop', True))).lower()}",
                 ],
             )
@@ -881,7 +916,9 @@ class WebGuiApp:
             "return_to_start": False,
             "memory_route": "A,B,C",
             "gesture_route": "",
-            "nav2_params_file": "",
+            "nav2_params_file": str(
+                self.workspace_root / "src" / "h1_2_nav_tools" / "config" / "nav2_h1_2_rpp.yaml"
+            ),
             "teaching_path_file": str(
                 self.workspace_root / "src" / "h1_2_nav_tools" / "path" / "teaching_paths.txt"
             ),
@@ -928,6 +965,10 @@ class WebGuiApp:
         config["memory_route"] = normalize_memory_route(
             config.get("memory_route", "A,B,C")
         )
+        if not str(config.get("nav2_params_file", "")).strip():
+            config["nav2_params_file"] = str(
+                self.workspace_root / "src" / "h1_2_nav_tools" / "config" / "nav2_h1_2_rpp.yaml"
+            )
         config["camera_preview_enabled"] = False
         config["workflow_version"] = CONFIG_WORKFLOW_VERSION
         config["voice_remote_host"] = normalize_ssh_target(config.get("voice_remote_host", ""))
@@ -983,6 +1024,47 @@ class WebGuiApp:
         self.save_config(config)
         self.ros.configure_camera(config)
         return {"success": True, "message": "相机预览已关闭"}
+
+    @staticmethod
+    def _wait_for(predicate, timeout_sec=5.0):
+        deadline = time.monotonic() + timeout_sec
+        while time.monotonic() < deadline:
+            if predicate():
+                return True
+            time.sleep(0.1)
+        return False
+
+    def start_teaching_recording(self, payload):
+        self.save_config(payload)
+        if not self.ros.teaching_record_service_available(timeout_sec=0.2):
+            process_start = self.processes.start_teaching_record_runner(payload)
+            if not process_start.get("success") and "already running" not in process_start.get("message", ""):
+                return process_start
+            if not self._wait_for(lambda: self.ros.teaching_record_service_available(timeout_sec=0.2)):
+                return {
+                    "success": False,
+                    "message": (
+                        "teaching path recorder started, but start_teaching_path_recording "
+                        "service did not become available"
+                    ),
+                }
+        return self.ros.teaching_record_start()
+
+    def start_teaching_route(self, payload):
+        self.save_config(payload)
+        if not self.ros.teaching_route_service_available(timeout_sec=0.2):
+            process_start = self.processes.start_teaching_route_runner(payload)
+            if not process_start.get("success") and "already running" not in process_start.get("message", ""):
+                return process_start
+            if not self._wait_for(lambda: self.ros.teaching_route_service_available(timeout_sec=0.2)):
+                return {
+                    "success": False,
+                    "message": (
+                        "teaching route runner started, but start_teaching_route service "
+                        "did not become available"
+                    ),
+                }
+        return self.ros.teaching_route_start()
 
     def vision_status(self):
         status = self.ros.vision_status()
@@ -1061,7 +1143,8 @@ class WebGuiApp:
         )
         params_file = str(payload.get("nav2_params_file", "")).strip()
         if params_file:
-            args.append(f"params_file={Path(params_file).expanduser()}")
+            params_path = Path(params_file).expanduser()
+            args.append(f"params_file={params_path}")
         return args
 
 class RequestHandler(BaseHTTPRequestHandler):
@@ -1175,7 +1258,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                 }
             )
         elif parsed.path == "/api/teaching_record/start":
-            self._send_json(self.app.ros.teaching_record_start())
+            self._send_json(self.app.start_teaching_recording(payload))
         elif parsed.path == "/api/teaching_record/stop_save":
             self._send_json(self.app.ros.teaching_record_stop_save())
         elif parsed.path == "/api/teaching_route/process/stop":
@@ -1189,7 +1272,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                 }
             )
         elif parsed.path == "/api/teaching_route/start":
-            self._send_json(self.app.ros.teaching_route_start())
+            self._send_json(self.app.start_teaching_route(payload))
         elif parsed.path == "/api/teaching_route/stop":
             self._send_json(self.app.ros.teaching_route_stop())
         elif parsed.path == "/api/gesture":
@@ -1591,20 +1674,12 @@ INDEX_HTML = r"""<!doctype html>
             <button class="btn" onclick="postAction('/api/route/stop')">停止巡航</button>
             </div>
             <div class="two">
-              <button class="btn soft" onclick="postAction('/api/teaching_record/process/start', true)">启动示教录制</button>
-              <button class="btn" onclick="postAction('/api/teaching_record/process/stop')">停止录制节点</button>
+              <button id="start_teaching_record_button" class="btn primary" onclick="postAction('/api/teaching_record/start', true)" disabled>启动示教录制</button>
+              <button class="btn" onclick="postAction('/api/teaching_record/process/stop')">结束示教录制</button>
             </div>
             <div class="two">
-              <button class="btn primary" onclick="postAction('/api/teaching_record/start')">开始录制</button>
-              <button class="btn" onclick="postAction('/api/teaching_record/stop_save')">结束并保存</button>
-            </div>
-            <div class="two">
-              <button class="btn soft" onclick="postAction('/api/teaching_route/process/start', true)">启动示教节点</button>
-              <button class="btn" onclick="postAction('/api/teaching_route/process/stop')">停止示教节点</button>
-            </div>
-            <div class="two">
-              <button id="start_teaching_route_button" class="btn primary" onclick="startTeachingRoute()" disabled>开始示教巡航</button>
-              <button class="btn" onclick="postAction('/api/teaching_route/stop')">停止示教巡航</button>
+              <button id="start_teaching_route_button" class="btn primary" onclick="startTeachingRoute()" disabled>启动示教巡航</button>
+              <button class="btn" onclick="postAction('/api/teaching_route/process/stop')">结束示教巡航</button>
             </div>
             <div class="two">
               <button class="btn soft" onclick="postAction('/api/voice/start', true)">启动语音控制</button>
@@ -1900,7 +1975,7 @@ INDEX_HTML = r"""<!doctype html>
     }
 
     async function startTeachingRoute() {
-      const result = await api("/api/teaching_route/start", { method: "POST", body: "{}" });
+      const result = await api("/api/teaching_route/start", { method: "POST", body: JSON.stringify(payload()) });
       appendLog("teaching-route", result.message || JSON.stringify(result));
       refreshStatus();
     }
@@ -2014,6 +2089,9 @@ INDEX_HTML = r"""<!doctype html>
       const startTeachingButton = $("start_teaching_route_button");
       startTeachingButton.disabled = !localization.ready;
       startTeachingButton.title = localization.message || "定位未稳定";
+      const startTeachingRecordButton = $("start_teaching_record_button");
+      startTeachingRecordButton.disabled = !localization.ready;
+      startTeachingRecordButton.title = localization.message || "定位未稳定";
       const processes = data.processes || {};
       $("processes").textContent = `nav=${processes.navigation?.running ? "running" : "idle"}, rviz=${processes.rviz?.running ? "running" : "idle"}, teaching_record=${processes.teaching_record?.running ? "running" : "idle"}, teaching=${processes.teaching_route?.running ? "running" : "idle"}, voice_reader=${processes.voice?.running ? "running" : "idle"}, voice_bridge=${processes.voice_bridge?.running ? "running" : "idle"}, vision=${processes.vision?.running ? "running" : "idle"}`;
       await refreshCameraStatus(data.camera || null);

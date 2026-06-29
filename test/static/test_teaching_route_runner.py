@@ -29,12 +29,27 @@ def test_teaching_route_runner_registers_follow_path_and_route_services():
     assert "class TeachingRouteRunner(Node):" in source
     assert "FollowPath" in source
     assert "ActionClient(self, FollowPath" in source
+    assert "TransformListener(self.tf_buffer, self)" in source
+    assert 'self.declare_parameter("control_mode", "direct")' in source
+    assert 'self.declare_parameter("cmd_topic", "/cmd_vel")' in source
+    assert "def direct_tracking_step(self):" in source
+    assert "find_nearest_pose_index" in source
+    assert "signed_lateral_error" in source
+    assert "Direct teaching tracker is off path" in source
     assert "StartRoute" in source
     assert "StopRoute" in source
     assert "RouteStatus" in source
     assert 'self.declare_parameter("start_service", "start_teaching_route")' in source
     assert 'self.declare_parameter("stop_service", "stop_teaching_route")' in source
     assert 'self.declare_parameter("status_service", "teaching_route_status")' in source
+    assert 'self.declare_parameter("enable_start_pose_guard", True)' in source
+    assert "def validate_start_pose(self, path_msg):" in source
+    assert "Teaching route start pose mismatch" in source
+    assert 'DeclareLaunchArgument("enable_start_pose_guard", default_value="true")' in launch
+    assert 'DeclareLaunchArgument("start_xy_tolerance", default_value="0.5")' in launch
+    assert 'DeclareLaunchArgument("control_mode", default_value="direct")' in launch
+    assert 'DeclareLaunchArgument("tracking_lookahead_dist", default_value="0.25")' in launch
+    assert 'DeclareLaunchArgument("tracking_linear_speed", default_value="0.08")' in launch
     assert "teaching_route_runner = h1_2_nav_tools.teaching_route_runner:main" in setup
     assert 'executable="teaching_route_runner"' in launch
 
@@ -88,6 +103,18 @@ def test_teaching_route_runner_publishes_the_saved_path_for_rviz():
         assert "Color: 255; 140; 0" in rviz
 
 
+def test_teaching_route_uses_low_speed_rpp_for_path_tracking():
+    rpp = read(RPP)
+
+    assert 'plugin: "nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController"' in rpp
+    assert "desired_linear_vel: 0.10" in rpp
+    assert "lookahead_dist: 0.25" in rpp
+    assert "min_lookahead_dist: 0.15" in rpp
+    assert "max_lookahead_dist: 0.35" in rpp
+    assert "min_approach_linear_velocity: 0.06" in rpp
+    assert "regulated_linear_scaling_min_speed: 0.06" in rpp
+
+
 def test_teaching_path_recorder_exposes_web_controllable_record_and_save_services():
     source = read(RECORDER)
     launch = read(RECORDER_LAUNCH)
@@ -101,7 +128,14 @@ def test_teaching_path_recorder_exposes_web_controllable_record_and_save_service
     assert "self.publish_current_path()" in source
     assert "def stop_and_save_callback" in source
     assert "interactive_console" in source
+    assert 'self.declare_parameter("required_tf_source_frame", "camera_init")' in source
+    assert "def required_tf_available(self):" in source
+    assert "Wait for offline localization before recording." in source
+    assert 'self.declare_parameter("distance_threshold", 0.1)' in source
+    assert 'DeclareLaunchArgument("distance_threshold", default_value="0.1")' in launch
     assert 'DeclareLaunchArgument("interactive_console", default_value="true")' in launch
+    assert 'DeclareLaunchArgument("path_topic", default_value="/teaching_path")' in launch
+    assert '"path_topic": LaunchConfiguration("path_topic")' in launch
 
 
 def test_route_runners_use_peer_status_guard_to_avoid_concurrent_control():
@@ -128,7 +162,15 @@ def test_rpp_config_is_additive_and_uses_regulated_pure_pursuit():
 
     assert "nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController" in rpp
     assert 'controller_plugins: ["FollowPath"]' in rpp
-    assert "desired_linear_vel: 0.18" in rpp
-    assert "lookahead_dist" in rpp
+    assert "desired_linear_vel: 0.10" in rpp
+    assert "required_movement_radius: 0.1" in rpp
+    assert "movement_time_allowance: 20.0" in rpp
+    assert "min_approach_linear_velocity: 0.06" in rpp
+    assert "regulated_linear_scaling_min_speed: 0.06" in rpp
+    assert "use_cost_regulated_linear_velocity_scaling: false" in rpp
+    assert "use_rotate_to_heading: false" in rpp
+    assert "lookahead_dist: 0.25" in rpp
+    assert "min_lookahead_dist: 0.15" in rpp
+    assert "max_lookahead_dist: 0.35" in rpp
     assert "dwb_core::DWBLocalPlanner" in dwb
     assert "nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController" not in dwb

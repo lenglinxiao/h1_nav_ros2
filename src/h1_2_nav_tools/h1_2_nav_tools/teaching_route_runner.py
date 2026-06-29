@@ -9,10 +9,12 @@ from h1_2_nav_msgs.srv import ExecuteGesture, RouteStatus, StartRoute, StopRoute
 from nav2_msgs.action import FollowPath
 from nav_msgs.msg import Path
 from rclpy.action import ActionClient
+from rclpy.duration import Duration
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
 from std_msgs.msg import Int32
+from tf2_ros import Buffer, TransformListener
 
 from .route_activity_guard import RouteActivityGuard
 
@@ -25,6 +27,16 @@ class TeachingRouteRunner(Node):
         self.declare_parameter("memory_points_file", "maps/memory_points.json")
         self.declare_parameter("follow_path_action", "follow_path")
         self.declare_parameter("controller_id", "FollowPath")
+        self.declare_parameter("control_mode", "direct")
+        self.declare_parameter("cmd_topic", "/cmd_vel")
+        self.declare_parameter("control_frequency", 20.0)
+        self.declare_parameter("tracking_linear_speed", 0.08)
+        self.declare_parameter("tracking_lookahead_dist", 0.25)
+        self.declare_parameter("tracking_goal_tolerance", 0.18)
+        self.declare_parameter("max_tracking_error", 0.6)
+        self.declare_parameter("heading_gain", 1.4)
+        self.declare_parameter("lateral_gain", 0.8)
+        self.declare_parameter("max_tracking_angular_speed", 0.35)
         self.declare_parameter("start_service", "start_teaching_route")
         self.declare_parameter("stop_service", "stop_teaching_route")
         self.declare_parameter("status_service", "teaching_route_status")
@@ -39,6 +51,11 @@ class TeachingRouteRunner(Node):
         self.declare_parameter("stop_cmd_topic", "/cmd_vel")
         self.declare_parameter("event_wait_sec", 0.5)
         self.declare_parameter("frame_id", "map")
+        self.declare_parameter("robot_frame", "body")
+        self.declare_parameter("enable_start_pose_guard", True)
+        self.declare_parameter("start_xy_tolerance", 0.5)
+        self.declare_parameter("start_yaw_tolerance", 1.0)
+        self.declare_parameter("start_tf_timeout_sec", 0.2)
         self.declare_parameter("visualization_path_topic", "/teaching_route_path")
 
         self.path_file_value = str(self.get_parameter("path_file").value or "").strip()
@@ -46,12 +63,26 @@ class TeachingRouteRunner(Node):
         self.events_file = str(self.get_parameter("events_file").value or "").strip()
         self.memory_points_file = FilePath(self.get_parameter("memory_points_file").value).expanduser()
         self.controller_id = self.get_parameter("controller_id").value
+        self.control_mode = str(self.get_parameter("control_mode").value).strip().lower()
         self.server_timeout_sec = float(self.get_parameter("server_timeout_sec").value)
         self.loop = bool(self.get_parameter("loop").value)
         self.default_trigger_radius = max(0.0, float(self.get_parameter("default_trigger_radius").value))
         self.gesture_timeout_sec = max(0.0, float(self.get_parameter("gesture_timeout_sec").value))
         self.event_wait_sec = max(0.0, float(self.get_parameter("event_wait_sec").value))
         self.frame_id = str(self.get_parameter("frame_id").value)
+        self.robot_frame = str(self.get_parameter("robot_frame").value)
+        self.enable_start_pose_guard = bool(self.get_parameter("enable_start_pose_guard").value)
+        self.start_xy_tolerance = max(0.0, float(self.get_parameter("start_xy_tolerance").value))
+        self.start_yaw_tolerance = max(0.0, float(self.get_parameter("start_yaw_tolerance").value))
+        self.start_tf_timeout_sec = max(0.0, float(self.get_parameter("start_tf_timeout_sec").value))
+        self.control_frequency = max(1.0, float(self.get_parameter("control_frequency").value))
+        self.tracking_linear_speed = max(0.0, float(self.get_parameter("tracking_linear_speed").value))
+        self.tracking_lookahead_dist = max(0.05, float(self.get_parameter("tracking_lookahead_dist").value))
+        self.tracking_goal_tolerance = max(0.02, float(self.get_parameter("tracking_goal_tolerance").value))
+        self.max_tracking_error = max(0.05, float(self.get_parameter("max_tracking_error").value))
+        self.heading_gain = float(self.get_parameter("heading_gain").value)
+        self.lateral_gain = float(self.get_parameter("lateral_gain").value)
+        self.max_tracking_angular_speed = max(0.05, float(self.get_parameter("max_tracking_angular_speed").value))
 
         self.state = "idle"
         self.current_goal = ""
@@ -61,10 +92,16 @@ class TeachingRouteRunner(Node):
         self.active_goal_handle = None
         self.active_gesture_future = None
         self.pending_timer = None
+        self.control_timer = None
+        self.current_tracking_path = None
+        self.tracking_index = 0
         self.segments = []
 
+        self.tf_buffer = Buffer()
+        self.tf_listener = TransformListener(self.tf_buffer, self)
         self.action_client = ActionClient(self, FollowPath, self.get_parameter("follow_path_action").value)
         self.gesture_client = self.create_client(ExecuteGesture, self.get_parameter("gesture_service_name").value)
+        self.cmd_pub = self.create_publisher(Twist, self.get_parameter("cmd_topic").value, 10)
         self.voice_pub = self.create_publisher(Int32, self.get_parameter("voice_feedback_topic").value, 10)
         self.stop_cmd_pub = self.create_publisher(Twist, self.get_parameter("stop_cmd_topic").value, 10)
         self.teaching_path_pub = self.create_publisher(
@@ -89,7 +126,8 @@ class TeachingRouteRunner(Node):
 
         self.get_logger().info(
             f"Teaching route runner ready: path_file={self.path_file}, "
-            f"events_file={self.events_file or '<none>'}, controller_id={self.controller_id}"
+            f"events_file={self.events_file or '<none>'}, control_mode={self.control_mode}, "
+            f"controller_id={self.controller_id}"
         )
 
     def start_callback(self, request, response):
@@ -107,7 +145,12 @@ class TeachingRouteRunner(Node):
         if guard_message:
             self.get_logger().info(guard_message)
 
-        if not self.action_client.wait_for_server(timeout_sec=self.server_timeout_sec):
+        if self.control_mode not in ("direct", "nav2"):
+            response.success = False
+            response.message = f"Unsupported teaching control_mode: {self.control_mode}"
+            return response
+
+        if self.control_mode == "nav2" and not self.action_client.wait_for_server(timeout_sec=self.server_timeout_sec):
             response.success = False
             response.message = "Nav2 FollowPath action server is not available."
             return response
@@ -118,6 +161,11 @@ class TeachingRouteRunner(Node):
             response.message = self.last_message
             return response
         self.publish_teaching_path(path_msg)
+
+        if not self.validate_start_pose(path_msg):
+            response.success = False
+            response.message = self.last_message
+            return response
 
         events = self.load_route_events(path_msg)
         if events is None:
@@ -152,6 +200,7 @@ class TeachingRouteRunner(Node):
         del request
         self.stop_requested = True
         self.cancel_pending_timer()
+        self.stop_direct_tracking()
         self.active_gesture_future = None
         self.publish_stop_command()
         if self.active_goal_handle is not None:
@@ -221,6 +270,45 @@ class TeachingRouteRunner(Node):
         path_msg.header.frame_id = self.frame_id
         path_msg.poses = poses
         return path_msg
+
+    def validate_start_pose(self, path_msg):
+        if not self.enable_start_pose_guard:
+            return True
+        start = path_msg.poses[0].pose
+        try:
+            transform = self.tf_buffer.lookup_transform(
+                self.frame_id,
+                self.robot_frame,
+                rclpy.time.Time(),
+                timeout=Duration(seconds=self.start_tf_timeout_sec),
+            )
+        except Exception as exc:
+            self.state = "blocked"
+            self.last_message = (
+                f"Cannot verify teaching route start pose: TF {self.frame_id}->{self.robot_frame} "
+                f"is unavailable: {exc}"
+            )
+            self.get_logger().warn(self.last_message)
+            return False
+
+        current = transform.transform.translation
+        xy_error = math.hypot(current.x - start.position.x, current.y - start.position.y)
+        current_yaw = self.yaw_from_quaternion(transform.transform.rotation)
+        start_yaw = self.yaw_from_quaternion(start.orientation)
+        yaw_error = abs(self.normalize_angle(current_yaw - start_yaw))
+        if xy_error <= self.start_xy_tolerance and yaw_error <= self.start_yaw_tolerance:
+            return True
+
+        self.state = "blocked"
+        self.last_message = (
+            "Teaching route start pose mismatch: "
+            f"current=({current.x:.2f},{current.y:.2f},{current_yaw:.2f}), "
+            f"path_start=({start.position.x:.2f},{start.position.y:.2f},{start_yaw:.2f}), "
+            f"error=({xy_error:.2f}m,{yaw_error:.2f}rad), "
+            f"limit=({self.start_xy_tolerance:.2f}m,{self.start_yaw_tolerance:.2f}rad)."
+        )
+        self.get_logger().warn(self.last_message)
+        return False
 
     def publish_teaching_path(self, path_msg):
         stamp = self.get_clock().now().to_msg()
@@ -315,6 +403,21 @@ class TeachingRouteRunner(Node):
         p = pose_stamped.pose.position
         return math.hypot(p.x - x, p.y - y)
 
+    @staticmethod
+    def yaw_from_quaternion(q):
+        return math.atan2(
+            2.0 * (q.w * q.z + q.x * q.y),
+            1.0 - 2.0 * (q.y * q.y + q.z * q.z),
+        )
+
+    @staticmethod
+    def normalize_angle(angle):
+        while angle > math.pi:
+            angle -= 2.0 * math.pi
+        while angle < -math.pi:
+            angle += 2.0 * math.pi
+        return angle
+
     def build_segments(self, path_msg, events):
         segments = []
         start_index = 0
@@ -368,6 +471,10 @@ class TeachingRouteRunner(Node):
         self.last_message = f"Sending teaching path segment: {self.current_goal}"
         self.get_logger().info(self.last_message)
 
+        if self.control_mode == "direct":
+            self.start_direct_tracking(path_msg)
+            return
+
         goal = FollowPath.Goal()
         goal.path = path_msg
         goal.controller_id = self.controller_id
@@ -411,6 +518,129 @@ class TeachingRouteRunner(Node):
             self.execute_event(event)
             return
         self.finish_segment_arrival("Teaching path segment completed.")
+
+    def start_direct_tracking(self, path_msg):
+        self.stop_direct_tracking(publish_stop=False)
+        self.current_tracking_path = path_msg
+        self.tracking_index = 0
+        self.control_timer = self.create_timer(1.0 / self.control_frequency, self.direct_tracking_step)
+
+    def stop_direct_tracking(self, publish_stop=True):
+        if self.control_timer is not None:
+            self.control_timer.cancel()
+            self.control_timer = None
+        self.current_tracking_path = None
+        self.tracking_index = 0
+        if publish_stop:
+            self.publish_stop_command()
+
+    def direct_tracking_step(self):
+        if self.stop_requested:
+            self.stop_direct_tracking()
+            self.state = "idle"
+            self.current_goal = ""
+            self.last_message = "Teaching route stopped."
+            return
+        if self.current_tracking_path is None or len(self.current_tracking_path.poses) < 2:
+            self.state = "blocked"
+            self.last_message = "Direct teaching tracker has no valid path."
+            self.get_logger().warn(self.last_message)
+            self.stop_direct_tracking()
+            return
+
+        robot_pose = self.lookup_robot_pose()
+        if robot_pose is None:
+            self.state = "blocked"
+            self.last_message = f"Direct teaching tracker lost TF {self.frame_id}->{self.robot_frame}."
+            self.get_logger().warn(self.last_message)
+            self.stop_direct_tracking()
+            return
+        px, py, yaw = robot_pose
+        poses = self.current_tracking_path.poses
+        nearest_index, nearest_error = self.find_nearest_pose_index(poses, px, py)
+        self.tracking_index = max(self.tracking_index, nearest_index)
+
+        if nearest_error > self.max_tracking_error:
+            self.state = "blocked"
+            self.last_message = (
+                f"Direct teaching tracker is off path: error={nearest_error:.2f}m "
+                f"> {self.max_tracking_error:.2f}m at index {nearest_index}."
+            )
+            self.get_logger().warn(self.last_message)
+            self.stop_direct_tracking()
+            return
+
+        goal = poses[-1].pose.position
+        goal_error = math.hypot(goal.x - px, goal.y - py)
+        if goal_error <= self.tracking_goal_tolerance and self.tracking_index >= len(poses) - 2:
+            self.stop_direct_tracking()
+            self.handle_segment_arrival()
+            return
+
+        target_index = self.find_lookahead_index(poses, self.tracking_index)
+        target = poses[target_index].pose.position
+        target_yaw = math.atan2(target.y - py, target.x - px)
+        heading_error = self.normalize_angle(target_yaw - yaw)
+        lateral_error = self.signed_lateral_error(poses, self.tracking_index, px, py)
+        angular = self.heading_gain * heading_error - self.lateral_gain * lateral_error
+        angular = self.clamp(angular, -self.max_tracking_angular_speed, self.max_tracking_angular_speed)
+
+        speed_scale = max(0.25, 1.0 - min(abs(heading_error), 1.2) / 1.2)
+        lateral_scale = max(0.35, 1.0 - min(abs(lateral_error), self.max_tracking_error) / self.max_tracking_error)
+        cmd = Twist()
+        cmd.linear.x = self.tracking_linear_speed * speed_scale * lateral_scale
+        if abs(heading_error) > 1.2:
+            cmd.linear.x = 0.0
+        cmd.angular.z = angular
+        self.cmd_pub.publish(cmd)
+
+    def lookup_robot_pose(self):
+        try:
+            transform = self.tf_buffer.lookup_transform(
+                self.frame_id,
+                self.robot_frame,
+                rclpy.time.Time(),
+                timeout=Duration(seconds=self.start_tf_timeout_sec),
+            )
+        except Exception:
+            return None
+        translation = transform.transform.translation
+        yaw = self.yaw_from_quaternion(transform.transform.rotation)
+        return translation.x, translation.y, yaw
+
+    def find_nearest_pose_index(self, poses, px, py):
+        start = max(0, self.tracking_index - 5)
+        best_index = start
+        best_distance = float("inf")
+        for index in range(start, len(poses)):
+            point = poses[index].pose.position
+            distance = math.hypot(point.x - px, point.y - py)
+            if distance < best_distance:
+                best_distance = distance
+                best_index = index
+        return best_index, best_distance
+
+    def find_lookahead_index(self, poses, start_index):
+        distance = 0.0
+        previous = poses[start_index].pose.position
+        for index in range(start_index + 1, len(poses)):
+            point = poses[index].pose.position
+            distance += math.hypot(point.x - previous.x, point.y - previous.y)
+            if distance >= self.tracking_lookahead_dist:
+                return index
+            previous = point
+        return len(poses) - 1
+
+    def signed_lateral_error(self, poses, index, px, py):
+        start = poses[max(0, index - 1)].pose.position
+        end = poses[min(len(poses) - 1, index + 1)].pose.position
+        dx = end.x - start.x
+        dy = end.y - start.y
+        norm = math.hypot(dx, dy)
+        if norm < 1e-6:
+            return 0.0
+        nearest = poses[index].pose.position
+        return (dx * (py - nearest.y) - dy * (px - nearest.x)) / norm
 
     def execute_event(self, event):
         if self.stop_requested:
@@ -508,6 +738,7 @@ class TeachingRouteRunner(Node):
         self.schedule_timer(self.event_wait_sec, self.send_current_segment)
 
     def publish_stop_command(self):
+        self.cmd_pub.publish(Twist())
         self.stop_cmd_pub.publish(Twist())
 
     def schedule_timer(self, delay_sec, callback):
@@ -539,6 +770,10 @@ class TeachingRouteRunner(Node):
             GoalStatus.STATUS_ABORTED: "ABORTED",
         }
         return names.get(status, str(status))
+
+    @staticmethod
+    def clamp(value, minimum, maximum):
+        return max(minimum, min(maximum, value))
 
 
 def main():

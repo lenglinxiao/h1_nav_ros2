@@ -882,15 +882,30 @@ private:
     }
     Eigen::Matrix4d map_to_odom = Eigen::Matrix4d::Identity();
     bool should_publish = false;
+    bool degraded = false;
+    double score = std::numeric_limits<double>::infinity();
     rclcpp::Time stamp = now() + rclcpp::Duration::from_seconds(transform_tolerance_sec_);
     {
       std::lock_guard<std::mutex> lock(data_mutex_);
       should_publish = localized_;
       map_to_odom = map_to_odom_;
+      degraded = degraded_;
+      score = last_score_;
     }
     if (should_publish) {
       tf_broadcaster_->sendTransform(
         matrixToTransformMsg(map_to_odom, stamp, map_frame_, odom_frame_));
+      if (!tf_is_publishing_) {
+        RCLCPP_INFO(
+          get_logger(), "Publishing TF %s -> %s (score=%.3f, degraded=%s)",
+          map_frame_.c_str(), odom_frame_.c_str(), score, degraded ? "true" : "false");
+        tf_is_publishing_ = true;
+      }
+    } else if (tf_is_publishing_) {
+      RCLCPP_WARN(
+        get_logger(), "Stopped publishing TF %s -> %s because localization is unavailable.",
+        map_frame_.c_str(), odom_frame_.c_str());
+      tf_is_publishing_ = false;
     }
   }
 
@@ -927,6 +942,7 @@ private:
   bool map_loaded_ = false;
   bool localized_ = false;
   bool degraded_ = false;
+  bool tf_is_publishing_ = false;
   bool have_odom_ = false;
 
   double global_voxel_resolution_ = 0.35;

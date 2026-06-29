@@ -57,6 +57,15 @@ def test_offline_navigation_starts_loco_ros_shim_for_cmd_vel_nav():
 
     assert '"cmd_topic": "/cmd_vel_nav"' in launch
     assert '"priority_cmd_topic": "/cmd_vel_voice"' in launch
+    assert 'DeclareLaunchArgument("min_linear_speed", default_value="0.0")' in launch
+    assert "effective_min_linear_speed = PythonExpression" in launch
+    assert "endswith('nav2_h1_2_rpp.yaml')" in launch
+    assert '"min_linear_speed": ParameterValue(effective_min_linear_speed, value_type=float)' in launch
+    assert '"min_linear_speed_max_angular": 0.12' in launch
+    assert 'self.declare_parameter("min_linear_speed", 0.0)' in smoother
+    assert 'self.declare_parameter("min_linear_speed_max_angular", 0.12)' in smoother
+    assert "self.min_linear_speed = max(0.0" in smoother
+    assert "abs(sw) <= self.min_linear_speed_max_angular" in smoother
     assert 'self.declare_parameter("priority_cmd_topic", "/cmd_vel_voice")' in smoother
     assert "def priority_twist_callback" in smoother
     assert '"start_ros_shim": "true"' in launch

@@ -22,7 +22,7 @@ play_teaching_path:
 record_teaching_path:
   ros__parameters:
     file_path: ""
-    distance_threshold: 0.3
+    distance_threshold: 0.1
     frame_id: map
     odom_topic: /slam_odom
     path_topic: /teaching_path

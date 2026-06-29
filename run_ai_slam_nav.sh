@@ -2,6 +2,7 @@
 set -eo pipefail
 
 WORKSPACE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CYCLONEDDS_CONFIG="${WORKSPACE_DIR}/config/cyclonedds_enp45s0.xml"
 LOCK_FILE="/tmp/h1_2_ai_slam_nav.lock"
 MODE="online"
 MAP_FILE=""
@@ -110,6 +111,11 @@ if [[ "${MODE}" == "mapping" ]]; then
   MODE="online"
 fi
 
+if [[ ! -f "${CYCLONEDDS_CONFIG}" ]]; then
+  echo "Cyclone DDS config does not exist: ${CYCLONEDDS_CONFIG}"
+  exit 2
+fi
+
 if [[ "${MODE}" != "online" && "${MODE}" != "navigation" && "${MODE}" != "save_map" && "${MODE}" != "save_pcd_map" ]]; then
   echo "Invalid mode: ${MODE}. Use mode=online, mode=save_map, mode=save_pcd_map, or mode=navigation."
   exit 2
@@ -161,7 +167,7 @@ if [[ "${MODE}" == "save_map" ]]; then
   export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
   unset ROS_HOSTNAME
   unset ROS_IP
-  unset CYCLONEDDS_URI
+  export CYCLONEDDS_URI="file://${CYCLONEDDS_CONFIG}"
   unset FASTRTPS_DEFAULT_PROFILES_FILE
 
   MAP_SAVE_DIR="$(dirname "${MAP_SAVE_PREFIX}")"
@@ -192,7 +198,7 @@ if [[ "${MODE}" == "save_pcd_map" ]]; then
   export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
   unset ROS_HOSTNAME
   unset ROS_IP
-  unset CYCLONEDDS_URI
+  export CYCLONEDDS_URI="file://${CYCLONEDDS_CONFIG}"
   unset FASTRTPS_DEFAULT_PROFILES_FILE
 
   PCD_SAVE_DIR="$(dirname "${PCD_SAVE_PREFIX}")"
@@ -249,7 +255,7 @@ export ROS_DOMAIN_ID="${ROS_DOMAIN_ID:-0}"
 export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 unset ROS_HOSTNAME
 unset ROS_IP
-unset CYCLONEDDS_URI
+export CYCLONEDDS_URI="file://${CYCLONEDDS_CONFIG}"
 unset FASTRTPS_DEFAULT_PROFILES_FILE
 
 if [[ "${MODE}" == "online" ]]; then
