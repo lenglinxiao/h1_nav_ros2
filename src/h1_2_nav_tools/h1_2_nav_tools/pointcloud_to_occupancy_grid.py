@@ -26,22 +26,22 @@ class PointCloudToOccupancyGrid(Node):
         self.declare_parameter("origin_x", -20.0)
         self.declare_parameter("origin_y", -20.0)
         self.declare_parameter("map_z", -1.20)
-        self.declare_parameter("min_z", -0.90)
-        self.declare_parameter("max_z", 0.80)
+        self.declare_parameter("min_z", -0.35)
+        self.declare_parameter("max_z", 1.50)
         self.declare_parameter("publish_hz", 2.0)
         self.declare_parameter("point_stride", 1)
-        self.declare_parameter("inflation_radius", 0.25)
+        self.declare_parameter("inflation_radius", 0.10)
         self.declare_parameter("clear_robot_radius", 0.0)
         self.declare_parameter("cloud_qos_reliable", False)
         self.declare_parameter("unknown_value", -1)
-        self.declare_parameter("accumulate_map", False)
+        self.declare_parameter("accumulate_map", True)
         self.declare_parameter("occupancy_hit_increment", 3)
         self.declare_parameter("occupancy_miss_decrement", 1)
-        self.declare_parameter("occupancy_threshold", 5)
+        self.declare_parameter("occupancy_threshold", 3)
         self.declare_parameter("occupancy_max_score", 20)
-        self.declare_parameter("raytrace_free", True)
+        self.declare_parameter("raytrace_free", False)
         self.declare_parameter("raytrace_clears_occupied", False)
-        self.declare_parameter("filter_floating_points", True)
+        self.declare_parameter("filter_floating_points", False)
         self.declare_parameter("support_min_z", 0.05)
         self.declare_parameter("support_max_z", 0.30)
         self.declare_parameter("floating_neighbor_radius", 1)
@@ -167,6 +167,7 @@ class PointCloudToOccupancyGrid(Node):
             origin_j = int((self.sensor_origin_y - self.origin_y) / self.resolution)
             candidate_points = []
             support_cells = set()
+            accepted_points = 0
 
             for point_index in range(0, total_points, self.point_stride):
                 base = point_index * msg.point_step
@@ -192,6 +193,7 @@ class PointCloudToOccupancyGrid(Node):
             for i, j in candidate_points:
                 if self.filter_floating_points and not self.has_support_cell(i, j, support_cells):
                     continue
+                accepted_points += 1
                 if self.raytrace_free and 0 <= origin_i < self.width and 0 <= origin_j < self.height:
                     free_count += self.mark_free_ray(grid, origin_i, origin_j, i, j)
                 occupied_count += self.mark_occupied(grid, i, j)
@@ -206,7 +208,8 @@ class PointCloudToOccupancyGrid(Node):
             if self.cloud_count == 1 or self.cloud_count % 30 == 0:
                 self.get_logger().info(
                     f"Received cloud #{self.cloud_count}: {total_points} points, "
-                    f"{occupied_count} occupied cells, {free_count} free cells before publish"
+                    f"{len(candidate_points)} z-filtered points, {accepted_points} accepted points, "
+                    f"{occupied_count} newly occupied cells, {free_count} free cells before publish"
                 )
         except Exception as exc:
             self.get_logger().error(f"Failed to convert point cloud: {exc}")
