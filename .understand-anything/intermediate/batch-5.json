@@ -1,0 +1,64 @@
+{
+  "nodes": [
+    {
+      "id": "src/h1_2_nav_tools/h1_2_nav_tools/pointcloud_to_occupancy_grid.py",
+      "type": "python_module",
+      "name": "PointCloudToOccupancyGrid",
+      "filePath": "src/h1_2_nav_tools/h1_2_nav_tools/pointcloud_to_occupancy_grid.py",
+      "summary": "ROS2 节点，将 PointCloud2 点云数据转换为 OccupancyGrid 占据栅格地图。支持累积建图、占用评分（hit/miss 增量）、射线追踪清除（Bresenham 算法）、悬浮点过滤（基于支撑层检测）、机器人足迹清除以及占据衰减等多层次建图策略。",
+      "tags": ["ROS2", "点云转换", "占据栅格地图", "SLAM", "PointCloud2", "OccupancyGrid", "射线追踪", "概率建图"],
+      "complexity": "high",
+      "languageNotes": "实现了完整的概率占据栅格建图管线。每帧点云通过 point_stride 降采样后，按高度区间 [min_z, max_z] 筛选障碍点，按 [support_min_z, support_max_z] 构建支撑层。通过 nearest-neighbor 膨胀将障碍点写入 occupancy_scores（hit +increment），非命中区域自动 miss -decrement；超过 occupied_decay_after_misses 帧未被命中的占用格渐进衰减。Bresenham 直线追踪标记 free 区域（可选清除占用格）。支持 robot footprint 圆形清除、reliable/best-effort QoS 切换、累积/非累积模式。共 29 个可配置参数。"
+    },
+    {
+      "id": "src/h1_2_nav_tools/h1_2_nav_tools/simple_grid_navigator.py",
+      "type": "python_module",
+      "name": "SimpleGridNavigator",
+      "filePath": "src/h1_2_nav_tools/h1_2_nav_tools/simple_grid_navigator.py",
+      "summary": "ROS2 节点，基于 A* 算法的简易栅格导航器。在 OccupancyGrid 上执行全局路径规划，采用纯追踪（pure pursuit）控制策略，融合 TF 坐标变换、路径平滑与可达性检测驱动机器人沿最优路径行进。",
+      "tags": ["ROS2", "路径规划", "A*算法", "栅格导航", "Pure Pursuit", "TF坐标变换", "路径平滑"],
+      "complexity": "high",
+      "languageNotes": "基于 8 连通邻域（含对角线代价 1.414）的 A* 搜索实现全局路径规划。提供多种路径优化：smooth_path 通过直线可达性剪枝去除冗余路点；nearest_free 对起点/终点执行螺旋搜索找到最近空闲格；select_reachable_lookahead 在 lookahead_distance 范围内选取当前机器人直线可达的最远路径点作为纯追踪目标。控制层分段策略：偏航误差 > rotate_to_path_yaw 时原地旋转（max_angular_speed），否则前进并加角速度修正，线速度随偏航误差线性缩放。支持 goal_topic 和 /clicked_point 两种目标输入方式。"
+    },
+    {
+      "id": "src/h1_2_nav_tools/h1_2_nav_tools/slam_grid_navigator.py",
+      "type": "python_module",
+      "name": "SlamGridNavigator (UdpH12LocoBridge)",
+      "filePath": "src/h1_2_nav_tools/h1_2_nav_tools/slam_grid_navigator.py",
+      "summary": "SLAM 导航一体化启动入口。通过 main() 函数组合 PointCloudToOccupancyGrid、SimpleGridNavigator、VelocitySmootherEma 和 UdpH12LocoBridge 四个节点，由 MultiThreadedExecutor(3 线程) 协同运行。UdpH12LocoBridge 将 ROS2 导航速度指令经 UDP 发送至 H1-2 机器人底层运动控制。",
+      "tags": ["ROS2", "SLAM", "导航", "UDP桥接", "多线程执行器", "系统集成", "机器人控制"],
+      "complexity": "medium",
+      "languageNotes": "该模块是系统集成的关键入口。main() 实例化四个节点并注册到 MultiThreadedExecutor(num_threads=3) 中 spin 运行。UdpH12LocoBridge 订阅 /cmd_vel_nav 话题的 Twist 指令，经 max_x/max_y/max_yaw 限幅后封装为 ASCII 格式 'vel vx vy wz duration' UDP 报文发送至机器人底层控制器（默认 127.0.0.1:39001）。该桥接器支持 enable/disable 开关，便于调试时切断物理控制链路。"
+    },
+    {
+      "id": "src/h1_2_nav_tools/h1_2_nav_tools/velocity_smoother_ema.py",
+      "type": "python_module",
+      "name": "VelocitySmootherEma",
+      "filePath": "src/h1_2_nav_tools/h1_2_nav_tools/velocity_smoother_ema.py",
+      "summary": "ROS2 节点，使用指数移动平均（EMA）对速度指令进行一阶低通平滑滤波。支持优先级指令抢占（语音控制 /cmd_vel_voice）和零速指令自动停止与历史重置。",
+      "tags": ["ROS2", "速度平滑", "EMA滤波", "一阶低通", "优先级控制", "Twist", "语音控制"],
+      "complexity": "medium",
+      "languageNotes": "对 Twist 的 linear.x/linear.y 和 angular.z 分别以 alpha_v 和 alpha_w 系数进行 EMA 平滑（s_{t} = alpha * x_t + (1-alpha) * s_{t-1}）。优先级通道收到非零指令后在 priority_timeout_sec 窗口内抢占输出（用于语音等紧急控制）。实现零速指令检测（is_zero_twist 阈值 1e-6）自动重置平滑状态并发布零速；对低速指令做最小速度提升（min_linear_speed），确保电机能响应微小幅度的导航修正指令。stop_counter 机制在连续 stop_counter_limit 帧无指令后才真正停止，避免短暂断流误触发停车。"
+    }
+  ],
+  "edges": [
+    {
+      "source": "src/h1_2_nav_tools/h1_2_nav_tools/slam_grid_navigator.py",
+      "target": "src/h1_2_nav_tools/h1_2_nav_tools/pointcloud_to_occupancy_grid.py",
+      "type": "imports_and_composes",
+      "label": "导入 PointCloudToOccupancyGrid 类并在 main() 中实例化，将点云建图节点加入导航管线"
+    },
+    {
+      "source": "src/h1_2_nav_tools/h1_2_nav_tools/slam_grid_navigator.py",
+      "target": "src/h1_2_nav_tools/h1_2_nav_tools/simple_grid_navigator.py",
+      "type": "imports_and_composes",
+      "label": "导入 SimpleGridNavigator 类并在 main() 中实例化，将 A* 规划与控制节点加入导航管线"
+    },
+    {
+      "source": "src/h1_2_nav_tools/h1_2_nav_tools/slam_grid_navigator.py",
+      "target": "src/h1_2_nav_tools/h1_2_nav_tools/velocity_smoother_ema.py",
+      "type": "imports_and_composes",
+      "label": "导入 VelocitySmootherEma 类并在 main() 中实例化，将速度平滑节点加入导航管线"
+    }
+  ]
+}

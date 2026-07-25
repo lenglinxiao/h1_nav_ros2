@@ -1,0 +1,409 @@
+{
+  "nodes": [
+    {
+      "id": "so3_math.h",
+      "type": "file",
+      "name": "so3_math.h",
+      "filePath": "src/FAST_LIO_ROS2/include/so3_math.h",
+      "summary": "SO(3) 旋转群数学工具头文件，提供反对称矩阵生成、指数映射 Exp（将李代数 so(3) 映射到李群 SO(3)）、对数映射 Log（从旋转矩阵提取轴角）、以及旋转矩阵到欧拉角的转换（RotMtoEuler）。全部基于 Eigen 模板实现，是 FAST_LIO2 核心数学运算的底层依赖。",
+      "tags": ["SO3", "李群", "李代数", "旋转矩阵", "欧拉角", "Eigen", "FAST_LIO2", "数学工具"],
+      "complexity": "medium",
+      "languageNotes": "C++ 模板头文件，使用 Eigen::Matrix 泛型实现。核心包含 Rodriguez 旋转公式的 Exp 函数（3 个重载版本）、旋转矩阵对数映射 Log、以及处理万向节锁奇异性的 RotMtoEuler。宏 SKEW_SYM_MATRX 简化反对称矩阵的初始化。"
+    },
+    {
+      "id": "use-ikfom.hpp",
+      "type": "file",
+      "name": "use-ikfom.hpp",
+      "filePath": "src/FAST_LIO_ROS2/include/use-ikfom.hpp",
+      "summary": "FAST_LIO2 的 IKFoM（迭代卡尔曼滤波器在流形上）状态与过程模型定义文件。定义了系统状态流形 state_ikfom（位置、姿态、IMU-LiDAR 外参、速度、陀螺/加速度计偏置、重力向量）、输入流形 input_ikfom、过程噪声流形 process_noise_ikfom，以及状态转移函数 get_f、Jacobian 矩阵 df_dx 和 df_dw，并包含 SO3 四元数到欧拉角的转换函数。",
+      "tags": ["IKFoM", "迭代卡尔曼滤波", "流形", "状态估计", "IMU", "LiDAR", "FAST_LIO2", "传感器融合"],
+      "complexity": "high",
+      "languageNotes": "C++ 头文件，核心依赖 MTK（Manifold ToolKit）和 IKFoM_toolkit/esekfom 库。使用 MTK_BUILD_MANIFOLD 宏定义状态流形，利用 S2 类型建模重力向量的球面约束。get_f 实现 24 维状态转移函数（位置由速度驱动，姿态由角速度驱动，速度由加速度和重力驱动），df_dx 和 df_dw 分别为状态和过程噪声的 Jacobian。"
+    },
+    {
+      "id": "gdb_debug_example.launch",
+      "type": "file",
+      "name": "gdb_debug_example.launch",
+      "filePath": "src/FAST_LIO_ROS2/launch/gdb_debug_example.launch",
+      "summary": "ROS1 XML 格式的 GDB 调试启动文件，用于通过 GDB 调试器启动 FAST_LIO2 建图节点。配置了 IMU 话题、地图文件路径、最大迭代次数、稠密地图、FOV、滤波尺寸等参数。RViz 可视化节点被注释禁用。",
+      "tags": ["GDB", "调试", "launch", "FAST_LIO2", "ROS1", "建图"],
+      "complexity": "low",
+      "languageNotes": "ROS1 XML launch 文件格式。使用 launch-prefix=\"gdb -ex run --args\" 在 GDB 中启动节点。参数包括 imu_topic、max_iteration(4)、dense_map_enable(1)、fov_degree(75) 及多种滤波尺寸。RViz 启动组被注释掉了。"
+    },
+    {
+      "id": "mapping.launch.py",
+      "type": "file",
+      "name": "mapping.launch.py",
+      "filePath": "src/FAST_LIO_ROS2/launch/mapping.launch.py",
+      "summary": "FAST_LIO2 的 ROS2 Python 启动文件，用于启动激光雷达-IMU 紧耦合建图。声明了 use_sim_time、config_path、config_file（默认 mid360.yaml）、rviz、rviz_cfg 等启动参数。启动 fastlio2_mapping 节点和可选的 RViz2 可视化节点。",
+      "tags": ["launch", "ROS2", "FAST_LIO2", "建图", "LiDAR", "IMU", "Mid-360", "Python"],
+      "complexity": "low",
+      "languageNotes": "使用 ROS2 launch API（LaunchDescription、DeclareLaunchArgument、Node 等）。默认配置文件为 mid360.yaml（适用于 Livox Mid-360 LiDAR）。配置文件路径通过 PathJoinSubstitution 拼接 config_path 和 config_file。RViz2 节点通过 IfCondition(rviz_use) 条件启动。"
+    },
+    {
+      "id": "Pose6D.msg",
+      "type": "file",
+      "name": "Pose6D.msg",
+      "filePath": "src/FAST_LIO_ROS2/msg/Pose6D.msg",
+      "summary": "ROS2 自定义消息定义，描述 LiDAR 帧内 IMU 测量时刻的预积分 LiDAR 状态。包含 6 个字段：offset_time（IMU 相对于首点的偏移时间）、acc（全局系总加速度）、gyr（机体去偏角速度）、vel（全局系速度）、pos（全局系位置）、rot（全局系旋转矩阵 3x3 展平为 9 维）。",
+      "tags": ["ROS2", "消息定义", "Pose6D", "IMU", "预积分", "LiDAR", "状态估计"],
+      "complexity": "low",
+      "languageNotes": "ROS2 .msg 文件格式。rot 字段为 float64[9]，存储 3x3 旋转矩阵按行展平的一维数组。该消息用于在 LiDAR 扫描帧内传递 IMU 预积分结果，是 FAST_LIO2 内部去畸变和状态传播的关键数据结构。"
+    },
+    {
+      "id": "PCD/1",
+      "type": "file",
+      "name": "1",
+      "filePath": "src/FAST_LIO_ROS2/PCD/1",
+      "summary": "占位文件，仅包含单个字符 \"1\"。可能是 PCD（Point Cloud Data）点云保存目录的标记文件或测试残留文件，无实质内容。",
+      "tags": ["占位文件", "PCD", "点云"],
+      "complexity": "none"
+    },
+    {
+      "id": "loam_livox.rviz",
+      "type": "file",
+      "name": "loam_livox.rviz",
+      "filePath": "src/FAST_LIO_ROS2/rviz_cfg/loam_livox.rviz",
+      "summary": "ROS1 RViz 可视化配置文件，用于 FAST_LIO2 / LOAM-Livox 点云建图过程的可视化监控。配置了 mapping 显示组（surround/currPoints 两个 PointCloud2 显示，订阅 /cloud_registered 话题，分别用于整体地图和当前扫描点云）、Odometry 显示（订阅 /Odometry 话题）、Path 显示（轨迹路径），以及 MarkerArray 和 /Laser_map 等辅助显示。固定坐标系为 camera_init。",
+      "tags": ["RViz", "ROS1", "可视化", "点云", "FAST_LIO2", "LOAM", "Livox", "配置"],
+      "complexity": "medium",
+      "languageNotes": "ROS1 RViz 配置格式（rviz/ 前缀类名）。核心订阅话题：/cloud_registered（配准后点云），/Odometry（里程计），/path（轨迹）。surround 使用 Intensity 颜色映射显示整体地图，currPoints 使用 1000ms Decay Time 和 Alpha 0.1 显示去畸变后的当前帧扫描点。固定坐标系 camera_init，帧率 10。"
+    },
+    {
+      "id": "fastlio.rviz",
+      "type": "file",
+      "name": "fastlio.rviz",
+      "filePath": "src/FAST_LIO_ROS2/rviz/fastlio.rviz",
+      "summary": "ROS2 RViz2 可视化配置文件，用于 FAST_LIO2 的实时可视化监控。配置了 TF 显示（body → camera_init 坐标系树）、Odometry 显示（订阅 /slam_odom 话题，Arrow 形状）、Path 显示（轨迹路径）、以及三个 PointCloud2 显示：CloudRegistered（/cloud_registered 当前帧）、CloudEffected（/cloud_effected 去畸变后点云）、CloudMap（/Laser_map 全局地图）。固定坐标系 camera_init，帧率 30。",
+      "tags": ["RViz2", "ROS2", "可视化", "点云", "FAST_LIO2", "SLAM", "配置"],
+      "complexity": "medium",
+      "languageNotes": "ROS2 RViz2 配置格式（rviz_default_plugins/ 前缀类名）。与 loam_livox.rviz 不同，使用 Arrow 形状显示里程计姿态。CloudMap 使用 AxisColor 颜色变换，为默认启用状态，作为全局地图的主要可视化。TF 树显示 body 和 camera_init 坐标系关系。支持 SetInitialPose、SetGoal、PublishPoint 交互工具。"
+    },
+    {
+      "id": "h1_2_handless.urdf",
+      "type": "file",
+      "name": "h1_2_handless.urdf",
+      "filePath": "src/h1_2_description/h1_2_handless.urdf",
+      "summary": "H1_2 双足人形机器人无手版本 URDF 模型文件。定义了完整的下肢（左右腿各 5 个 revolute 关节：hip_yaw/hip_pitch/hip_roll/knee/ankle_pitch/ankle_roll）、躯干（torso_joint）、上肢（左右臂各含 shoulder_pitch/roll/yaw、elbow、wrist_roll/pitch/yaw）、以及 LOGO/IMU/相机/LiDAR 固定链接的完整运动学链，手腕处为末端，不包含手部机构。含 MuJoCo 编译器配置和注释掉的 floating_base_joint。",
+      "tags": ["URDF", "H1_2", "人形机器人", "双足", "运动学", "无手", "MuJoCo", "机器人描述"],
+      "complexity": "high",
+      "languageNotes": "URDF XML 格式。机器人名称 h1_2。每条腿 6 个关节（总 12 个下肢关节），双臂各 7 个关节（总 14 个上肢关节）+ 躯干 1 个 yaw 关节 = 27 个可动关节。每个 link 包含 inertial（质量+惯量矩阵）、visual（STL 网格）和可选的 collision 几何。下肢关节限位角度较大（如 hip_pitch -3.14~2.5 rad），effort 200-300 N·m，速度 9-23 rad/s。传感器固定连接：IMU（-0.04452, -0.01891, 0.27756）、相机（pitch 50.76°）、LiDAR（pitch 13.76°）。"
+    },
+    {
+      "id": "h1_2.urdf",
+      "type": "file",
+      "name": "h1_2.urdf",
+      "filePath": "src/h1_2_description/h1_2.urdf",
+      "summary": "H1_2 双足人形机器人标准版本 URDF 模型文件。在 h1_2_handless.urdf 基础上增加了完整的左右手灵巧手模型：每只手包含 hand_base_link + 拇指 4 段（proximal_base→proximal→intermediate→distal，通过 yaw/pitch 关节驱动，含 mimic 联动）、食指/中指/无名指/小指各 2 段（proximal→intermediate，由 proximal 关节驱动+ mimic 联动）。全机器人约 47 个可动关节，是运动规划和控制的主要机器人描述文件。",
+      "tags": ["URDF", "H1_2", "人形机器人", "灵巧手", "双足", "运动学", "MuJoCo", "机器人描述"],
+      "complexity": "high",
+      "languageNotes": "URDF XML 格式。与 handless 版本共享相同的下肢（pelvis→6 joints each leg）和上肢（shoulder_pitch/roll/yaw→elbow→wrist_roll/pitch/yaw）运动学链。新增手部：L_hand_base_link 通过 fixed joint 连接到 left_wrist_yaw_link（offset x=0.054），拇指 1 yaw + 1 pitch 主动关节 + 2 mimic 被动关节，其余四指各 1 主动 proximal 关节 + 1 mimic intermediate 关节。mimic 机制实现 1 电机驱动多关节联动（如拇指 pitch→intermediate multiplier=1.6, distal multiplier=2.4）。传感器配置与 handless 版本一致（LOGO/IMU/相机/LiDAR）。"
+    },
+    {
+      "id": "h1_2_with_FTP_hand.urdf",
+      "type": "file",
+      "name": "h1_2_with_FTP_hand.urdf",
+      "filePath": "src/h1_2_description/h1_2_with_FTP_hand.urdf",
+      "summary": "H1_2 双足人形机器人 FTP 灵巧手版本 URDF 模型文件。使用 FTP（Fourier Transform Parser？可能为特定品牌）手爪替代标准灵巧手。每只手包含更复杂的结构：base_link、palm_force_sensor、拇指 4 段（含 3 个力传感器）、以及食指/中指/无名指/小指（含力传感器）。躯干质量调整为 23.789 kg（相比标准版 17.789），反映 FTP 手爪的额外重量。",
+      "tags": ["URDF", "H1_2", "人形机器人", "FTP", "灵巧手", "力传感器", "双足", "机器人描述"],
+      "complexity": "high",
+      "languageNotes": "URDF XML 格式。与标准版的主要区别：(1) 手爪品牌不同——FTP 手爪结构，使用 left_base_link 命名而非 L_hand_base_link；(2) 集成力传感器——拇指含 4 个 force_sensor，食指含 force_sensor_1；(3) 拇指运动学更复杂——3 个主动关节（thumb_1/2/3）加 1 个 mimic 关节（thumb_4）；(4) 关节命名使用 left_* 而非 L_* 前缀；(5) 手爪材料使用浅蓝色（0.79, 0.82, 0.93）；(6) 躯干质量增加 6 kg（23.789 vs 17.789）。体感器配置相同。"
+    },
+    {
+      "id": "L_hand_base_link.STL",
+      "type": "file",
+      "name": "L_hand_base_link.STL",
+      "filePath": "src/h1_2_description/meshes/L_hand_base_link.STL",
+      "summary": "左手掌基部 3D 网格文件（STL 格式），标准灵巧手的手掌主体结构，作为所有手指的近端连接基座。通过 fixed joint 连接到左腕 yaw 连杆。",
+      "tags": ["STL", "3D网格", "手掌", "左手", "灵巧手", "H1_2"],
+      "complexity": "none",
+      "languageNotes": "二进制 STL 网格文件，共约 10010 行（三角形面片数据），用于 h1_2.urdf 中 L_hand_base_link 的 visual 和 collision 几何。"
+    },
+    {
+      "id": "L_index_intermediate.STL",
+      "type": "file",
+      "name": "L_index_intermediate.STL",
+      "filePath": "src/h1_2_description/meshes/L_index_intermediate.STL",
+      "summary": "左手食指中节指骨 3D 网格文件（STL 格式），食指 intermediate 连杆的几何模型。通过 mimic joint 跟随 proximal 关节运动（multiplier=1）。",
+      "tags": ["STL", "3D网格", "食指", "中节指骨", "左手", "灵巧手", "H1_2"],
+      "complexity": "none",
+      "languageNotes": "二进制 STL 网格文件，约 995 行，对应 h1_2.urdf 中 L_index_intermediate 连杆。"
+    },
+    {
+      "id": "L_index_proximal.STL",
+      "type": "file",
+      "name": "L_index_proximal.STL",
+      "filePath": "src/h1_2_description/meshes/L_index_proximal.STL",
+      "summary": "左手食指近节指骨 3D 网格文件（STL 格式），食指 proximal 连杆的几何模型。由 L_index_proximal_joint 驱动，是食指的主动关节。",
+      "tags": ["STL", "3D网格", "食指", "近节指骨", "左手", "灵巧手", "H1_2"],
+      "complexity": "none",
+      "languageNotes": "二进制 STL 网格文件，约 1797 行，对应 h1_2.urdf 中 L_index_proximal 连杆。"
+    },
+    {
+      "id": "L_middle_intermediate.STL",
+      "type": "file",
+      "name": "L_middle_intermediate.STL",
+      "filePath": "src/h1_2_description/meshes/L_middle_intermediate.STL",
+      "summary": "左手中指中节指骨 3D 网格文件（STL 格式），中指 intermediate 连杆的几何模型。通过 mimic joint 跟随 proximal 关节运动。",
+      "tags": ["STL", "3D网格", "中指", "中节指骨", "左手", "灵巧手", "H1_2"],
+      "complexity": "none",
+      "languageNotes": "二进制 STL 网格文件，约 585 行，对应 h1_2.urdf 中 L_middle_intermediate 连杆。"
+    },
+    {
+      "id": "L_middle_proximal.STL",
+      "type": "file",
+      "name": "L_middle_proximal.STL",
+      "filePath": "src/h1_2_description/meshes/L_middle_proximal.STL",
+      "summary": "左手中指近节指骨 3D 网格文件（STL 格式），中指 proximal 连杆的几何模型。由 L_middle_proximal_joint 驱动。",
+      "tags": ["STL", "3D网格", "中指", "近节指骨", "左手", "灵巧手", "H1_2"],
+      "complexity": "none",
+      "languageNotes": "二进制 STL 网格文件，约 1795 行，对应 h1_2.urdf 中 L_middle_proximal 连杆。"
+    },
+    {
+      "id": "L_pinky_intermediate.STL",
+      "type": "file",
+      "name": "L_pinky_intermediate.STL",
+      "filePath": "src/h1_2_description/meshes/L_pinky_intermediate.STL",
+      "summary": "左手小指中节指骨 3D 网格文件（STL 格式），小指 intermediate 连杆的几何模型。通过 mimic joint 跟随 proximal 关节运动。",
+      "tags": ["STL", "3D网格", "小指", "中节指骨", "左手", "灵巧手", "H1_2"],
+      "complexity": "none",
+      "languageNotes": "二进制 STL 网格文件，约 1533 行，对应 h1_2.urdf 中 L_pinky_intermediate 连杆。"
+    },
+    {
+      "id": "L_pinky_proximal.STL",
+      "type": "file",
+      "name": "L_pinky_proximal.STL",
+      "filePath": "src/h1_2_description/meshes/L_pinky_proximal.STL",
+      "summary": "左手小指近节指骨 3D 网格文件（STL 格式），小指 proximal 连杆的几何模型。由 L_pinky_proximal_joint 驱动（起始角度 rpy 0.10472，即 6° 外展）。",
+      "tags": ["STL", "3D网格", "小指", "近节指骨", "左手", "灵巧手", "H1_2"],
+      "complexity": "none",
+      "languageNotes": "二进制 STL 网格文件，约 1790 行，对应 h1_2.urdf 中 L_pinky_proximal 连杆。"
+    },
+    {
+      "id": "L_ring_intermediate.STL",
+      "type": "file",
+      "name": "L_ring_intermediate.STL",
+      "filePath": "src/h1_2_description/meshes/L_ring_intermediate.STL",
+      "summary": "左手无名指中节指骨 3D 网格文件（STL 格式），无名指 intermediate 连杆的几何模型。",
+      "tags": ["STL", "3D网格", "无名指", "中节指骨", "左手", "灵巧手", "H1_2"],
+      "complexity": "none",
+      "languageNotes": "二进制 STL 网格文件，约 1150 行，对应 h1_2.urdf 中 L_ring_intermediate 连杆。"
+    },
+    {
+      "id": "L_ring_proximal.STL",
+      "type": "file",
+      "name": "L_ring_proximal.STL",
+      "filePath": "src/h1_2_description/meshes/L_ring_proximal.STL",
+      "summary": "左手无名指近节指骨 3D 网格文件（STL 格式），无名指 proximal 连杆的几何模型。由 L_ring_proximal_joint 驱动（起始角度 rpy 0.05236，即 3° 外展）。",
+      "tags": ["STL", "3D网格", "无名指", "近节指骨", "左手", "灵巧手", "H1_2"],
+      "complexity": "none",
+      "languageNotes": "二进制 STL 网格文件，约 1981 行，对应 h1_2.urdf 中 L_ring_proximal 连杆。"
+    },
+    {
+      "id": "L_thumb_distal.STL",
+      "type": "file",
+      "name": "L_thumb_distal.STL",
+      "filePath": "src/h1_2_description/meshes/L_thumb_distal.STL",
+      "summary": "左手拇指远节指骨 3D 网格文件（STL 格式），拇指 distal 连杆的几何模型。通过 mimic joint 跟随 proximal_pitch 关节运动（multiplier=2.4）。",
+      "tags": ["STL", "3D网格", "拇指", "远节指骨", "左手", "灵巧手", "H1_2"],
+      "complexity": "none",
+      "languageNotes": "二进制 STL 网格文件，约 566 行，对应 h1_2.urdf 中 L_thumb_distal 连杆。"
+    },
+    {
+      "id": "L_thumb_intermediate.STL",
+      "type": "file",
+      "name": "L_thumb_intermediate.STL",
+      "filePath": "src/h1_2_description/meshes/L_thumb_intermediate.STL",
+      "summary": "左手拇指中节指骨 3D 网格文件（STL 格式），拇指 intermediate 连杆的几何模型。通过 mimic joint 跟随 proximal_pitch 关节运动（multiplier=1.6）。",
+      "tags": ["STL", "3D网格", "拇指", "中节指骨", "左手", "灵巧手", "H1_2"],
+      "complexity": "none",
+      "languageNotes": "二进制 STL 网格文件，约 1508 行，对应 h1_2.urdf 中 L_thumb_intermediate 连杆。"
+    },
+    {
+      "id": "L_thumb_proximal_base.STL",
+      "type": "file",
+      "name": "L_thumb_proximal_base.STL",
+      "filePath": "src/h1_2_description/meshes/L_thumb_proximal_base.STL",
+      "summary": "左手拇指近节基座 3D 网格文件（STL 格式），拇指 yaw 方向旋转基座。由 L_thumb_proximal_yaw_joint 驱动，绕 Z 轴旋转实现拇指的外展/内收。",
+      "tags": ["STL", "3D网格", "拇指", "近节基座", "左手", "灵巧手", "H1_2"],
+      "complexity": "none",
+      "languageNotes": "二进制 STL 网格文件，约 75 行（较小的三角形数），对应 h1_2.urdf 中 L_thumb_proximal_base 连杆。"
+    },
+    {
+      "id": "L_thumb_proximal.STL",
+      "type": "file",
+      "name": "L_thumb_proximal.STL",
+      "filePath": "src/h1_2_description/meshes/L_thumb_proximal.STL",
+      "summary": "左手拇指近节指骨 3D 网格文件（STL 格式），拇指 proximal 连杆的几何模型。由 L_thumb_proximal_pitch_joint 驱动（拇指屈曲/伸展）。",
+      "tags": ["STL", "3D网格", "拇指", "近节指骨", "左手", "灵巧手", "H1_2"],
+      "complexity": "none",
+      "languageNotes": "二进制 STL 网格文件，约 2750 行，对应 h1_2.urdf 中 L_thumb_proximal 连杆。"
+    },
+    {
+      "id": "left_ankle_A_link.STL",
+      "type": "file",
+      "name": "left_ankle_A_link.STL",
+      "filePath": "src/h1_2_description/meshes/left_ankle_A_link.STL",
+      "summary": "左脚踝 A 变体 3D 网格文件（STL 格式），可能是左脚踝连杆的备选/简化网格模型。",
+      "tags": ["STL", "3D网格", "脚踝", "左脚", "H1_2", "变体"],
+      "complexity": "none",
+      "languageNotes": "二进制 STL 网格文件，约 880 行。命名中 \"A\" 暗示可能是一个备选几何版本，但当前三个 URDF 文件中均使用 left_ankle_roll_link.STL 和 left_ankle_pitch_link.STL，未直接引用此文件。"
+    }
+  ],
+  "edges": [
+    {
+      "sourceId": "use-ikfom.hpp",
+      "targetId": "so3_math.h",
+      "type": "depends_on",
+      "label": "依赖 SO3 数学工具",
+      "description": "use-ikfom.hpp 中的 SO3ToEuler 函数与 so3_math.h 中的 RotMtoEuler 功能互补——前者处理四元数到欧拉角的转换（含奇异性处理），后者处理旋转矩阵到欧拉角的转换。两者同属 FAST_LIO2 的姿态解算数学层，use-ikfom.hpp 使用 MTK::SO3 类型时隐式依赖 SO3 运算。"
+    },
+    {
+      "sourceId": "mapping.launch.py",
+      "targetId": "fastlio.rviz",
+      "type": "references",
+      "label": "启动 RViz2 可视化",
+      "description": "mapping.launch.py 中的 rviz_cfg 参数默认指向 fastlio.rviz，通过 RViz2 节点启动 FAST_LIO2 的实时可视化监控界面。"
+    },
+    {
+      "sourceId": "gdb_debug_example.launch",
+      "targetId": "loam_livox.rviz",
+      "type": "references",
+      "label": "引用 RViz 配置（已注释）",
+      "description": "gdb_debug_example.launch 中注释掉的 RViz 启动组引用了 loam_livox.rviz 配置文件。两者均为 ROS1 时代产物，loam_livox.rviz 使用 rviz/ 前缀类名。"
+    },
+    {
+      "sourceId": "mapping.launch.py",
+      "targetId": "gdb_debug_example.launch",
+      "type": "related_to",
+      "label": "ROS1/ROS2 对应启动文件",
+      "description": "mapping.launch.py 是 FAST_LIO2 的 ROS2 Python 启动文件，gdb_debug_example.launch 是遗留的 ROS1 XML 调试启动文件。两者启动相同的 fastlio2_mapping 节点，但使用不同 ROS 版本和配置方式。"
+    },
+    {
+      "sourceId": "mapping.launch.py",
+      "targetId": "Pose6D.msg",
+      "type": "uses",
+      "label": "使用 Pose6D 消息",
+      "description": "mapping.launch.py 启动的 fastlio2_mapping 节点内部使用 Pose6D 消息进行 LiDAR 帧内 IMU 预积分状态的传递，是 FAST_LIO2 去畸变和状态传播的数据载体。"
+    },
+    {
+      "sourceId": "h1_2.urdf",
+      "targetId": "h1_2_handless.urdf",
+      "type": "extends",
+      "label": "变体：带手版",
+      "description": "h1_2.urdf 在 h1_2_handless.urdf 的身体结构基础上增加了标准灵巧手模型（左右手各含 hand_base_link + 5 指）。两文件共享相同的下肢（12 个关节）和上肢（14 个关节）运动学链以及传感器配置。"
+    },
+    {
+      "sourceId": "h1_2_with_FTP_hand.urdf",
+      "targetId": "h1_2_handless.urdf",
+      "type": "extends",
+      "label": "变体：FTP 手爪版",
+      "description": "h1_2_with_FTP_hand.urdf 在 h1_2_handless.urdf 的身体结构基础上增加了 FTP 手爪模型（含力传感器）。躯干质量从 17.789 kg 增加到 23.789 kg 以反映 FTP 手爪重量。"
+    },
+    {
+      "sourceId": "h1_2_with_FTP_hand.urdf",
+      "targetId": "h1_2.urdf",
+      "type": "related_to",
+      "label": "手爪变体对比",
+      "description": "两个文件描述同一 H1_2 机器人的不同手爪配置：h1_2.urdf 使用标准 5 指灵巧手（L_/R_ 前缀命名，mimic 联动），h1_2_with_FTP_hand.urdf 使用 FTP 手爪（left_/right_ 前缀命名，集成力传感器）。手爪运动学结构、材质颜色、关节命名约定均有差异。"
+    },
+    {
+      "sourceId": "h1_2.urdf",
+      "targetId": "L_hand_base_link.STL",
+      "type": "references",
+      "label": "引用手掌网格",
+      "description": "h1_2.urdf 中 L_hand_base_link 和 R_hand_base_link 连杆的 visual 和 collision 几何引用对应的 STL 网格文件。"
+    },
+    {
+      "sourceId": "h1_2.urdf",
+      "targetId": "L_thumb_proximal_base.STL",
+      "type": "references",
+      "label": "引用拇指基座网格",
+      "description": "h1_2.urdf 中 L_thumb_proximal_base 连杆的 visual 和 collision 引用此 STL。实际引用路径为 meshes/link11_L.STL，但语义等价于 L_thumb_proximal_base。"
+    },
+    {
+      "sourceId": "h1_2.urdf",
+      "targetId": "L_thumb_proximal.STL",
+      "type": "references",
+      "label": "引用拇指近节网格",
+      "description": "h1_2.urdf 中 L_thumb_proximal 连杆的 visual 和 collision 引用此 STL。实际引用路径为 meshes/link12_L.STL。"
+    },
+    {
+      "sourceId": "h1_2.urdf",
+      "targetId": "L_thumb_intermediate.STL",
+      "type": "references",
+      "label": "引用拇指中节网格",
+      "description": "h1_2.urdf 中 L_thumb_intermediate 连杆的 visual 和 collision 引用此 STL。实际引用路径为 meshes/link13_L.STL。"
+    },
+    {
+      "sourceId": "h1_2.urdf",
+      "targetId": "L_thumb_distal.STL",
+      "type": "references",
+      "label": "引用拇指远节网格",
+      "description": "h1_2.urdf 中 L_thumb_distal 连杆的 visual 和 collision 引用此 STL。实际引用路径为 meshes/link14_L.STL。"
+    },
+    {
+      "sourceId": "h1_2.urdf",
+      "targetId": "L_index_proximal.STL",
+      "type": "references",
+      "label": "引用食指近节网格",
+      "description": "h1_2.urdf 中 L_index_proximal 连杆的 visual 和 collision 引用此 STL。实际引用路径为 meshes/link15_L.STL。"
+    },
+    {
+      "sourceId": "h1_2.urdf",
+      "targetId": "L_index_intermediate.STL",
+      "type": "references",
+      "label": "引用食指中节网格",
+      "description": "h1_2.urdf 中 L_index_intermediate 连杆的 visual 和 collision 引用此 STL。实际引用路径为 meshes/link16_L.STL。"
+    },
+    {
+      "sourceId": "h1_2.urdf",
+      "targetId": "L_middle_proximal.STL",
+      "type": "references",
+      "label": "引用中指近节网格",
+      "description": "h1_2.urdf 中 L_middle_proximal 连杆的 visual 和 collision 引用此 STL。实际引用路径为 meshes/link17_L.STL。"
+    },
+    {
+      "sourceId": "h1_2.urdf",
+      "targetId": "L_middle_intermediate.STL",
+      "type": "references",
+      "label": "引用中指中节网格",
+      "description": "h1_2.urdf 中 L_middle_intermediate 连杆的 visual 和 collision 引用此 STL。实际引用路径为 meshes/link18_L.STL。"
+    },
+    {
+      "sourceId": "h1_2.urdf",
+      "targetId": "L_ring_proximal.STL",
+      "type": "references",
+      "label": "引用无名指近节网格",
+      "description": "h1_2.urdf 中 L_ring_proximal 连杆的 visual 和 collision 引用此 STL。实际引用路径为 meshes/link19_L.STL。"
+    },
+    {
+      "sourceId": "h1_2.urdf",
+      "targetId": "L_ring_intermediate.STL",
+      "type": "references",
+      "label": "引用无名指中节网格",
+      "description": "h1_2.urdf 中 L_ring_intermediate 连杆的 visual 和 collision 引用此 STL。实际引用路径为 meshes/link20_L.STL。"
+    },
+    {
+      "sourceId": "h1_2.urdf",
+      "targetId": "L_pinky_proximal.STL",
+      "type": "references",
+      "label": "引用小指近节网格",
+      "description": "h1_2.urdf 中 L_pinky_proximal 连杆的 visual 和 collision 引用此 STL。实际引用路径为 meshes/link21_L.STL。"
+    },
+    {
+      "sourceId": "h1_2.urdf",
+      "targetId": "L_pinky_intermediate.STL",
+      "type": "references",
+      "label": "引用小指中节网格",
+      "description": "h1_2.urdf 中 L_pinky_intermediate 连杆的 visual 和 collision 引用此 STL。实际引用路径为 meshes/link22_L.STL。"
+    },
+    {
+      "sourceId": "loam_livox.rviz",
+      "targetId": "fastlio.rviz",
+      "type": "related_to",
+      "label": "ROS1/ROS2 对应可视化配置",
+      "description": "loam_livox.rviz 是 ROS1 RViz 配置，fastlio.rviz 是 ROS2 RViz2 配置，均为 FAST_LIO2 的可视化监控配置。两者均订阅 /cloud_registered、/Odometry(slam_odom)、/path 话题，但使用不同版本的插件 API（rviz/ 前缀 vs rviz_default_plugins/ 前缀）。"
+    }
+  ]
+}

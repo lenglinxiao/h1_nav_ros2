@@ -22,7 +22,9 @@ def generate_launch_description():
             DeclareLaunchArgument("map_file_path", default_value="./test.pcd"),
             DeclareLaunchArgument("livox_frame", default_value="livox_frame"),
             DeclareLaunchArgument("start_livox_driver", default_value="false"),
+            DeclareLaunchArgument("use_sim_time", default_value="false"),
             DeclareLaunchArgument("use_ros_time_stamps", default_value="false"),
+            DeclareLaunchArgument("save_pcd", default_value="true"),
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource(livox_launch),
                 launch_arguments={
@@ -40,8 +42,14 @@ def generate_launch_description():
                     LaunchConfiguration("fastlio_config"),
                     {
                         "map_file_path": LaunchConfiguration("map_file_path"),
+                        "use_sim_time": ParameterValue(
+                            LaunchConfiguration("use_sim_time"), value_type=bool
+                        ),
                         "publish.use_ros_time_stamps": ParameterValue(
                             LaunchConfiguration("use_ros_time_stamps"), value_type=bool
+                        ),
+                        "pcd_save.pcd_save_en": ParameterValue(
+                            LaunchConfiguration("save_pcd"), value_type=bool
                         ),
                     },
                 ],

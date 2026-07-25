@@ -27,6 +27,31 @@ def test_h1_2_nav_web_gui_serves_localhost_console():
     assert "INDEX_HTML" in source
 
 
+def test_h1_2_nav_web_gui_supports_ui_only_without_initializing_ros():
+    source = WEB_GUI.read_text(encoding="utf-8")
+
+    assert 'parser.add_argument(\n        "--ui-only"' in source
+    assert "class UiOnlyRosBridge:" in source
+    assert "bridge_type = UiOnlyRosBridge if self.ui_only else RosServiceBridge" in source
+    assert "WebGuiApp(workspace_root, ui_only=args.ui_only)" in source
+    assert 'config["ui_only"] = self.ui_only' in source
+
+    ui_only_bridge = source[source.index("class UiOnlyRosBridge:"):source.index("class ProcessManager:")]
+    assert "rclpy.init" not in ui_only_bridge
+    assert "Node(" not in ui_only_bridge
+    assert "UI-only 模式：未连接 ROS" in ui_only_bridge
+
+
+def test_h1_2_nav_web_gui_blocks_controls_in_ui_only_mode():
+    source = WEB_GUI.read_text(encoding="utf-8")
+
+    assert 'if self.app.ui_only and parsed.path != "/api/config":' in source
+    assert "blocked control request" in source
+    assert "控制操作未执行" in source
+    assert "UI ONLY · 未连接 ROS" in source
+    assert 'document.body.classList.toggle("ui-only", config.ui_only === true)' in source
+
+
 def test_h1_2_nav_web_gui_uses_yinwang_team_logo():
     source = WEB_GUI.read_text(encoding="utf-8")
 
@@ -36,6 +61,29 @@ def test_h1_2_nav_web_gui_uses_yinwang_team_logo():
     assert "logo-sub" in source
     assert "H1-2 Navigation Console" not in source
     assert "Online/offline modes" not in source
+
+
+def test_h1_2_nav_web_gui_has_robot_status_overview():
+    source = WEB_GUI.read_text(encoding="utf-8")
+
+    assert "/assets/h1_2_status.png" in source
+    assert 'id="robot_status_image"' in source
+    assert 'id="cruise_ready_card"' in source
+    assert 'id="cruise_ready_text"' in source
+    assert 'id="motion_state_card"' in source
+    assert 'id="motion_state"' in source
+    assert "可开始巡航" in source
+    assert "不可开始巡航" in source
+    assert "当前运动状态" in source
+    assert "系统运行状态" in source
+    assert 'id="battery_ring"' in source
+    assert 'id="battery_percent"' in source
+    assert 'id="battery_voltage"' in source
+    assert 'id="battery_temperature"' in source
+    assert 'id="battery_charge_state"' in source
+    assert 'id="battery_cycles"' in source
+    assert "data.battery" in source
+    assert "def _send_file" in source
 
 
 def test_h1_2_nav_web_gui_enforces_single_instance_by_default():
@@ -59,6 +107,19 @@ def test_h1_2_nav_web_gui_manages_navigation_and_rviz_processes():
     assert "mode:={rviz_mode}" in source
     assert "rviz_mode" in source
     assert "跟随 Run Mode" in source
+    assert '"rviz_embed_url"' in source
+    assert '"rviz_embed_enabled": True' in source
+    assert 'id="rviz_embed_url"' in source
+    assert 'id="rviz_embed_enabled"' in source
+    assert 'id="rviz_embed_frame"' in source
+    assert 'id="rviz_frame_wrap"' in source
+    assert "function loadRvizEmbed()" in source
+    assert "function reloadRvizEmbed()" in source
+    assert "function openRvizEmbedWindow()" in source
+    assert 'id="native_rviz_button"' in source
+    assert "打开原生 RViz" in source
+    assert "function openNativeRviz()" in source
+    assert 'postAction("/api/rviz/open", true)' in source
     assert "subprocess.Popen" in source
     assert "voice_process" in source
     assert "voice_bridge_process" in source
@@ -324,10 +385,10 @@ def test_h1_2_nav_web_gui_gates_route_start_on_stable_localization():
     assert "localization_status" in source
     assert "定位稳定，可开始巡航" in source
     assert "定位未稳定" in source
-    assert 'id="localization_indicator"' in source
-    assert "localization-indicator waiting" in source
-    assert ".localization-indicator.ready" in source
-    assert 'localizationIndicator.className = `localization-indicator ${indicatorState}`' in source
+    assert 'id="cruise_ready_card"' in source
+    assert 'cruiseReadyCard.className = "status-metric " + (localization.ready ? "ready" : "waiting")' in source
+    assert 'id="motion_state_card"' in source
+    assert '"status-metric motion "' in source
     assert 'id="start_route_button"' in source
     assert "startRoute()" in source
     assert "startButton.disabled = !localization.ready" in source

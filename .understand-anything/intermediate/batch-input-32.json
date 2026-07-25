@@ -1,0 +1,169 @@
+{
+  "batchIndex": 32,
+  "files": [
+    {
+      "path": "test/static/test_auto_initial_pose.py",
+      "language": "python",
+      "sizeLines": 148,
+      "fileCategory": "code"
+    },
+    {
+      "path": "test/static/test_auto_route_icp_status_gate.py",
+      "language": "python",
+      "sizeLines": 45,
+      "fileCategory": "code"
+    },
+    {
+      "path": "test/static/test_camera_stream.py",
+      "language": "python",
+      "sizeLines": 104,
+      "fileCategory": "code"
+    },
+    {
+      "path": "test/static/test_cli_tools.py",
+      "language": "python",
+      "sizeLines": 36,
+      "fileCategory": "code"
+    },
+    {
+      "path": "test/static/test_global_relocalization_real_map_smoke.py",
+      "language": "python",
+      "sizeLines": 17,
+      "fileCategory": "code"
+    },
+    {
+      "path": "test/static/test_h1_2_nav_gui.py",
+      "language": "python",
+      "sizeLines": 96,
+      "fileCategory": "code"
+    },
+    {
+      "path": "test/static/test_h1_2_nav_web_gui.py",
+      "language": "python",
+      "sizeLines": 419,
+      "fileCategory": "code"
+    },
+    {
+      "path": "test/static/test_h1_2_vision.py",
+      "language": "python",
+      "sizeLines": 100,
+      "fileCategory": "code"
+    },
+    {
+      "path": "test/static/test_h1_2_voice_control.py",
+      "language": "python",
+      "sizeLines": 125,
+      "fileCategory": "code"
+    },
+    {
+      "path": "test/static/test_icp_package_structure.py",
+      "language": "python",
+      "sizeLines": 198,
+      "fileCategory": "code"
+    },
+    {
+      "path": "test/static/test_memory_launch_integration.py",
+      "language": "python",
+      "sizeLines": 103,
+      "fileCategory": "code"
+    },
+    {
+      "path": "test/static/test_memory_point_manager.py",
+      "language": "python",
+      "sizeLines": 46,
+      "fileCategory": "code"
+    },
+    {
+      "path": "test/static/test_memory_point_markers.py",
+      "language": "python",
+      "sizeLines": 46,
+      "fileCategory": "code"
+    },
+    {
+      "path": "test/static/test_memory_route_runner.py",
+      "language": "python",
+      "sizeLines": 103,
+      "fileCategory": "code"
+    },
+    {
+      "path": "test/static/test_nav_msgs_interfaces.py",
+      "language": "python",
+      "sizeLines": 59,
+      "fileCategory": "code"
+    },
+    {
+      "path": "test/static/test_offline_demo_workflow.py",
+      "language": "python",
+      "sizeLines": 48,
+      "fileCategory": "code"
+    },
+    {
+      "path": "test/static/test_offline_icp_backend_switch.py",
+      "language": "python",
+      "sizeLines": 72,
+      "fileCategory": "code"
+    },
+    {
+      "path": "test/static/test_offline_icp_localization_entrypoint.py",
+      "language": "python",
+      "sizeLines": 41,
+      "fileCategory": "code"
+    },
+    {
+      "path": "test/static/test_offline_icp_time_sync.py",
+      "language": "python",
+      "sizeLines": 50,
+      "fileCategory": "code"
+    },
+    {
+      "path": "test/static/test_offline_rviz_display.py",
+      "language": "python",
+      "sizeLines": 51,
+      "fileCategory": "code"
+    },
+    {
+      "path": "test/static/test_pcd_map_save_workflow.py",
+      "language": "python",
+      "sizeLines": 54,
+      "fileCategory": "code"
+    },
+    {
+      "path": "test/static/test_relocalization_deps_workflow.py",
+      "language": "python",
+      "sizeLines": 59,
+      "fileCategory": "code"
+    },
+    {
+      "path": "test/static/test_teaching_route_runner.py",
+      "language": "python",
+      "sizeLines": 176,
+      "fileCategory": "code"
+    }
+  ],
+  "batchImportData": {
+    "test/static/test_auto_initial_pose.py": [],
+    "test/static/test_auto_route_icp_status_gate.py": [],
+    "test/static/test_camera_stream.py": [],
+    "test/static/test_cli_tools.py": [],
+    "test/static/test_global_relocalization_real_map_smoke.py": [],
+    "test/static/test_h1_2_nav_gui.py": [],
+    "test/static/test_h1_2_nav_web_gui.py": [],
+    "test/static/test_h1_2_vision.py": [],
+    "test/static/test_h1_2_voice_control.py": [],
+    "test/static/test_icp_package_structure.py": [],
+    "test/static/test_memory_launch_integration.py": [],
+    "test/static/test_memory_point_manager.py": [],
+    "test/static/test_memory_point_markers.py": [],
+    "test/static/test_memory_route_runner.py": [],
+    "test/static/test_nav_msgs_interfaces.py": [],
+    "test/static/test_offline_demo_workflow.py": [],
+    "test/static/test_offline_icp_backend_switch.py": [],
+    "test/static/test_offline_icp_localization_entrypoint.py": [],
+    "test/static/test_offline_icp_time_sync.py": [],
+    "test/static/test_offline_rviz_display.py": [],
+    "test/static/test_pcd_map_save_workflow.py": [],
+    "test/static/test_relocalization_deps_workflow.py": [],
+    "test/static/test_teaching_route_runner.py": []
+  },
+  "neighborMap": {}
+}

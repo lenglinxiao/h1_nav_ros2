@@ -42,10 +42,21 @@ class VelocitySmootherEma(Node):
 
     def twist_callback(self, msg):
         self.cmd = msg
+        if self.is_zero_twist(msg):
+            self.stop_counter = 0
+            self.reset_previous()
+            self.publish_zero()
+            return
         self.stop_counter = self.stop_counter_limit
 
     def priority_twist_callback(self, msg):
         self.priority_cmd = msg
+        if self.is_zero_twist(msg):
+            self.priority_stop_counter = 0
+            self.last_priority_time = None
+            self.reset_previous()
+            self.publish_zero()
+            return
         self.priority_stop_counter = self.stop_counter_limit
         self.last_priority_time = self.get_clock().now()
 
@@ -65,6 +76,11 @@ class VelocitySmootherEma(Node):
             self.priority_cmd.linear.x = 0.0
             self.priority_cmd.linear.y = 0.0
             self.priority_cmd.angular.z = 0.0
+
+        if self.is_zero_twist(active_cmd):
+            self.reset_previous()
+            self.publish_zero()
+            return
 
         sx = self.alpha_v * active_cmd.linear.x + (1.0 - self.alpha_v) * self.previous_x
         sy = self.alpha_v * active_cmd.linear.y + (1.0 - self.alpha_v) * self.previous_y
@@ -95,6 +111,26 @@ class VelocitySmootherEma(Node):
             return False
         age = (self.get_clock().now() - self.last_priority_time).nanoseconds / 1e9
         return age <= self.priority_timeout_sec
+
+    @staticmethod
+    def is_zero_twist(msg):
+        return (
+            abs(msg.linear.x) < 1e-6
+            and abs(msg.linear.y) < 1e-6
+            and abs(msg.angular.z) < 1e-6
+        )
+
+    def reset_previous(self):
+        self.previous_x = 0.0
+        self.previous_y = 0.0
+        self.previous_w = 0.0
+
+    def publish_zero(self):
+        self.cmd.linear.x = 0.0
+        self.cmd.linear.y = 0.0
+        self.cmd.angular.z = 0.0
+        out = Twist()
+        self.pub.publish(out)
 
 def main():
     rclpy.init()

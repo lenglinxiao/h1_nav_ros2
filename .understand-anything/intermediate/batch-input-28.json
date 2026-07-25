@@ -1,0 +1,196 @@
+{
+  "batchIndex": 28,
+  "files": [
+    {
+      "path": "src/h1_2_slam_bringup/launch/h1_2_icp_localization.launch.py",
+      "language": "python",
+      "sizeLines": 56,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_slam_bringup/launch/h1_2_nav2_camera_init_navigation.launch.py",
+      "language": "python",
+      "sizeLines": 254,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_slam_bringup/launch/h1_2_nav2_mapping.launch.py",
+      "language": "python",
+      "sizeLines": 108,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_slam_bringup/launch/h1_2_nav2_navigation.launch.py",
+      "language": "python",
+      "sizeLines": 473,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_slam_bringup/launch/h1_2_nav2_rviz.launch.py",
+      "language": "python",
+      "sizeLines": 45,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_slam_bringup/launch/h1_2_nav2_slam_navigation.launch.py",
+      "language": "python",
+      "sizeLines": 176,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_slam_bringup/launch/lidar_slam_mapping.launch.py",
+      "language": "python",
+      "sizeLines": 68,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_slam_bringup/launch/lidar_slam_navigation.launch.py",
+      "language": "python",
+      "sizeLines": 78,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_slam_bringup/launch/livox_mid360.launch.py",
+      "language": "python",
+      "sizeLines": 39,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_slam_bringup/package.xml",
+      "language": "xml",
+      "sizeLines": 38,
+      "fileCategory": "config"
+    },
+    {
+      "path": "src/h1_2_slam_bringup/resource/h1_2_slam_bringup",
+      "language": "unknown",
+      "sizeLines": 1,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_slam_bringup/setup.cfg",
+      "language": "config",
+      "sizeLines": 4,
+      "fileCategory": "config"
+    },
+    {
+      "path": "src/h1_2_slam_bringup/setup.py",
+      "language": "python",
+      "sizeLines": 22,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_vision/h1_2_vision/__init__.py",
+      "language": "python",
+      "sizeLines": 1,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_vision/h1_2_vision/detector_core.py",
+      "language": "python",
+      "sizeLines": 103,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_vision/h1_2_vision/yolo_detector.py",
+      "language": "python",
+      "sizeLines": 194,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_vision/launch/yolo_detector.launch.py",
+      "language": "python",
+      "sizeLines": 58,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_vision/resource/h1_2_vision",
+      "language": "unknown",
+      "sizeLines": 1,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_vision/setup.py",
+      "language": "python",
+      "sizeLines": 28,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_voice_control/h1_2_voice_control/__init__.py",
+      "language": "python",
+      "sizeLines": 1,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_voice_control/h1_2_voice_control/h1_2_voice_control.py",
+      "language": "python",
+      "sizeLines": 207,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_voice_control/launch/h1_2_voice_control.launch.py",
+      "language": "python",
+      "sizeLines": 42,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_voice_control/package.xml",
+      "language": "xml",
+      "sizeLines": 18,
+      "fileCategory": "config"
+    },
+    {
+      "path": "src/h1_2_voice_control/resource/h1_2_voice_control",
+      "language": "unknown",
+      "sizeLines": 1,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_voice_control/setup.cfg",
+      "language": "config",
+      "sizeLines": 4,
+      "fileCategory": "config"
+    }
+  ],
+  "batchImportData": {
+    "src/h1_2_slam_bringup/launch/h1_2_icp_localization.launch.py": [],
+    "src/h1_2_slam_bringup/launch/h1_2_nav2_camera_init_navigation.launch.py": [],
+    "src/h1_2_slam_bringup/launch/h1_2_nav2_mapping.launch.py": [],
+    "src/h1_2_slam_bringup/launch/h1_2_nav2_navigation.launch.py": [],
+    "src/h1_2_slam_bringup/launch/h1_2_nav2_rviz.launch.py": [],
+    "src/h1_2_slam_bringup/launch/h1_2_nav2_slam_navigation.launch.py": [],
+    "src/h1_2_slam_bringup/launch/lidar_slam_mapping.launch.py": [],
+    "src/h1_2_slam_bringup/launch/lidar_slam_navigation.launch.py": [],
+    "src/h1_2_slam_bringup/launch/livox_mid360.launch.py": [],
+    "src/h1_2_slam_bringup/package.xml": [],
+    "src/h1_2_slam_bringup/resource/h1_2_slam_bringup": [],
+    "src/h1_2_slam_bringup/setup.cfg": [],
+    "src/h1_2_slam_bringup/setup.py": [],
+    "src/h1_2_vision/h1_2_vision/__init__.py": [],
+    "src/h1_2_vision/h1_2_vision/detector_core.py": [],
+    "src/h1_2_vision/h1_2_vision/yolo_detector.py": [
+      "src/h1_2_vision/h1_2_vision/detector_core.py"
+    ],
+    "src/h1_2_vision/launch/yolo_detector.launch.py": [],
+    "src/h1_2_vision/resource/h1_2_vision": [],
+    "src/h1_2_vision/setup.py": [],
+    "src/h1_2_voice_control/h1_2_voice_control/__init__.py": [],
+    "src/h1_2_voice_control/h1_2_voice_control/h1_2_voice_control.py": [],
+    "src/h1_2_voice_control/launch/h1_2_voice_control.launch.py": [],
+    "src/h1_2_voice_control/package.xml": [],
+    "src/h1_2_voice_control/resource/h1_2_voice_control": [],
+    "src/h1_2_voice_control/setup.cfg": []
+  },
+  "neighborMap": {
+    "src/h1_2_voice_control/h1_2_voice_control/__init__.py": [
+      {
+        "path": "src/h1_2_nav_tools/h1_2_nav_tools/h1_2_voice_action_bridge.py",
+        "batchIndex": 26,
+        "symbols": [
+          "H12VoiceActionBridge",
+          "main"
+        ]
+      }
+    ]
+  }
+}

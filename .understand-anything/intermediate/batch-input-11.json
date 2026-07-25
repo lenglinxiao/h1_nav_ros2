@@ -1,0 +1,43 @@
+{
+  "batchIndex": 11,
+  "files": [
+    {
+      "path": "src/FAST_LIO_ROS2/config/avia.yaml",
+      "language": "yaml",
+      "sizeLines": 46,
+      "fileCategory": "config"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/config/horizon.yaml",
+      "language": "yaml",
+      "sizeLines": 46,
+      "fileCategory": "config"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/config/mid360.yaml",
+      "language": "yaml",
+      "sizeLines": 52,
+      "fileCategory": "config"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/config/ouster64.yaml",
+      "language": "yaml",
+      "sizeLines": 47,
+      "fileCategory": "config"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/config/velodyne.yaml",
+      "language": "yaml",
+      "sizeLines": 48,
+      "fileCategory": "config"
+    }
+  ],
+  "batchImportData": {
+    "src/FAST_LIO_ROS2/config/avia.yaml": [],
+    "src/FAST_LIO_ROS2/config/horizon.yaml": [],
+    "src/FAST_LIO_ROS2/config/mid360.yaml": [],
+    "src/FAST_LIO_ROS2/config/ouster64.yaml": [],
+    "src/FAST_LIO_ROS2/config/velodyne.yaml": []
+  },
+  "neighborMap": {}
+}

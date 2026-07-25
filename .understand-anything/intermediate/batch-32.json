@@ -1,0 +1,1058 @@
+{
+  "nodes": [
+    {
+      "id": "test/static/test_auto_initial_pose.py",
+      "type": "file",
+      "name": "test_auto_initial_pose.py",
+      "filePath": "test/static/test_auto_initial_pose.py",
+      "summary": "AutoInitialPose 节点的静态契约测试。通过读取节点源码、启动文件和 shell 脚本，验证自动初始位姿发布、TF 等待、定位门控、多点快速重发、ICP 状态优先于 AMCL 姿态检查、以及启动参数在离线导航中的完整连线。",
+      "tags": ["测试", "静态测试", "AutoInitialPose", "初始位姿", "ICP", "定位", "离线导航"],
+      "complexity": "medium",
+      "languageNotes": "使用 pathlib 读取仓库文件，通过 assert 验证源码中的字符串、类名、参数名存在性，属于纯文本级别的契约测试。"
+    },
+    {
+      "id": "test/static/test_auto_route_icp_status_gate.py",
+      "type": "file",
+      "name": "test_auto_route_icp_status_gate.py",
+      "filePath": "test/static/test_auto_route_icp_status_gate.py",
+      "summary": "AutoInitialPose 中 ICP 定位状态门控的专项静态测试。验证节点对 LocalizationStatus 消息的订阅、重定位服务调用、ICP 评分阈值判断、稳定采样计数，以及离线启动文件中 ICP 门控参数到节点的完整传递链路。",
+      "tags": ["测试", "静态测试", "ICP状态门控", "LocalizationStatus", "重定位", "参数传递"],
+      "complexity": "low",
+      "languageNotes": "聚焦于 auto_initial_pose.py 与 navigation launch 之间的 ICP 相关 contractual interface 验证。"
+    },
+    {
+      "id": "test/static/test_camera_stream.py",
+      "type": "file",
+      "name": "test_camera_stream.py",
+      "filePath": "test/static/test_camera_stream.py",
+      "summary": "相机流处理模块的静态与单元测试组合。测试 RGB/深度图像的 JPEG 编码（rgb8/bgr8/16UC1/32FC1）、CameraFrameStore 的状态机转换（waiting/online/stale）、标注流帧率上报，验证 camera_stream 模块独立于 ROS 依赖。",
+      "tags": ["测试", "单元测试", "相机", "JPEG编码", "CameraFrameStore", "深度图", "帧率"],
+      "complexity": "medium",
+      "languageNotes": "混用静态源码 import 和 numpy/cv2 运行时测试。通过 FakeTimestamp 和自定义 clock 注入实现确定性状态机测试。"
+    },
+    {
+      "id": "test/static/test_cli_tools.py",
+      "type": "file",
+      "name": "test_cli_tools.py",
+      "filePath": "test/static/test_cli_tools.py",
+      "summary": "CLI 命令行工具的静态契约测试。验证 memory_point_cli 支持 Save/Delete/List 服务、route_runner_cli 支持 Start/Stop/Status 服务，以及两者在 setup.py 中的 console_scripts 注册是否完整。",
+      "tags": ["测试", "静态测试", "CLI", "命令行工具", "console_scripts", "服务接口"],
+      "complexity": "low",
+      "languageNotes": "纯字符串匹配级别的注册验证，不涉及运行时调用。"
+    },
+    {
+      "id": "test/static/test_global_relocalization_real_map_smoke.py",
+      "type": "file",
+      "name": "test_global_relocalization_real_map_smoke.py",
+      "filePath": "test/static/test_global_relocalization_real_map_smoke.py",
+      "summary": "全局重定位真实地图冒烟测试的静态验证。检查 ros_integration 目录下的冒烟测试脚本引用了正确的 PCD 地图路径、global_relocalization_node、crop_points_near_pose 函数以及 GICP 跟踪成功断言。",
+      "tags": ["测试", "静态测试", "全局重定位", "冒烟测试", "GICP", "PCD地图"],
+      "complexity": "low",
+      "languageNotes": "单函数测试，仅验证冒烟测试脚本的字符串特征，确保其在树内未被意外修改。"
+    },
+    {
+      "id": "test/static/test_h1_2_nav_gui.py",
+      "type": "file",
+      "name": "test_h1_2_nav_gui.py",
+      "filePath": "test/static/test_h1_2_nav_gui.py",
+      "summary": "PyQt5 桌面版导航 GUI 的静态契约测试。验证 console_scripts 注册、PyQt5 运行时依赖、导航/RViz/语音进程管理、记忆路线与手势参数生成、ROS 服务调用、手动启动模式默认值、定位稳定性门控（LocalizationStatus 订阅、ICP 评分检查、定位就绪指示灯）、以及 rclpy.init 前的 DDS 环境配置顺序。",
+      "tags": ["测试", "静态测试", "PyQt5", "导航GUI", "进程管理", "定位门控", "DDS配置", "RViz"],
+      "complexity": "high",
+      "languageNotes": "涉及桌面 GUI 架构的全面契约检查，涵盖 UI 控件、ROS 服务、DDS 环境配置、进程生命周期管理等多个维度。"
+    },
+    {
+      "id": "test/static/test_h1_2_nav_web_gui.py",
+      "type": "file",
+      "name": "test_h1_2_nav_web_gui.py",
+      "filePath": "test/static/test_h1_2_nav_web_gui.py",
+      "summary": "Web 版导航控制台的全面静态契约测试（419行，23个测试函数）。覆盖：HTTP 服务器绑定与端口、引望团队品牌标识、机器人状态总览面板（巡航就绪/运动状态/电池环）、单实例强制、导航/RViz 进程管理、ROS 服务接口（记忆路线/示教路线/手势）、API 路由清单、RealSense 相机话题订阅与启停、远程 YOLO 视觉识别管理、远程 SSH 语音控制、日志过滤与滚动锁定、在线/离线/建图三种运行模式、示教路线控件与录制、START 点排除、配置工作流版本迁移、定位稳定性门控、以及 rclpy.init 前的 CycloneDDS 环境配置。",
+      "tags": ["测试", "静态测试", "Web GUI", "导航控制台", "相机预览", "YOLO", "语音控制", "示教路线", "电池监控", "单实例", "CycloneDDS"],
+      "complexity": "high",
+      "languageNotes": "最大规模的静态测试文件，验证了 Web GUI 的全功能矩阵，包括前端 JS 函数名、HTML 元素 ID、Python 服务端字符串、CSS 类名、API 路径等多语言交叉契约。"
+    },
+    {
+      "id": "test/static/test_h1_2_vision.py",
+      "type": "file",
+      "name": "test_h1_2_vision.py",
+      "filePath": "test/static/test_h1_2_vision.py",
+      "summary": "视觉检测模块的静态与单元测试组合。静态部分验证 package.xml/setup.py/launch 文件的契约完整性（依赖 vision_msgs、话题命名、YOLO 参数默认值、ultralytics 延迟导入）。单元部分测试 LatestFrameSlot 替换语义、RateLimiter 速率控制、parse_yolo_result 解析与标注绘制、空结果处理。",
+      "tags": ["测试", "单元测试", "YOLO", "视觉检测", "LatestFrameSlot", "RateLimiter", "detector_core"],
+      "complexity": "medium",
+      "languageNotes": "使用 FakeTensor/FakeBoxes/FakeResult 模拟 ultralytics 返回结构，无需真实模型即可测试解析逻辑。"
+    },
+    {
+      "id": "test/static/test_h1_2_voice_control.py",
+      "type": "file",
+      "name": "test_h1_2_voice_control.py",
+      "filePath": "test/static/test_h1_2_voice_control.py",
+      "summary": "语音控制全链路的静态契约测试。验证语音控制节点与 Action Bridge 的 console_scripts 注册、串口依赖、话题默认值（/h1_2/voice_command、/h1_2/voice_feedback）、语音码映射表（停止/前进/蹲下/站立/右转/导航A/B/C/挥手/握手）、帧解析与唤醒帧忽略、纯消息发布模式（不直接控制机器人）、Speech_Lib 容错、反馈播放触发时机、以及 Action Bridge 到 geometry_msgs/NavigateToPose/ExecuteGesture 的映射。",
+      "tags": ["测试", "静态测试", "语音控制", "Action Bridge", "语音码映射", "串口", "Speech_Lib", "手势"],
+      "complexity": "high",
+      "languageNotes": "覆盖语音控制两个独立包（h1_2_voice_control 和 h1_2_nav_tools 中的 bridge）的接口契约，验证关注点分离和错误隔离。"
+    },
+    {
+      "id": "test/static/test_icp_package_structure.py",
+      "type": "file",
+      "name": "test_icp_package_structure.py",
+      "filePath": "test/static/test_icp_package_structure.py",
+      "summary": "ICP 定位包的完整架构静态测试（198行，11个测试函数）。验证：ROS2/PCL 依赖声明、两阶段点对面 ICP（IcpLocalizer 的粗精配准、法线估计）、定位节点的订阅/发布/服务/TF 广播、全局重定位节点的服务兼容性和地图快照机制、TF 时间戳前向偏移以适配 nav2 容忍度、KISS-Matcher 与 small_gicp 可选后端的 CMake 条件编译、启动文件中的运行时开关、以及 Relocalize/LocalizationStatus 接口定义。",
+      "tags": ["测试", "静态测试", "ICP定位", "点云配准", "PCL", "全局重定位", "KISS-Matcher", "small_gicp", "TF", "CMake"],
+      "complexity": "high",
+      "languageNotes": "跨 C++/CMake/Launch/SRV/MSG 多语言静态验证，覆盖 C++ 模板实例化、条件编译宏、ROS2 接口定义等多种技术层面。"
+    },
+    {
+      "id": "test/static/test_memory_launch_integration.py",
+      "type": "file",
+      "name": "test_memory_launch_integration.py",
+      "filePath": "test/static/test_memory_launch_integration.py",
+      "summary": "记忆路线节点在启动文件中的集成契约测试。验证离线导航启动 (h1_2_nav2_navigation.launch.py) 与在线导航启动 (h1_2_nav2_camera_init_navigation.launch.py) 中 memory_point_manager/memory_route_runner 的配置差异：离线模式使用 map 帧和 raw slam_odom 里程计、在线模式使用 camera_init 帧；同时验证 loco bridge 的手势服务、速度平滑器的 min_linear_speed 动态计算、以及 memory_points.json 的 frame_id 与启动模式一致。",
+      "tags": ["测试", "静态测试", "启动集成", "记忆路线", "离线导航", "在线导航", "frame_id", "loco_bridge", "速度平滑"],
+      "complexity": "medium",
+      "languageNotes": "对比验证两个启动文件在同一功能上的差异化配置，关注 frame_id 语义和里程计话题选择。"
+    },
+    {
+      "id": "test/static/test_memory_point_manager.py",
+      "type": "file",
+      "name": "test_memory_point_manager.py",
+      "filePath": "test/static/test_memory_point_manager.py",
+      "summary": "MemoryPointManager 节点的静态契约测试。验证三个 ROS 服务（SaveMemoryPoint/DeleteMemoryPoint/ListMemoryPoints）的声明、JSON 文件持久化（原子写入 temp_path.replace）、frame_id/position/orientation 字段、基于 /slam_odom 里程计和 target_frame 的 TF 坐标变换、以及 console_scripts 注册。",
+      "tags": ["测试", "静态测试", "MemoryPointManager", "记忆点", "JSON持久化", "ROS服务", "TF变换"],
+      "complexity": "low",
+      "languageNotes": "纯字符串匹配验证，覆盖服务接口声明和数据持久化机制。"
+    },
+    {
+      "id": "test/static/test_memory_point_markers.py",
+      "type": "file",
+      "name": "test_memory_point_markers.py",
+      "filePath": "test/static/test_memory_point_markers.py",
+      "summary": "MemoryPointMarkers 可视化节点的静态契约测试。验证 MarkerArray 发布（SPHERE 球体 + TEXT_VIEW_FACING 文本标签）、points_file 读取 maps/memory_points.json、marker_topic 默认 /memory_points_markers、时间戳使用 Time() 而非 clock.now()、console_scripts 注册、离线启动文件中的节点启动配置、以及 RViz 配置中的 MarkerArray 显示设置。",
+      "tags": ["测试", "静态测试", "MemoryPointMarkers", "MarkerArray", "可视化", "RViz", "记忆点"],
+      "complexity": "low",
+      "languageNotes": "覆盖 Python 节点源码、Launch 文件、RViz 配置文件三层契约的交叉验证。"
+    },
+    {
+      "id": "test/static/test_memory_route_runner.py",
+      "type": "file",
+      "name": "test_memory_route_runner.py",
+      "filePath": "test/static/test_memory_route_runner.py",
+      "summary": "MemoryRouteRunner 节点的静态契约测试。验证：ROS 服务（StartRoute/StopRoute/RouteStatus）+ ActionClient(NavigateToPose) 组合、points_file 和 route_names 参数加载、长时间目标的 TF 时间戳使用 Time()（零时间 = 最新 TF）、路由循环与失败重试（blocked 状态/max_retries）、停止取消、console_scripts 注册、回到起点功能（return_to_start/start_point_name）、以及到达后手势执行（gesture_route 解析、ExecuteGesture 服务调用）。",
+      "tags": ["测试", "静态测试", "MemoryRouteRunner", "路径循环", "NavigateToPose", "手势", "回到起点", "TF"],
+      "complexity": "medium",
+      "languageNotes": "验证了路由引擎的核心状态机（idle/running/stopping/blocked/gesturing/returning_to_start）和跨服务协调逻辑。"
+    },
+    {
+      "id": "test/static/test_nav_msgs_interfaces.py",
+      "type": "file",
+      "name": "test_nav_msgs_interfaces.py",
+      "filePath": "test/static/test_nav_msgs_interfaces.py",
+      "summary": "h1_2_nav_msgs 自定义接口包的静态契约测试。验证 package.xml 中的 interface generation 依赖、CMakeLists.txt 中的 rosidl_generate_interfaces 调用及 geometry_msgs 依赖、六个 SRV 文件的字段契约（SaveMemoryPoint/DeleteMemoryPoint/ListMemoryPoints/StartRoute/StopRoute/RouteStatus/ExecuteGesture）的精确结构。",
+      "tags": ["测试", "静态测试", "ROS2接口", "SRV", "消息定义", "rosidl", "接口契约"],
+      "complexity": "low",
+      "languageNotes": "逐字段字符串匹配验证 SRV 文件内容与预期契约一致，包括分隔符 '---' 和字段类型。"
+    },
+    {
+      "id": "test/static/test_offline_demo_workflow.py",
+      "type": "file",
+      "name": "test_offline_demo_workflow.py",
+      "filePath": "test/static/test_offline_demo_workflow.py",
+      "summary": "离线演示工作流的静态验证。检查 run_ai_slam_nav.sh 中 online/mapping/save_map 三种模式入口、离线导航模式对 map 文件的前置校验、save_map 模式通过 nav2_map_server map_saver_cli 保存地图而不替换在线模式、以及 README 中离线地图演示工作流文档的完整性。",
+      "tags": ["测试", "静态测试", "离线演示", "地图保存", "工作流", "map_saver_cli", "文档"],
+      "complexity": "low",
+      "languageNotes": "验证 shell 脚本和 Markdown 文档中的关键字符串，确保操作流程与文档一致。"
+    },
+    {
+      "id": "test/static/test_offline_icp_backend_switch.py",
+      "type": "file",
+      "name": "test_offline_icp_backend_switch.py",
+      "filePath": "test/static/test_offline_icp_backend_switch.py",
+      "summary": "离线导航中 ICP 后端切换的静态测试。验证 h1_2_nav2_navigation.launch.py 通过 PythonExpression 条件实现 icp/gicp 后端选择、不含 AMCL 路径、ICP 启动文件接收 PCD 地图/帧/点云/里程计话题参数、全局重定位启动文件暴露恢复稳定性参数、在线启动文件不含 ICP 引用，以及 bringup 包的运行时依赖声明。",
+      "tags": ["测试", "静态测试", "ICP后端", "全局GICP", "AMCL排除", "启动条件", "PythonExpression"],
+      "complexity": "medium",
+      "languageNotes": "验证了条件启动机制（PythonExpression 驱动的 LaunchCondition），确保 ICP 和 GICP 后端互斥且不与 AMCL 共存。"
+    },
+    {
+      "id": "test/static/test_offline_icp_localization_entrypoint.py",
+      "type": "file",
+      "name": "test_offline_icp_localization_entrypoint.py",
+      "filePath": "test/static/test_offline_icp_localization_entrypoint.py",
+      "summary": "ICP 定位入口参数的静态验证。检查 run_ai_slam_nav.sh 中 localization_backend 默认为 global_gicp、pcd_map_file 参数传递、脚本/离线启动/在线启动之间的参数隔离（在线启动不含 localization_backend 和 pcd_map）、以及 README 文档中 pure-ICP 定位用法和不含 AMCL 回退的描述。",
+      "tags": ["测试", "静态测试", "ICP入口", "localization_backend", "脚本参数", "PCD地图", "AMCL排除"],
+      "complexity": "low",
+      "languageNotes": "关注 shell 脚本、Python launch、Markdown 三层之间的参数命名一致性和隔离性。"
+    },
+    {
+      "id": "test/static/test_offline_icp_time_sync.py",
+      "type": "file",
+      "name": "test_offline_icp_time_sync.py",
+      "filePath": "test/static/test_offline_icp_time_sync.py",
+      "summary": "离线 ICP 场景下的时间戳同步机制静态测试。验证 FAST-LIO 的 use_ros_time_stamps 参数（使 C++ 源码中 odom/TF 输出使用 ROS 系统时间而非 LiDAR 时间）、启动文件中的默认关闭开关、离线导航条件下根据 icp/gicp 后端自动开启、在线模式下不启用、以及 simple_pointcloud_to_laserscan 中的 stamp_with_current_time 选项和过时时间戳警告。",
+      "tags": ["测试", "静态测试", "时间戳同步", "FAST-LIO", "ROS时间", "点云转激光", "离线回放"],
+      "complexity": "medium",
+      "languageNotes": "跨 C++ 源码、Python launch、YAML 配置三层验证时间戳策略的一致性，涉及 rclcpp::Clock 的选择逻辑。"
+    },
+    {
+      "id": "test/static/test_offline_rviz_display.py",
+      "type": "file",
+      "name": "test_offline_rviz_display.py",
+      "filePath": "test/static/test_offline_rviz_display.py",
+      "summary": "离线 RViz 可视化配置的静态验证。检查离线 RViz 中使用 /slam_odom 而非 /odom 作为里程计箭头、地图固定在导航平面、机器人在线模式下 pelvis_z 偏移为 -0.22 而离线模式下为 1.03（提升到地面）、在线 RViz 使用 camera_init 固定帧、离线 RViz 通过 odometry_z_offset 节点生成 /slam_odom_visual 视觉里程计、以及 console_scripts 中 odometry_z_offset 的注册。",
+      "tags": ["测试", "静态测试", "RViz配置", "离线显示", "里程计", "pelvis_z", "odometry_z_offset", "可视化"],
+      "complexity": "medium",
+      "languageNotes": "对比分析在线/离线两种 RViz 配置的差异化参数，验证固定帧、话题名、Z 轴偏移的语义正确性。"
+    },
+    {
+      "id": "test/static/test_pcd_map_save_workflow.py",
+      "type": "file",
+      "name": "test_pcd_map_save_workflow.py",
+      "filePath": "test/static/test_pcd_map_save_workflow.py",
+      "summary": "PCD 点云地图保存工作流的静态验证。检查 run_ai_slam_nav.sh 中 save_pcd_map 非破坏性模式（通过 ros2 service call /map_save Trigger 保存，不终止导航）、在线模式下的 map_file_path 传递、FAST-LIO 启动文件中的 map_file_path 参数声明、README 中 2D/3D 地图共享同一建图会话的文档、以及手动验收清单中 ICP 离线定位验收步骤。",
+      "tags": ["测试", "静态测试", "PCD保存", "点云地图", "map_saver", "非破坏性", "验收清单"],
+      "complexity": "low",
+      "languageNotes": "验证 PCD 保存与 2D 地图保存的并行工作流，确保两种格式在坐标一致性。"
+    },
+    {
+      "id": "test/static/test_relocalization_deps_workflow.py",
+      "type": "file",
+      "name": "test_relocalization_deps_workflow.py",
+      "filePath": "test/static/test_relocalization_deps_workflow.py",
+      "summary": "重定位依赖安装脚本的静态验证。检查 install_relocalization_deps.sh 的可重现性：KISS-Matcher 和 small_gicp 的固定 commit hash 引用、第三方源码目录布局（third_party/KISS-Matcher/small_gicp/ROBIN/pmc/xenium）、install 目录前缀、prepare_offline_robin_source 的 FETCHCONTENT 机制、CMake 构建选项（无测试/示例/Python 绑定）、以及脚本仅执行 cmake --install 不进行 git clone/fetch 的确定性原则。同时验证 README 中可选 3D 重定位依赖的文档完整性。",
+      "tags": ["测试", "静态测试", "依赖安装", "可重现构建", "KISS-Matcher", "small_gicp", "第三方库", "CMake"],
+      "complexity": "medium",
+      "languageNotes": "验证 shell 脚本的确定性构建策略——固定版本 + 禁止网络访问 + 仅本地安装，确保构建环境可重现。"
+    },
+    {
+      "id": "test/static/test_teaching_route_runner.py",
+      "type": "file",
+      "name": "test_teaching_route_runner.py",
+      "filePath": "test/static/test_teaching_route_runner.py",
+      "summary": "示教路线运行器的全面静态契约测试（176行，8个测试函数）。验证：TeachingRouteRunner 的 FollowPath ActionClient、TF Listener、direct_tracking_step 直接跟踪算法（find_nearest_pose_index/signed_lateral_error）、事件触发系统（手势+语音码在途经点触发）、路径发布（TRANSIENT_LOCAL QoS 用于 RViz 显示）、RouteActivityGuard 互斥机制（教学/记忆路线互斥启动）、record_teaching_path.py 的 Trigger 服务接口和交互式控制台、teaching_route_events.example.json 的事件格式、以及 nav2_h1_2_rpp.yaml 的低速 Regulated Pure Pursuit 参数配置。",
+      "tags": ["测试", "静态测试", "示教路线", "路径跟踪", "FollowPath", "手势事件", "RouteActivityGuard", "RegulatedPurePursuit", "直接跟踪"],
+      "complexity": "high",
+      "languageNotes": "跨 Python 源码、JSON 配置、YAML 参数、Launch 文件、RViz 配置的多格式交叉验证，覆盖示教录制和回放的完整生命周期。"
+    }
+  ],
+  "edges": [
+    {
+      "source": "test/static/test_auto_initial_pose.py",
+      "target": "src/h1_2_nav_tools/h1_2_nav_tools/auto_initial_pose.py",
+      "type": "tests",
+      "label": "验证 AutoInitialPose 节点的初始位姿发布、TF 等待和定位门控逻辑"
+    },
+    {
+      "source": "test/static/test_auto_initial_pose.py",
+      "target": "src/h1_2_nav_tools/setup.py",
+      "type": "tests",
+      "label": "验证 auto_initial_pose console_scripts 注册"
+    },
+    {
+      "source": "test/static/test_auto_initial_pose.py",
+      "target": "src/h1_2_slam_bringup/launch/h1_2_nav2_navigation.launch.py",
+      "type": "tests",
+      "label": "验证离线启动中 AutoInitialPose 参数声明和传递"
+    },
+    {
+      "source": "test/static/test_auto_initial_pose.py",
+      "target": "src/h1_2_slam_bringup/launch/h1_2_nav2_camera_init_navigation.launch.py",
+      "type": "tests",
+      "label": "验证在线启动不含 AutoInitialPose 相关配置"
+    },
+    {
+      "source": "test/static/test_auto_initial_pose.py",
+      "target": "src/h1_2_nav_tools/h1_2_nav_tools/memory_route_runner.py",
+      "type": "tests",
+      "label": "验证 route runner 在 TF 不可用时的拒绝启动逻辑"
+    },
+    {
+      "source": "test/static/test_auto_initial_pose.py",
+      "target": "run_ai_slam_nav.sh",
+      "type": "tests",
+      "label": "验证导航脚本中 AutoInitialPose 相关参数暴露"
+    },
+    {
+      "source": "test/static/test_auto_route_icp_status_gate.py",
+      "target": "src/h1_2_nav_tools/h1_2_nav_tools/auto_initial_pose.py",
+      "type": "tests",
+      "label": "验证 ICP 状态门控的 LocalizationStatus 订阅、评分和稳定计数"
+    },
+    {
+      "source": "test/static/test_auto_route_icp_status_gate.py",
+      "target": "src/h1_2_slam_bringup/launch/h1_2_nav2_navigation.launch.py",
+      "type": "tests",
+      "label": "验证离线启动中 ICP 门控参数到节点的完整传递"
+    },
+    {
+      "source": "test/static/test_auto_route_icp_status_gate.py",
+      "target": "src/h1_2_nav_tools/package.xml",
+      "type": "tests",
+      "label": "验证 nav_tools 对 h1_2_icp_localization 的运行时依赖"
+    },
+    {
+      "source": "test/static/test_camera_stream.py",
+      "target": "src/h1_2_nav_tools/h1_2_nav_tools/camera_stream.py",
+      "type": "tests",
+      "label": "测试 CameraFrameStore 状态机、JPEG 编解码函数和帧率统计"
+    },
+    {
+      "source": "test/static/test_cli_tools.py",
+      "target": "src/h1_2_nav_tools/h1_2_nav_tools/memory_point_cli.py",
+      "type": "tests",
+      "label": "验证 CLI 的 Save/Delete/List 服务调用和 --overwrite 标志"
+    },
+    {
+      "source": "test/static/test_cli_tools.py",
+      "target": "src/h1_2_nav_tools/h1_2_nav_tools/route_runner_cli.py",
+      "type": "tests",
+      "label": "验证 CLI 的 Start/Stop/Status 服务调用"
+    },
+    {
+      "source": "test/static/test_cli_tools.py",
+      "target": "src/h1_2_nav_tools/setup.py",
+      "type": "tests",
+      "label": "验证 CLI 工具 console_scripts 注册"
+    },
+    {
+      "source": "test/static/test_global_relocalization_real_map_smoke.py",
+      "target": "test/ros_integration/global_relocalization_real_map_smoke.py",
+      "type": "tests",
+      "label": "验证真实地图冒烟测试脚本引用正确的路径和函数"
+    },
+    {
+      "source": "test/static/test_h1_2_nav_gui.py",
+      "target": "src/h1_2_nav_tools/h1_2_nav_tools/h1_2_nav_gui.py",
+      "type": "tests",
+      "label": "验证 PyQt5 GUI 的进程管理、服务调用和定位门控"
+    },
+    {
+      "source": "test/static/test_h1_2_nav_gui.py",
+      "target": "src/h1_2_nav_tools/setup.py",
+      "type": "tests",
+      "label": "验证 GUI console_scripts 注册"
+    },
+    {
+      "source": "test/static/test_h1_2_nav_gui.py",
+      "target": "src/h1_2_nav_tools/package.xml",
+      "type": "tests",
+      "label": "验证 python3-pyqt5 运行时依赖"
+    },
+    {
+      "source": "test/static/test_h1_2_nav_web_gui.py",
+      "target": "src/h1_2_nav_tools/h1_2_nav_tools/h1_2_nav_web_gui.py",
+      "type": "tests",
+      "label": "验证 Web GUI 的 HTTP 服务、进程管理、API 路由、相机控制和定位门控"
+    },
+    {
+      "source": "test/static/test_h1_2_nav_web_gui.py",
+      "target": "src/h1_2_nav_tools/h1_2_nav_tools/camera_stream.py",
+      "type": "tests",
+      "label": "验证 camera_stream 模块独立于 ROS 依赖"
+    },
+    {
+      "source": "test/static/test_h1_2_nav_web_gui.py",
+      "target": "src/h1_2_nav_tools/setup.py",
+      "type": "tests",
+      "label": "验证 Web GUI console_scripts 注册"
+    },
+    {
+      "source": "test/static/test_h1_2_nav_web_gui.py",
+      "target": "src/h1_2_nav_tools/package.xml",
+      "type": "tests",
+      "label": "验证相机预览依赖（cv_bridge/python3-opencv/numpy）"
+    },
+    {
+      "source": "test/static/test_h1_2_nav_web_gui.py",
+      "target": "run_ai_slam_nav.sh",
+      "type": "tests",
+      "label": "验证导航脚本中模式、参数文件和 CycloneDDS 配置"
+    },
+    {
+      "source": "test/static/test_h1_2_nav_web_gui.py",
+      "target": "config/cyclonedds_enp45s0.xml",
+      "type": "tests",
+      "label": "验证 CycloneDDS 配置绑定 enp45s0 网卡不含 IP 地址"
+    },
+    {
+      "source": "test/static/test_h1_2_vision.py",
+      "target": "src/h1_2_vision/h1_2_vision/detector_core.py",
+      "type": "tests",
+      "label": "测试 LatestFrameSlot、RateLimiter、parse_yolo_result 和 draw_detections"
+    },
+    {
+      "source": "test/static/test_h1_2_vision.py",
+      "target": "src/h1_2_vision/package.xml",
+      "type": "tests",
+      "label": "验证视觉包的名称和 vision_msgs 依赖"
+    },
+    {
+      "source": "test/static/test_h1_2_vision.py",
+      "target": "src/h1_2_vision/setup.py",
+      "type": "tests",
+      "label": "验证 yolo_detector console_scripts 注册"
+    },
+    {
+      "source": "test/static/test_h1_2_vision.py",
+      "target": "src/h1_2_vision/launch/yolo_detector.launch.py",
+      "type": "tests",
+      "label": "验证启动文件中的话题、模型路径和检测参数默认值"
+    },
+    {
+      "source": "test/static/test_h1_2_vision.py",
+      "target": "src/h1_2_vision/h1_2_vision/yolo_detector.py",
+      "type": "tests",
+      "label": "验证 ultralytics 延迟导入而非顶层 import"
+    },
+    {
+      "source": "test/static/test_h1_2_voice_control.py",
+      "target": "src/h1_2_voice_control/h1_2_voice_control/h1_2_voice_control.py",
+      "type": "tests",
+      "label": "验证语音控制节点的串口、话题、码表、帧解析和错误处理"
+    },
+    {
+      "source": "test/static/test_h1_2_voice_control.py",
+      "target": "src/h1_2_nav_tools/h1_2_nav_tools/h1_2_voice_action_bridge.py",
+      "type": "tests",
+      "label": "验证 Action Bridge 的语音码到 Twist/NavigateToPose/ExecuteGesture 映射"
+    },
+    {
+      "source": "test/static/test_h1_2_voice_control.py",
+      "target": "src/h1_2_voice_control/launch/h1_2_voice_control.launch.py",
+      "type": "tests",
+      "label": "验证语音控制启动文件中的话题和码参数默认值"
+    },
+    {
+      "source": "test/static/test_h1_2_voice_control.py",
+      "target": "src/h1_2_nav_tools/launch/h1_2_voice_action_bridge.launch.py",
+      "type": "tests",
+      "label": "验证 Action Bridge 启动文件中的话题和码参数"
+    },
+    {
+      "source": "test/static/test_h1_2_voice_control.py",
+      "target": "src/h1_2_voice_control/setup.py",
+      "type": "tests",
+      "label": "验证语音控制包 console_scripts 注册"
+    },
+    {
+      "source": "test/static/test_h1_2_voice_control.py",
+      "target": "src/h1_2_voice_control/package.xml",
+      "type": "tests",
+      "label": "验证 python3-serial 运行时依赖"
+    },
+    {
+      "source": "test/static/test_h1_2_voice_control.py",
+      "target": "src/h1_2_nav_tools/setup.py",
+      "type": "tests",
+      "label": "验证 voice_action_bridge console_scripts 注册"
+    },
+    {
+      "source": "test/static/test_h1_2_voice_control.py",
+      "target": "src/h1_2_nav_tools/package.xml",
+      "type": "tests",
+      "label": "验证 nav_tools 对 h1_2_voice_control 的运行时依赖"
+    },
+    {
+      "source": "test/static/test_icp_package_structure.py",
+      "target": "src/h1_2_icp_localization/package.xml",
+      "type": "tests",
+      "label": "验证 ICP 包的 ROS2/PCL 依赖声明"
+    },
+    {
+      "source": "test/static/test_icp_package_structure.py",
+      "target": "src/h1_2_icp_localization/CMakeLists.txt",
+      "type": "tests",
+      "label": "验证构建配置、节点编译、接口生成和可选后端条件编译"
+    },
+    {
+      "source": "test/static/test_icp_package_structure.py",
+      "target": "src/h1_2_icp_localization/include/h1_2_icp_localization/icp_localizer.hpp",
+      "type": "tests",
+      "label": "验证 IcpLocalizer 类的两阶段 ICP 接口和滤波器成员"
+    },
+    {
+      "source": "test/static/test_icp_package_structure.py",
+      "target": "src/h1_2_icp_localization/src/icp_localizer.cpp",
+      "type": "tests",
+      "label": "验证 ICP 配准实现中的法线估计和粗精两步对齐"
+    },
+    {
+      "source": "test/static/test_icp_package_structure.py",
+      "target": "src/h1_2_icp_localization/src/icp_localization_node.cpp",
+      "type": "tests",
+      "label": "验证定位节点的订阅发布服务和 TF 广播逻辑"
+    },
+    {
+      "source": "test/static/test_icp_package_structure.py",
+      "target": "src/h1_2_icp_localization/src/global_relocalization_node.cpp",
+      "type": "tests",
+      "label": "验证全局重定位节点的 relocalize 服务、地图快照和前向 TF 时间戳"
+    },
+    {
+      "source": "test/static/test_icp_package_structure.py",
+      "target": "src/h1_2_icp_localization/srv/Relocalize.srv",
+      "type": "tests",
+      "label": "验证重定位服务接口定义（pcd_path/initial_pose/success/score）"
+    },
+    {
+      "source": "test/static/test_icp_package_structure.py",
+      "target": "src/h1_2_icp_localization/msg/LocalizationStatus.msg",
+      "type": "tests",
+      "label": "验证定位状态消息定义（initialized/converged/score）"
+    },
+    {
+      "source": "test/static/test_icp_package_structure.py",
+      "target": "src/h1_2_slam_bringup/launch/h1_2_global_relocalization.launch.py",
+      "type": "tests",
+      "label": "验证全局重定位启动文件中的 KISS-Matcher/small_gicp 运行时开关"
+    },
+    {
+      "source": "test/static/test_icp_package_structure.py",
+      "target": "src/h1_2_slam_bringup/launch/h1_2_nav2_navigation.launch.py",
+      "type": "tests",
+      "label": "验证导航启动中全局重定位参数的传递"
+    },
+    {
+      "source": "test/static/test_memory_launch_integration.py",
+      "target": "src/h1_2_slam_bringup/launch/h1_2_nav2_navigation.launch.py",
+      "type": "tests",
+      "label": "验证离线启动中记忆点节点配置（map 帧/raw odom/loco bridge/速度平滑）"
+    },
+    {
+      "source": "test/static/test_memory_launch_integration.py",
+      "target": "src/h1_2_slam_bringup/launch/h1_2_nav2_camera_init_navigation.launch.py",
+      "type": "tests",
+      "label": "验证在线启动中记忆点节点配置（camera_init 帧/priority_cmd）"
+    },
+    {
+      "source": "test/static/test_memory_launch_integration.py",
+      "target": "maps/memory_points.json",
+      "type": "tests",
+      "label": "验证 demo 记忆点文件的 frame_id 为 map"
+    },
+    {
+      "source": "test/static/test_memory_launch_integration.py",
+      "target": "src/h1_2_nav_tools/h1_2_nav_tools/memory_route_runner.py",
+      "type": "tests",
+      "label": "验证路径名解析和逗号分隔的 route_names 参数"
+    },
+    {
+      "source": "test/static/test_memory_launch_integration.py",
+      "target": "src/h1_2_nav_tools/h1_2_nav_tools/velocity_smoother_ema.py",
+      "type": "tests",
+      "label": "验证速度平滑器的 min_linear_speed 和语音优先控制"
+    },
+    {
+      "source": "test/static/test_memory_launch_integration.py",
+      "target": "src/h1_2_loco_bridge/launch/h1_2_loco_bridge.launch.py",
+      "type": "tests",
+      "label": "验证 loco bridge 手势服务启动配置"
+    },
+    {
+      "source": "test/static/test_memory_launch_integration.py",
+      "target": "src/h1_2_loco_bridge/src/h1_2_loco_udp_daemon.cpp",
+      "type": "tests",
+      "label": "验证 UDP daemon 中的手势动作实现（WaveHand/ShakeHand/Stand）"
+    },
+    {
+      "source": "test/static/test_memory_launch_integration.py",
+      "target": "src/h1_2_loco_bridge/CMakeLists.txt",
+      "type": "tests",
+      "label": "验证 gesture_to_h1_2_loco 目标在构建系统中"
+    },
+    {
+      "source": "test/static/test_memory_point_manager.py",
+      "target": "src/h1_2_nav_tools/h1_2_nav_tools/memory_point_manager.py",
+      "type": "tests",
+      "label": "验证 Node 类、服务声明、JSON 持久化和 TF 坐标变换"
+    },
+    {
+      "source": "test/static/test_memory_point_manager.py",
+      "target": "src/h1_2_nav_tools/setup.py",
+      "type": "tests",
+      "label": "验证 memory_point_manager console_scripts 注册"
+    },
+    {
+      "source": "test/static/test_memory_point_markers.py",
+      "target": "src/h1_2_nav_tools/h1_2_nav_tools/memory_point_markers.py",
+      "type": "tests",
+      "label": "验证 MarkerArray 发布、SPHERE/TEXT 标记和配置文件读取"
+    },
+    {
+      "source": "test/static/test_memory_point_markers.py",
+      "target": "src/h1_2_nav_tools/setup.py",
+      "type": "tests",
+      "label": "验证 memory_point_markers console_scripts 注册"
+    },
+    {
+      "source": "test/static/test_memory_point_markers.py",
+      "target": "src/h1_2_slam_bringup/launch/h1_2_nav2_navigation.launch.py",
+      "type": "tests",
+      "label": "验证离线启动中 markers 节点的参数传递"
+    },
+    {
+      "source": "test/static/test_memory_point_markers.py",
+      "target": "src/h1_2_nav_tools/rviz/h1_2_nav2_offline.rviz",
+      "type": "tests",
+      "label": "验证离线 RViz 中 MemoryPoints MarkerArray 的显示配置"
+    },
+    {
+      "source": "test/static/test_memory_route_runner.py",
+      "target": "src/h1_2_nav_tools/h1_2_nav_tools/memory_route_runner.py",
+      "type": "tests",
+      "label": "验证路由服务的状态机、循环重试、回到起点和手势执行"
+    },
+    {
+      "source": "test/static/test_memory_route_runner.py",
+      "target": "src/h1_2_nav_tools/setup.py",
+      "type": "tests",
+      "label": "验证 memory_route_runner console_scripts 注册"
+    },
+    {
+      "source": "test/static/test_memory_route_runner.py",
+      "target": "src/h1_2_slam_bringup/launch/h1_2_nav2_navigation.launch.py",
+      "type": "tests",
+      "label": "验证 return_to_start 和 gesture_route 启动参数"
+    },
+    {
+      "source": "test/static/test_memory_route_runner.py",
+      "target": "run_ai_slam_nav.sh",
+      "type": "tests",
+      "label": "验证 shell 脚本中的 RETURN_TO_START 和 GESTURE_ROUTE 变量"
+    },
+    {
+      "source": "test/static/test_nav_msgs_interfaces.py",
+      "target": "src/h1_2_nav_msgs/package.xml",
+      "type": "tests",
+      "label": "验证 nav_msgs 包的接口生成依赖"
+    },
+    {
+      "source": "test/static/test_nav_msgs_interfaces.py",
+      "target": "src/h1_2_nav_msgs/CMakeLists.txt",
+      "type": "tests",
+      "label": "验证 rosidl_generate_interfaces 和 geometry_msgs 依赖"
+    },
+    {
+      "source": "test/static/test_nav_msgs_interfaces.py",
+      "target": "src/h1_2_nav_msgs/srv/SaveMemoryPoint.srv",
+      "type": "tests",
+      "label": "验证保存记忆点服务的 name/overwrite/pose 字段"
+    },
+    {
+      "source": "test/static/test_nav_msgs_interfaces.py",
+      "target": "src/h1_2_nav_msgs/srv/DeleteMemoryPoint.srv",
+      "type": "tests",
+      "label": "验证删除记忆点服务的字段契约"
+    },
+    {
+      "source": "test/static/test_nav_msgs_interfaces.py",
+      "target": "src/h1_2_nav_msgs/srv/ListMemoryPoints.srv",
+      "type": "tests",
+      "label": "验证列出记忆点服务的 names/poses 数组字段"
+    },
+    {
+      "source": "test/static/test_nav_msgs_interfaces.py",
+      "target": "src/h1_2_nav_msgs/srv/StartRoute.srv",
+      "type": "tests",
+      "label": "验证启动路由服务的无请求字段约定"
+    },
+    {
+      "source": "test/static/test_nav_msgs_interfaces.py",
+      "target": "src/h1_2_nav_msgs/srv/StopRoute.srv",
+      "type": "tests",
+      "label": "验证停止路由服务的无请求字段约定"
+    },
+    {
+      "source": "test/static/test_nav_msgs_interfaces.py",
+      "target": "src/h1_2_nav_msgs/srv/RouteStatus.srv",
+      "type": "tests",
+      "label": "验证路由状态查询服务的 state/current_goal/current_index 字段"
+    },
+    {
+      "source": "test/static/test_nav_msgs_interfaces.py",
+      "target": "src/h1_2_nav_msgs/srv/ExecuteGesture.srv",
+      "type": "tests",
+      "label": "验证执行手势服务的 name/success/sdk_ret/message 字段"
+    },
+    {
+      "source": "test/static/test_offline_demo_workflow.py",
+      "target": "run_ai_slam_nav.sh",
+      "type": "tests",
+      "label": "验证导航脚本中 online/mapping/save_map 三种模式入口和离线模式 map 校验"
+    },
+    {
+      "source": "test/static/test_offline_demo_workflow.py",
+      "target": "README.md",
+      "type": "tests",
+      "label": "验证 README 中的离线地图演示工作流文档"
+    },
+    {
+      "source": "test/static/test_offline_icp_backend_switch.py",
+      "target": "src/h1_2_slam_bringup/launch/h1_2_nav2_navigation.launch.py",
+      "type": "tests",
+      "label": "验证离线启动中 ICP/GICP 后端条件选择和参数传递"
+    },
+    {
+      "source": "test/static/test_offline_icp_backend_switch.py",
+      "target": "src/h1_2_slam_bringup/launch/h1_2_nav2_camera_init_navigation.launch.py",
+      "type": "tests",
+      "label": "验证在线启动不含 ICP 后端引用"
+    },
+    {
+      "source": "test/static/test_offline_icp_backend_switch.py",
+      "target": "src/h1_2_slam_bringup/launch/h1_2_icp_localization.launch.py",
+      "type": "tests",
+      "label": "验证 ICP 定位启动文件的包、可执行文件和参数"
+    },
+    {
+      "source": "test/static/test_offline_icp_backend_switch.py",
+      "target": "src/h1_2_slam_bringup/launch/h1_2_global_relocalization.launch.py",
+      "type": "tests",
+      "label": "验证全局重定位启动文件的恢复稳定性参数"
+    },
+    {
+      "source": "test/static/test_offline_icp_backend_switch.py",
+      "target": "src/h1_2_slam_bringup/package.xml",
+      "type": "tests",
+      "label": "验证 bringup 包对 h1_2_icp_localization 的运行时依赖"
+    },
+    {
+      "source": "test/static/test_offline_icp_localization_entrypoint.py",
+      "target": "run_ai_slam_nav.sh",
+      "type": "tests",
+      "label": "验证脚本中 localization_backend 默认值和 pcd 参数暴露"
+    },
+    {
+      "source": "test/static/test_offline_icp_localization_entrypoint.py",
+      "target": "src/h1_2_slam_bringup/launch/h1_2_nav2_navigation.launch.py",
+      "type": "tests",
+      "label": "验证离线启动接受 backend 和 pcd 参数"
+    },
+    {
+      "source": "test/static/test_offline_icp_localization_entrypoint.py",
+      "target": "src/h1_2_slam_bringup/launch/h1_2_nav2_camera_init_navigation.launch.py",
+      "type": "tests",
+      "label": "验证在线启动不含 backend 和 pcd 参数"
+    },
+    {
+      "source": "test/static/test_offline_icp_localization_entrypoint.py",
+      "target": "README.md",
+      "type": "tests",
+      "label": "验证 README 中 pure-ICP 定位用法不含 AMCL 回退"
+    },
+    {
+      "source": "test/static/test_offline_icp_time_sync.py",
+      "target": "src/FAST_LIO_ROS2/src/laserMapping.cpp",
+      "type": "tests",
+      "label": "验证 FAST-LIO 的 use_ros_time_stamps 参数和 output_ros_stamp 函数"
+    },
+    {
+      "source": "test/static/test_offline_icp_time_sync.py",
+      "target": "src/h1_2_slam_bringup/launch/fastlio2_mid360_mapping.launch.py",
+      "type": "tests",
+      "label": "验证 FAST-LIO 启动文件中的 ROS 时间戳开关默认关闭"
+    },
+    {
+      "source": "test/static/test_offline_icp_time_sync.py",
+      "target": "src/h1_2_slam_bringup/launch/h1_2_nav2_navigation.launch.py",
+      "type": "tests",
+      "label": "验证离线导航中根据 backend 自动开启 ROS 时间戳"
+    },
+    {
+      "source": "test/static/test_offline_icp_time_sync.py",
+      "target": "src/h1_2_slam_bringup/launch/h1_2_nav2_camera_init_navigation.launch.py",
+      "type": "tests",
+      "label": "验证在线启动不含 use_ros_time_stamps"
+    },
+    {
+      "source": "test/static/test_offline_icp_time_sync.py",
+      "target": "src/h1_2_nav_tools/h1_2_nav_tools/simple_pointcloud_to_laserscan.py",
+      "type": "tests",
+      "label": "验证点云转激光扫描的 stamp_with_current_time 选项"
+    },
+    {
+      "source": "test/static/test_offline_icp_time_sync.py",
+      "target": "src/h1_2_slam_bringup/config/pointcloud_to_laserscan_body.yaml",
+      "type": "tests",
+      "label": "验证点云转激光配置中的时间戳和过时警告参数"
+    },
+    {
+      "source": "test/static/test_offline_rviz_display.py",
+      "target": "src/h1_2_nav_tools/rviz/h1_2_nav2_offline.rviz",
+      "type": "tests",
+      "label": "验证离线 RViz 中 /slam_odom 里程计和 /slam_odom_visual 视觉里程计配置"
+    },
+    {
+      "source": "test/static/test_offline_rviz_display.py",
+      "target": "src/h1_2_nav_tools/rviz/h1_2_nav2_camera_init.rviz",
+      "type": "tests",
+      "label": "验证在线 RViz 中 camera_init 固定帧和 /slam_odom 配置"
+    },
+    {
+      "source": "test/static/test_offline_rviz_display.py",
+      "target": "src/h1_2_slam_bringup/launch/h1_2_nav2_navigation.launch.py",
+      "type": "tests",
+      "label": "验证离线启动中的 robot_pelvis_z 和 odometry_z_offset 节点"
+    },
+    {
+      "source": "test/static/test_offline_rviz_display.py",
+      "target": "src/h1_2_slam_bringup/launch/h1_2_nav2_camera_init_navigation.launch.py",
+      "type": "tests",
+      "label": "验证在线启动中 pelvis_z 默认值为 -0.22"
+    },
+    {
+      "source": "test/static/test_offline_rviz_display.py",
+      "target": "src/h1_2_nav_tools/setup.py",
+      "type": "tests",
+      "label": "验证 odometry_z_offset console_scripts 注册"
+    },
+    {
+      "source": "test/static/test_pcd_map_save_workflow.py",
+      "target": "run_ai_slam_nav.sh",
+      "type": "tests",
+      "label": "验证 save_pcd_map 非破坏性模式和 pcd_prefix 参数"
+    },
+    {
+      "source": "test/static/test_pcd_map_save_workflow.py",
+      "target": "src/h1_2_slam_bringup/launch/fastlio2_mid360_mapping.launch.py",
+      "type": "tests",
+      "label": "验证 FAST-LIO 启动中的 map_file_path 参数声明"
+    },
+    {
+      "source": "test/static/test_pcd_map_save_workflow.py",
+      "target": "src/h1_2_slam_bringup/launch/h1_2_nav2_camera_init_navigation.launch.py",
+      "type": "tests",
+      "label": "验证在线启动中 map_file_path 默认值"
+    },
+    {
+      "source": "test/static/test_pcd_map_save_workflow.py",
+      "target": "src/h1_2_slam_bringup/launch/h1_2_nav2_navigation.launch.py",
+      "type": "tests",
+      "label": "验证离线启动中 map_file_path 默认值"
+    },
+    {
+      "source": "test/static/test_pcd_map_save_workflow.py",
+      "target": "README.md",
+      "type": "tests",
+      "label": "验证 README 中 2D/3D 地图共享建图会话的文档"
+    },
+    {
+      "source": "test/static/test_pcd_map_save_workflow.py",
+      "target": "test/manual/README.md",
+      "type": "tests",
+      "label": "验证手动验收清单中的 ICP 离线定位验收步骤"
+    },
+    {
+      "source": "test/static/test_relocalization_deps_workflow.py",
+      "target": "scripts/install_relocalization_deps.sh",
+      "type": "tests",
+      "label": "验证依赖安装脚本的确定性构建策略和可重现性"
+    },
+    {
+      "source": "test/static/test_relocalization_deps_workflow.py",
+      "target": "README.md",
+      "type": "tests",
+      "label": "验证 README 中可选 3D 重定位依赖的文档"
+    },
+    {
+      "source": "test/static/test_teaching_route_runner.py",
+      "target": "src/h1_2_nav_tools/h1_2_nav_tools/teaching_route_runner.py",
+      "type": "tests",
+      "label": "验证 TeachingRouteRunner 的 FollowPath、直接跟踪、事件触发和路径发布"
+    },
+    {
+      "source": "test/static/test_teaching_route_runner.py",
+      "target": "src/h1_2_nav_tools/h1_2_nav_tools/route_activity_guard.py",
+      "type": "tests",
+      "label": "验证 RouteActivityGuard 的 peer 互斥和超时拒绝机制"
+    },
+    {
+      "source": "test/static/test_teaching_route_runner.py",
+      "target": "src/h1_2_nav_tools/h1_2_nav_tools/memory_route_runner.py",
+      "type": "tests",
+      "label": "验证记忆路线运行器中的 peer_status_service 互斥配置"
+    },
+    {
+      "source": "test/static/test_teaching_route_runner.py",
+      "target": "src/h1_2_nav_tools/setup.py",
+      "type": "tests",
+      "label": "验证 teaching_route_runner console_scripts 注册"
+    },
+    {
+      "source": "test/static/test_teaching_route_runner.py",
+      "target": "src/h1_2_nav_tools/launch/teaching_route_runner.launch.py",
+      "type": "tests",
+      "label": "验证示教路线启动文件的 start_pose_guard 和 direct 跟踪参数"
+    },
+    {
+      "source": "test/static/test_teaching_route_runner.py",
+      "target": "src/h1_2_nav_tools/config/nav2_h1_2_rpp.yaml",
+      "type": "tests",
+      "label": "验证 Regulated Pure Pursuit 低速参数配置"
+    },
+    {
+      "source": "test/static/test_teaching_route_runner.py",
+      "target": "src/h1_2_nav_tools/config/teaching_route_events.example.json",
+      "type": "tests",
+      "label": "验证示教事件示例中的 point/gesture/voice_code 字段"
+    },
+    {
+      "source": "test/static/test_teaching_route_runner.py",
+      "target": "src/h1_2_nav_tools/h1_2_nav_tools/record_teaching_path.py",
+      "type": "tests",
+      "label": "验证录制节点的 Trigger 服务、TRANSIENT_LOCAL QoS 和 TF 前置条件"
+    },
+    {
+      "source": "test/static/test_teaching_route_runner.py",
+      "target": "src/h1_2_nav_tools/launch/record_teaching_path.launch.py",
+      "type": "tests",
+      "label": "验证录制启动文件的 distance_threshold 和交互控制台参数"
+    },
+    {
+      "source": "test/static/test_teaching_route_runner.py",
+      "target": "src/h1_2_nav_tools/rviz/h1_2_nav2_offline.rviz",
+      "type": "tests",
+      "label": "验证离线 RViz 中 TeachingRoute 路径的橙色显示配置"
+    },
+    {
+      "source": "test/static/test_teaching_route_runner.py",
+      "target": "src/h1_2_nav_tools/rviz/h1_2_nav2_camera_init.rviz",
+      "type": "tests",
+      "label": "验证在线 RViz 中 TeachingRoute 路径显示配置"
+    },
+    {
+      "source": "test/static/test_teaching_route_runner.py",
+      "target": "src/h1_2_nav_tools/config/nav2_h1_2.yaml",
+      "type": "tests",
+      "label": "验证默认 nav2 配置使用 DWB 而非 RPP"
+    },
+    {
+      "source": "test/static/test_auto_initial_pose.py",
+      "target": "test/static/test_auto_route_icp_status_gate.py",
+      "type": "related_to",
+      "label": "共同验证 AutoInitialPose 节点，前者侧重完整功能，后者专注 ICP 门控"
+    },
+    {
+      "source": "test/static/test_auto_initial_pose.py",
+      "target": "test/static/test_memory_route_runner.py",
+      "type": "related_to",
+      "label": "共享对 memory_route_runner 和 auto_initial_pose 间 TF 等待/路线启动的交叉验证"
+    },
+    {
+      "source": "test/static/test_h1_2_nav_gui.py",
+      "target": "test/static/test_h1_2_nav_web_gui.py",
+      "type": "related_to",
+      "label": "分别验证桌面 PyQt5 和 Web 版导航 GUI，共享定位门控、路由服务、DDS 配置等共同逻辑"
+    },
+    {
+      "source": "test/static/test_h1_2_voice_control.py",
+      "target": "test/static/test_memory_route_runner.py",
+      "type": "related_to",
+      "label": "语音 Action Bridge 的 ExecuteGesture 服务与 memory_route_runner 的手势路由功能对接"
+    },
+    {
+      "source": "test/static/test_icp_package_structure.py",
+      "target": "test/static/test_offline_icp_backend_switch.py",
+      "type": "related_to",
+      "label": "共同验证 ICP 定位包架构，前者关注 C++/CMake 层，后者关注 launch 后端切换"
+    },
+    {
+      "source": "test/static/test_icp_package_structure.py",
+      "target": "test/static/test_offline_icp_time_sync.py",
+      "type": "related_to",
+      "label": "ICP 包结构验证与时间戳同步机制互补，共同确保离线回放正确性"
+    },
+    {
+      "source": "test/static/test_icp_package_structure.py",
+      "target": "test/static/test_relocalization_deps_workflow.py",
+      "type": "related_to",
+      "label": "ICP 包依赖 KISS-Matcher/small_gicp 可选后端，与依赖安装脚本共同确保构建环境"
+    },
+    {
+      "source": "test/static/test_offline_icp_backend_switch.py",
+      "target": "test/static/test_offline_icp_localization_entrypoint.py",
+      "type": "related_to",
+      "label": "共同验证 ICP 定位入口，前者关注后端切换条件，后者关注脚本参数暴露"
+    },
+    {
+      "source": "test/static/test_memory_point_manager.py",
+      "target": "test/static/test_memory_point_markers.py",
+      "type": "related_to",
+      "label": "manager 管理记忆点数据，markers 可视化同一份 memory_points.json"
+    },
+    {
+      "source": "test/static/test_memory_point_manager.py",
+      "target": "test/static/test_memory_route_runner.py",
+      "type": "related_to",
+      "label": "manager 提供记忆点存储，route_runner 读取同一份 JSON 文件进行路径导航"
+    },
+    {
+      "source": "test/static/test_memory_launch_integration.py",
+      "target": "test/static/test_memory_point_manager.py",
+      "type": "related_to",
+      "label": "launch_integration 验证启动集成，manager 测试验证节点内部实现"
+    },
+    {
+      "source": "test/static/test_memory_launch_integration.py",
+      "target": "test/static/test_memory_route_runner.py",
+      "type": "related_to",
+      "label": "launch_integration 验证启动集成，route_runner 测试验证节点内部实现"
+    },
+    {
+      "source": "test/static/test_offline_demo_workflow.py",
+      "target": "test/static/test_pcd_map_save_workflow.py",
+      "type": "related_to",
+      "label": "分别验证 2D 地图保存和 3D PCD 保存的非破坏性工作流"
+    },
+    {
+      "source": "test/static/test_offline_rviz_display.py",
+      "target": "test/static/test_memory_point_markers.py",
+      "type": "related_to",
+      "label": "共同验证 RViz 中的离线可视化配置和内存点标记显示"
+    },
+    {
+      "source": "test/static/test_teaching_route_runner.py",
+      "target": "test/static/test_memory_route_runner.py",
+      "type": "related_to",
+      "label": "示教路线与记忆路线通过 RouteActivityGuard 互斥，教学 runner 使用 FollowPath 而非 NavigateToPose"
+    },
+    {
+      "source": "test/static/test_teaching_route_runner.py",
+      "target": "test/static/test_h1_2_nav_web_gui.py",
+      "type": "related_to",
+      "label": "Web GUI 通过 API 控制 teaching_route 的启动/停止/录制，测试验证该集成契约"
+    },
+    {
+      "source": "test/static/test_nav_msgs_interfaces.py",
+      "target": "test/static/test_memory_point_manager.py",
+      "type": "related_to",
+      "label": "msg 测试定义接口契约，manager 测试验证节点对这些接口的实现"
+    },
+    {
+      "source": "test/static/test_nav_msgs_interfaces.py",
+      "target": "test/static/test_memory_route_runner.py",
+      "type": "related_to",
+      "label": "msg 测试定义 RouteStatus/ExecuteGesture 等接口，route_runner 使用这些接口"
+    },
+    {
+      "source": "test/static/test_nav_msgs_interfaces.py",
+      "target": "test/static/test_teaching_route_runner.py",
+      "type": "related_to",
+      "label": "msg 测试定义的接口被 teaching_route_runner 作为服务和动作客户端使用"
+    },
+    {
+      "source": "test/static/test_camera_stream.py",
+      "target": "test/static/test_h1_2_vision.py",
+      "type": "related_to",
+      "label": "camera_stream 提供图像编码，vision 模块消费相机数据进行 YOLO 检测"
+    },
+    {
+      "source": "test/static/test_camera_stream.py",
+      "target": "test/static/test_h1_2_nav_web_gui.py",
+      "type": "related_to",
+      "label": "camera_stream 模块被 Web GUI 用于相机预览和视频流"
+    },
+    {
+      "source": "test/static/test_h1_2_vision.py",
+      "target": "test/static/test_h1_2_nav_web_gui.py",
+      "type": "related_to",
+      "label": "视觉检测结果通过 annotated.mjpg 流在 Web GUI 中展示"
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "batchIndex": 4,
+  "files": [
+    {
+      "path": "src/FAST_LIO_ROS2/src/IMU_Processing.hpp",
+      "language": "cpp",
+      "sizeLines": 408,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/src/laserMapping.cpp",
+      "language": "cpp",
+      "sizeLines": 1215,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/src/preprocess.cpp",
+      "language": "cpp",
+      "sizeLines": 1069,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/src/preprocess.h",
+      "language": "c",
+      "sizeLines": 196,
+      "fileCategory": "code"
+    }
+  ],
+  "batchImportData": {
+    "src/FAST_LIO_ROS2/src/IMU_Processing.hpp": [],
+    "src/FAST_LIO_ROS2/src/laserMapping.cpp": [
+      "src/FAST_LIO_ROS2/src/IMU_Processing.hpp",
+      "src/FAST_LIO_ROS2/src/preprocess.h"
+    ],
+    "src/FAST_LIO_ROS2/src/preprocess.cpp": [
+      "src/FAST_LIO_ROS2/src/preprocess.h"
+    ],
+    "src/FAST_LIO_ROS2/src/preprocess.h": []
+  },
+  "neighborMap": {}
+}

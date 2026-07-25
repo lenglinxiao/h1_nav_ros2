@@ -1,0 +1,131 @@
+{
+  "nodes": [
+    {
+      "id": "src/h1_2_description/CMakeLists.txt",
+      "type": "build",
+      "name": "CMakeLists.txt (h1_2_description 构建配置)",
+      "filePath": "src/h1_2_description/CMakeLists.txt",
+      "summary": "h1_2_description 包的 CMake 构建文件。使用 ament_cmake 作为构建系统，安装 meshes 目录以及所有 URDF 文件（h1_2.urdf、h1_2_handless.urdf、h1_2_with_FTP_hand.urdf）、MJCF 文件（h1_2.xml、h1_2_handless.xml）、渲染图（h1_2.png）和 README.md 到 share/${PROJECT_NAME} 目录。",
+      "tags": ["CMake", "ament_cmake", "构建系统", "ROS2", "安装规则", "h1_2_description"],
+      "complexity": "low",
+      "languageNotes": "标准的 ROS2 ament_cmake 构建脚本，使用 install(DIRECTORY ...) 和 install(FILES ...) 两条安装指令，结构简洁清晰。"
+    },
+    {
+      "id": "src/h1_2_description/README.md",
+      "type": "documentation",
+      "name": "README.md (Unitree H1_2 描述包说明)",
+      "filePath": "src/h1_2_description/README.md",
+      "summary": "Unitree H1_2 仿人机器人描述包的 README 文档。介绍了该包包含 H1_2 机器人的 URDF 和 MJCF 两种格式的模型描述文件，由宇树科技（Unitree Robotics）开发。提供了使用 MuJoCo 查看器加载 MJCF 模型文件的可视化步骤说明。",
+      "tags": ["README", "文档", "URDF", "MJCF", "MuJoCo", "Unitree H1_2", "仿人机器人", "可视化"],
+      "complexity": "low",
+      "languageNotes": "简明扼要的项目概述文档，包含模型预览图和 MuJoCo 可视化工具的使用命令行示例，适合快速入门。"
+    },
+    {
+      "id": "src/h1_2_description/h1_2.xml",
+      "type": "model",
+      "name": "h1_2.xml (H1_2 全手 MuJoCo 模型)",
+      "filePath": "src/h1_2_description/h1_2.xml",
+      "summary": "Unitree H1_2 仿人机器人的完整 MuJoCo MJCF 模型定义文件（包含双手手指）。定义了 57 个 STL 网格资产、19 个主要身体关节（含 floating_base）、52 个执行器电机（覆盖双腿、躯干、双臂及双手五指关节），以及 IMU 传感器（陀螺仪和加速度计）。包含完整的惯性参数、关节限位和执行器力矩范围。还配置了场景照明、地面平面和天空盒纹理。",
+      "tags": ["MJCF", "MuJoCo", "URDF", "仿人机器人", "Unitree H1_2", "物理仿真", "运动学", "动力学参数", "IMU", "手指关节", "STL网格"],
+      "complexity": "high",
+      "languageNotes": "大规模 XML 模型文件，采用递归嵌套的 body 结构定义运动学树：从 pelvis 根节点出发，分别定义左右腿（hip_yaw → hip_pitch → hip_roll → knee → ankle_pitch → ankle_roll）和左右臂（shoulder_pitch → shoulder_roll → shoulder_yaw → elbow → wrist_roll → wrist_pitch → wrist_yaw），末端衔接完整五指手部结构（每手指含 proximal 和 intermediate 两关节，拇指额外包含 proximal_base 和 distal 共四关节）。惯性参数以 quat+diaginertia 形式存储，角度单位统一为弧度。"
+    },
+    {
+      "id": "src/h1_2_description/h1_2_handless.xml",
+      "type": "model",
+      "name": "h1_2_handless.xml (H1_2 无手 MuJoCo 模型)",
+      "filePath": "src/h1_2_description/h1_2_handless.xml",
+      "summary": "Unitree H1_2 仿人机器人的简化 MuJoCo MJCF 模型定义文件（不含双手手指）。定义了 32 个 STL 网格资产、19 个主要身体关节（含 floating_base）、28 个执行器电机（覆盖双腿、躯干和双臂，不含手部手指电机），以及 IMU 传感器。在手腕末端使用简化的 wrist_yaw_link 替代完整手指结构。适用于不需要精细手部操作的快速仿真场景。",
+      "tags": ["MJCF", "MuJoCo", "URDF", "仿人机器人", "Unitree H1_2", "物理仿真", "简化模型", "无手", "双腿双臂", "IMU", "STL网格"],
+      "complexity": "medium",
+      "languageNotes": "h1_2.xml 的简化变体，移除了全部手指关节（L/R thumb/index/middle/ring/pinky 及其 proximal/intermediate/distal 子关节），将 wrist_yaw_link 的惯性参数简化为单体（mass=0.124, 无 hand_base 几何体）。运动学链在 wrist_yaw 关节处终止，不包含手部链接。资产列表中仅包含躯干和四肢的 32 个网格，不包含 link11-22 手指网格。"
+    },
+    {
+      "id": "src/h1_2_description/package.xml",
+      "type": "package-manifest",
+      "name": "package.xml (h1_2_description 包清单)",
+      "filePath": "src/h1_2_description/package.xml",
+      "summary": "h1_2_description ROS2 包的 package.xml 清单文件。定义包名为 h1_2_description，版本 0.1.0，描述为 H1-2 robot URDF and mesh resources。使用 ament_cmake 构建类型，依赖 ament_cmake 构建工具。采用 MIT 许可证。",
+      "tags": ["package.xml", "ROS2", "包清单", "ament_cmake", "MIT", "URDF", "网格资源"],
+      "complexity": "low",
+      "languageNotes": "标准的 ROS2 package.xml 格式3 清单文件，仅声明构建工具依赖，无运行时依赖，结构极简。"
+    }
+  ],
+  "edges": [
+    {
+      "sourceId": "src/h1_2_description/CMakeLists.txt",
+      "targetId": "src/h1_2_description/h1_2.xml",
+      "type": "installs",
+      "label": "安装部署",
+      "properties": {
+        "description": "CMakeLists.txt 通过 install(FILES ...) 将 h1_2.xml 安装到 share/h1_2_description 目录",
+        "mechanism": "install(FILES ... DESTINATION share/${PROJECT_NAME})"
+      }
+    },
+    {
+      "sourceId": "src/h1_2_description/CMakeLists.txt",
+      "targetId": "src/h1_2_description/h1_2_handless.xml",
+      "type": "installs",
+      "label": "安装部署",
+      "properties": {
+        "description": "CMakeLists.txt 通过 install(FILES ...) 将 h1_2_handless.xml 安装到 share/h1_2_description 目录",
+        "mechanism": "install(FILES ... DESTINATION share/${PROJECT_NAME})"
+      }
+    },
+    {
+      "sourceId": "src/h1_2_description/CMakeLists.txt",
+      "targetId": "src/h1_2_description/README.md",
+      "type": "installs",
+      "label": "安装部署",
+      "properties": {
+        "description": "CMakeLists.txt 通过 install(FILES ...) 将 README.md 安装到 share/h1_2_description 目录",
+        "mechanism": "install(FILES ... DESTINATION share/${PROJECT_NAME})"
+      }
+    },
+    {
+      "sourceId": "src/h1_2_description/CMakeLists.txt",
+      "targetId": "src/h1_2_description/package.xml",
+      "type": "build-system",
+      "label": "构建系统",
+      "properties": {
+        "description": "CMakeLists.txt 使用 ament_cmake 构建系统，与 package.xml 声明的 <buildtool_depend>ament_cmake</buildtool_depend> 对应，共同构成 ROS2 包的构建体系"
+      }
+    },
+    {
+      "sourceId": "src/h1_2_description/README.md",
+      "targetId": "src/h1_2_description/h1_2.xml",
+      "type": "documents",
+      "label": "文档引用",
+      "properties": {
+        "description": "README.md 在 MuJoCo 可视化使用说明中引用 h1_2.xml 作为可拖放加载的 MJCF 模型文件"
+      }
+    },
+    {
+      "sourceId": "src/h1_2_description/README.md",
+      "targetId": "src/h1_2_description/h1_2_handless.xml",
+      "type": "documents",
+      "label": "文档引用",
+      "properties": {
+        "description": "README.md 在 MuJoCo 可视化使用说明中引用 h1_2_handless.xml 作为可拖放加载的 MJCF 模型文件"
+      }
+    },
+    {
+      "sourceId": "src/h1_2_description/h1_2_handless.xml",
+      "targetId": "src/h1_2_description/h1_2.xml",
+      "type": "variant-of",
+      "label": "简化变体",
+      "properties": {
+        "description": "h1_2_handless.xml 是 h1_2.xml 的简化版本，移除了全部双手手指关节（thumb/index/middle/ring/pinky 及其子关节），适用于不需要精细手部操作的仿真场景。共享相同的躯干和四肢运动学结构，但手腕末端采用简化的单体 wrist_yaw_link。"
+      }
+    },
+    {
+      "sourceId": "src/h1_2_description/package.xml",
+      "targetId": "src/h1_2_description/CMakeLists.txt",
+      "type": "defines-build-for",
+      "label": "包定义",
+      "properties": {
+        "description": "package.xml 声明包名为 h1_2_description，采用 ament_cmake 构建类型，CMakeLists.txt 作为对应的构建脚本实现具体的编译和安装逻辑"
+      }
+    }
+  ]
+}

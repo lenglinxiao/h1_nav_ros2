@@ -30,7 +30,7 @@ def test_checked_in_demo_memory_points_are_in_offline_map_frame():
 
 
 
-def test_online_navigation_launch_starts_memory_nodes_in_camera_init_frame():
+def test_online_navigation_launch_stores_memory_points_in_map_frame():
     source = read(BRINGUP / "h1_2_nav2_camera_init_navigation.launch.py")
 
     assert 'DeclareLaunchArgument("memory_points_file"' in source
@@ -38,7 +38,7 @@ def test_online_navigation_launch_starts_memory_nodes_in_camera_init_frame():
     assert 'executable="memory_point_manager"' in source
     assert 'executable="memory_route_runner"' in source
     assert '"odom_topic": LaunchConfiguration("odom_topic")' in source
-    assert '"target_frame": LaunchConfiguration("global_frame")' in source
+    assert '"target_frame": "map"' in source
     assert '"route_names": LaunchConfiguration("memory_route")' in source
     assert '"priority_cmd_topic": "/cmd_vel_voice"' in source
 
@@ -55,7 +55,9 @@ def test_offline_navigation_starts_loco_ros_shim_for_cmd_vel_nav():
     launch = (ROOT / "src" / "h1_2_slam_bringup" / "launch" / "h1_2_nav2_navigation.launch.py").read_text(encoding="utf-8")
     smoother = read(ROOT / "src" / "h1_2_nav_tools" / "h1_2_nav_tools" / "velocity_smoother_ema.py")
 
-    assert '"cmd_topic": "/cmd_vel_nav"' in launch
+    assert '"raw_cmd_topic": "/cmd_vel"' in launch
+    assert '"cmd_topic": "/cmd_vel_final"' in launch
+    assert '"cmd_topic": "/cmd_vel_nav"' not in launch
     assert '"priority_cmd_topic": "/cmd_vel_voice"' in launch
     assert 'DeclareLaunchArgument("min_linear_speed", default_value="0.0")' in launch
     assert "effective_min_linear_speed = PythonExpression" in launch
@@ -70,6 +72,40 @@ def test_offline_navigation_starts_loco_ros_shim_for_cmd_vel_nav():
     assert "def priority_twist_callback" in smoother
     assert '"start_ros_shim": "true"' in launch
     assert '"auto_start": LaunchConfiguration("auto_start_loco")' in launch
+
+
+def test_offline_navigation_requires_stable_fresh_localization_before_route_start():
+    launch = read(BRINGUP / "h1_2_nav2_navigation.launch.py")
+    runner = read(RUNNER)
+
+    assert 'DeclareLaunchArgument("required_stable_samples", default_value="3")' in launch
+    assert '"localization_status_topic": "/icp_localization/status"' in launch
+    assert '"max_localization_score": ParameterValue(' in launch
+    assert '"required_stable_samples": ParameterValue(' in launch
+    assert "LocalizationStatus" in runner
+    assert "def localization_status_callback" in runner
+    assert "def localization_ready" in runner
+    assert "required_tf_max_age_sec" in runner
+
+
+def test_humble_behavior_server_does_not_fall_back_to_missing_odom_frame():
+    for name in ("nav2_h1_2.yaml", "nav2_h1_2_rpp.yaml", "nav2_h1_2_camera_init.yaml"):
+        params = read(ROOT / "src" / "h1_2_nav_tools" / "config" / name)
+
+        assert "\nbehavior_server:" in params
+        assert "\nrecoveries_server:" not in params
+        assert 'plugin: "nav2_behaviors/Spin"' in params
+        assert 'plugin: "nav2_behaviors/BackUp"' in params
+        assert "global_frame: camera_init" in params
+
+
+def test_humble_velocity_smoother_has_bounded_open_loop_stop_timeout():
+    for name in ("nav2_h1_2.yaml", "nav2_h1_2_rpp.yaml", "nav2_h1_2_camera_init.yaml"):
+        params = read(ROOT / "src" / "h1_2_nav_tools" / "config" / name)
+
+        assert "\nvelocity_smoother:" in params
+        assert 'feedback: "OPEN_LOOP"' in params
+        assert "velocity_timeout: 0.3" in params
 
 
 def test_offline_navigation_wires_gesture_service_to_loco_bridge():

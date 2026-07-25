@@ -1,10 +1,12 @@
 import json
+import math
 from pathlib import Path
 
 import rclpy
 from action_msgs.msg import GoalStatus
 from builtin_interfaces.msg import Time
 from geometry_msgs.msg import PoseStamped
+from h1_2_icp_localization.msg import LocalizationStatus
 from h1_2_nav_msgs.srv import ExecuteGesture, RouteStatus, StartRoute, StopRoute
 from nav2_msgs.action import NavigateToPose
 from rclpy.action import ActionClient
@@ -19,7 +21,7 @@ class MemoryRouteRunner(Node):
     def __init__(self):
         super().__init__("memory_route_runner")
         self.declare_parameter("points_file", "maps/memory_points.json")
-        self.declare_parameter("route_names", ["A", "B", "C"])
+        self.declare_parameter("route_names", "A,B,C")
         self.declare_parameter("action_name", "navigate_to_pose")
         self.declare_parameter("start_service", "start_memory_route")
         self.declare_parameter("stop_service", "stop_memory_route")
@@ -33,6 +35,13 @@ class MemoryRouteRunner(Node):
         self.declare_parameter("required_tf_target_frame", "map")
         self.declare_parameter("required_tf_source_frame", "camera_init")
         self.declare_parameter("required_tf_timeout_sec", 0.1)
+        self.declare_parameter("required_tf_max_age_sec", 0.25)
+        self.declare_parameter("required_tf_max_future_sec", 0.25)
+        self.declare_parameter("require_localization_status", False)
+        self.declare_parameter("localization_status_topic", "/icp_localization/status")
+        self.declare_parameter("max_localization_score", 0.15)
+        self.declare_parameter("required_stable_samples", 3)
+        self.declare_parameter("localization_status_max_age_sec", 1.5)
         self.declare_parameter("gesture_route", "")
         self.declare_parameter("gesture_service_name", "/h1_2_loco/execute_gesture")
         self.declare_parameter("gesture_timeout_sec", 20.0)
@@ -50,6 +59,20 @@ class MemoryRouteRunner(Node):
         self.required_tf_target_frame = self.get_parameter("required_tf_target_frame").value
         self.required_tf_source_frame = self.get_parameter("required_tf_source_frame").value
         self.required_tf_timeout_sec = max(0.0, float(self.get_parameter("required_tf_timeout_sec").value))
+        self.required_tf_max_age_sec = max(0.0, float(self.get_parameter("required_tf_max_age_sec").value))
+        self.required_tf_max_future_sec = max(
+            0.0, float(self.get_parameter("required_tf_max_future_sec").value)
+        )
+        self.require_localization_status = bool(
+            self.get_parameter("require_localization_status").value
+        )
+        self.max_localization_score = float(self.get_parameter("max_localization_score").value)
+        self.required_stable_samples = max(
+            1, int(self.get_parameter("required_stable_samples").value)
+        )
+        self.localization_status_max_age_sec = max(
+            0.0, float(self.get_parameter("localization_status_max_age_sec").value)
+        )
         self.gesture_route = self.parse_gesture_route(self.get_parameter("gesture_route").value)
         self.gesture_service_name = self.get_parameter("gesture_service_name").value
         self.gesture_timeout_sec = max(0.0, float(self.get_parameter("gesture_timeout_sec").value))
@@ -64,6 +87,12 @@ class MemoryRouteRunner(Node):
         )
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
+        self.localization_status_sub = self.create_subscription(
+            LocalizationStatus,
+            self.get_parameter("localization_status_topic").value,
+            self.localization_status_callback,
+            10,
+        )
         self.active_goal_handle = None
         self.active_gesture_future = None
         self.state = "idle"
@@ -76,6 +105,10 @@ class MemoryRouteRunner(Node):
         self.pending_timer = None
         self.stop_requested = False
         self.last_message = "Route runner is idle."
+        self.last_tf_error = ""
+        self.last_localization_status = None
+        self.last_localization_status_received = None
+        self.localization_stable_samples = 0
 
         self.create_service(StartRoute, self.get_parameter("start_service").value, self.start_callback)
         self.create_service(StopRoute, self.get_parameter("stop_service").value, self.stop_callback)
@@ -110,12 +143,10 @@ class MemoryRouteRunner(Node):
             response.success = False
             response.message = f"Gesture service is not available: {self.gesture_service_name}"
             return response
-        if not self.localization_tf_available():
+        localization_ready, localization_message = self.localization_ready()
+        if not localization_ready:
             response.success = False
-            response.message = (
-                f"Localization TF is not available: "
-                f"{self.required_tf_target_frame}->{self.required_tf_source_frame}"
-            )
+            response.message = localization_message
             return response
         if not self.load_points():
             response.success = False
@@ -171,17 +202,98 @@ class MemoryRouteRunner(Node):
 
     def localization_tf_available(self):
         if not self.required_tf_target_frame or not self.required_tf_source_frame:
+            self.last_tf_error = ""
             return True
         try:
-            self.tf_buffer.lookup_transform(
+            transform = self.tf_buffer.lookup_transform(
                 self.required_tf_target_frame,
                 self.required_tf_source_frame,
                 rclpy.time.Time(),
                 timeout=rclpy.duration.Duration(seconds=self.required_tf_timeout_sec),
             )
+            stamp = rclpy.time.Time.from_msg(transform.header.stamp)
+            if stamp.nanoseconds <= 0:
+                self.last_tf_error = "Localization TF has a zero timestamp."
+                return False
+            age_sec = (self.get_clock().now() - stamp).nanoseconds / 1e9
+            if self.required_tf_max_age_sec > 0.0 and age_sec > self.required_tf_max_age_sec:
+                self.last_tf_error = (
+                    f"Localization TF is stale: age={age_sec:.3f}s, "
+                    f"limit={self.required_tf_max_age_sec:.3f}s."
+                )
+                return False
+            if age_sec < -self.required_tf_max_future_sec:
+                self.last_tf_error = (
+                    f"Localization TF is too far in the future: offset={-age_sec:.3f}s, "
+                    f"limit={self.required_tf_max_future_sec:.3f}s."
+                )
+                return False
+            self.last_tf_error = ""
             return True
-        except Exception:
+        except Exception as exc:
+            self.last_tf_error = (
+                f"Localization TF is not available: "
+                f"{self.required_tf_target_frame}->{self.required_tf_source_frame}: {exc}"
+            )
             return False
+
+    def localization_status_callback(self, msg):
+        self.last_localization_status = msg
+        self.last_localization_status_received = self.get_clock().now()
+        valid = (
+            msg.map_loaded
+            and msg.initialized
+            and msg.converged
+            and not msg.degraded
+            and math.isfinite(msg.score)
+            and msg.score <= self.max_localization_score
+        )
+        if valid:
+            self.localization_stable_samples = min(
+                self.localization_stable_samples + 1,
+                self.required_stable_samples,
+            )
+        else:
+            self.localization_stable_samples = 0
+
+    def localization_ready(self):
+        if not self.localization_tf_available():
+            return False, self.last_tf_error
+        if not self.require_localization_status:
+            return True, ""
+        if self.last_localization_status is None or self.last_localization_status_received is None:
+            return False, "Localization status has not been received."
+
+        age_sec = (
+            self.get_clock().now() - self.last_localization_status_received
+        ).nanoseconds / 1e9
+        if (
+            self.localization_status_max_age_sec > 0.0
+            and age_sec > self.localization_status_max_age_sec
+        ):
+            return False, (
+                f"Localization status is stale: age={age_sec:.3f}s, "
+                f"limit={self.localization_status_max_age_sec:.3f}s."
+            )
+
+        status = self.last_localization_status
+        if not status.map_loaded:
+            return False, "Localization map is not loaded."
+        if not status.initialized:
+            return False, "Localization is not initialized."
+        if not status.converged or status.degraded:
+            return False, f"Localization is not healthy: {status.message}"
+        if not math.isfinite(status.score) or status.score > self.max_localization_score:
+            return False, (
+                f"Localization score is too high: score={status.score:.3f}, "
+                f"limit={self.max_localization_score:.3f}."
+            )
+        if self.localization_stable_samples < self.required_stable_samples:
+            return False, (
+                f"Localization is not stable yet: "
+                f"{self.localization_stable_samples}/{self.required_stable_samples} samples."
+            )
+        return True, ""
 
     @staticmethod
     def parse_route_names(value):
@@ -245,6 +357,10 @@ class MemoryRouteRunner(Node):
         if not self.route_names:
             self.state = "blocked"
             self.last_message = "Route names are empty."
+            return
+        localization_ready, localization_message = self.localization_ready()
+        if not localization_ready:
+            self.handle_goal_failure(localization_message)
             return
         name = self.next_goal_name()
         record = self.points.get(name)

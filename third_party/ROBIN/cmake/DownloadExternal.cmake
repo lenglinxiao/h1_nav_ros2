@@ -18,6 +18,13 @@ endfunction()
 # MSVC-aware compile options). Behavior on Linux/macOS is unchanged from
 # upstream master.
 function(robin_download_pmc)
+	set(local_pmc_SOURCE_DIR "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/../../pmc")
+	if(EXISTS "${local_pmc_SOURCE_DIR}/CMakeLists.txt")
+		set(pmc_SOURCE_DIR "${local_pmc_SOURCE_DIR}" PARENT_SCOPE)
+		set(pmc_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/pmc" PARENT_SCOPE)
+		return()
+	endif()
+
 	download_project(PROJ pmc
 			GIT_REPOSITORY https://github.com/MIT-SPARK/pmc.git
 			GIT_TAG        4bbd40ababd8e925c4e1845c509173afe766b443
@@ -62,11 +69,16 @@ endfunction()
 
 # xenium
 function(robin_download_xenium)
+	set(local_xenium_SOURCE_DIR "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/../../xenium")
+	if(EXISTS "${local_xenium_SOURCE_DIR}/xenium")
+		set(xenium_SOURCE_DIR "${local_xenium_SOURCE_DIR}")
+	else()
 	download_project(PROJ xenium
 			GIT_REPOSITORY https://github.com/mpoeter/xenium
 			GIT_TAG        main
 			QUIET
 			)
+	endif()
 	add_library(xenium INTERFACE)
 	target_include_directories(xenium
 			INTERFACE
@@ -106,4 +118,3 @@ function(find_external_dependency PACKAGE_NAME TARGET_NAME INCLUDED_CMAKE_PATH)
     include(${INCLUDED_CMAKE_PATH})
   endif()
 endfunction()
-

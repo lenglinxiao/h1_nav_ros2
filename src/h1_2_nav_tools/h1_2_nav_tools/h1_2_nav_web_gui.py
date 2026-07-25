@@ -592,6 +592,102 @@ class RosServiceBridge:
             return False, exc
 
 
+class UiOnlyRosBridge:
+    def __init__(self, logs, config):
+        self.logs = logs
+        self.camera_frames = CameraFrameStore()
+        self.camera_topics = {}
+        self.configure_camera(config)
+
+    @staticmethod
+    def _blocked():
+        return {"success": False, "message": "UI-only 模式：未连接 ROS，操作未执行"}
+
+    def shutdown(self):
+        return
+
+    def configure_camera(self, config):
+        self.camera_topics = {
+            "rgb": str(config.get("camera_rgb_topic", "")).strip(),
+            "depth": str(config.get("camera_depth_topic", "")).strip(),
+            "info": str(config.get("camera_info_topic", "")).strip(),
+            "annotated": str(config.get("vision_annotated_topic", "")).strip(),
+        }
+
+    def route_start(self):
+        return self._blocked()
+
+    def route_stop(self):
+        return self._blocked()
+
+    def teaching_route_start(self):
+        return self._blocked()
+
+    def teaching_route_stop(self):
+        return self._blocked()
+
+    def teaching_record_start(self):
+        return self._blocked()
+
+    def teaching_record_stop_save(self):
+        return self._blocked()
+
+    def execute_gesture(self, _name):
+        return self._blocked()
+
+    def teaching_route_service_available(self, timeout_sec=0.2):
+        return False
+
+    def teaching_record_service_available(self, timeout_sec=0.2):
+        return False
+
+    @staticmethod
+    def _route_status(label):
+        return {
+            "success": False,
+            "state": "ui-only",
+            "current_goal": "",
+            "current_index": 0,
+            "message": f"{label}：UI-only 模拟状态",
+        }
+
+    def route_status(self):
+        return self._route_status("记忆点巡航")
+
+    def teaching_route_status(self):
+        return self._route_status("示教巡航")
+
+    @staticmethod
+    def localization_status():
+        return {
+            "ready": False,
+            "stable_samples": 0,
+            "required_stable_samples": LOCALIZATION_REQUIRED_STABLE_SAMPLES,
+            "score": None,
+            "message": "UI-only 模式：未连接 ROS",
+        }
+
+    def camera_status(self):
+        return {
+            "state": "ui-only",
+            "message": "UI-only 模式：无相机数据",
+            "rgb_topic": self.camera_topics.get("rgb", ""),
+            "depth_topic": self.camera_topics.get("depth", ""),
+            "info_topic": self.camera_topics.get("info", ""),
+            "rgb": self.camera_frames.stream_status("rgb"),
+            "depth": self.camera_frames.stream_status("depth"),
+            "camera_info": {"received": False, "width": 0, "height": 0, "last_frame": None},
+        }
+
+    def vision_status(self):
+        return {
+            "state": "ui-only",
+            "message": "UI-only 模式：无识别数据",
+            "annotated_topic": self.camera_topics.get("annotated", ""),
+            "annotated": self.camera_frames.stream_status("annotated"),
+        }
+
+
 class ProcessManager:
     def __init__(self, workspace_root, logs):
         self.workspace_root = workspace_root
@@ -890,13 +986,17 @@ class ProcessManager:
 
 
 class WebGuiApp:
-    def __init__(self, workspace_root):
+    def __init__(self, workspace_root, ui_only=False):
         self.workspace_root = workspace_root
+        self.ui_only = bool(ui_only)
         self.points_file = workspace_root / "maps" / "memory_points.json"
         self.logs = LogStore()
         self.processes = ProcessManager(workspace_root, self.logs)
-        self.ros = RosServiceBridge(self.logs, self.default_config())
+        bridge_type = UiOnlyRosBridge if self.ui_only else RosServiceBridge
+        self.ros = bridge_type(self.logs, self.default_config())
         self.logs.add("web", f"workspace={workspace_root}")
+        if self.ui_only:
+            self.logs.add("web", "UI-only mode enabled; ROS and process controls are disabled")
 
     def shutdown(self):
         self.processes.shutdown()
@@ -908,6 +1008,8 @@ class WebGuiApp:
             "pcd": str(self.workspace_root / "maps" / "h1_2_lab.pcd"),
             "run_mode": "online",
             "rviz_mode": "auto",
+            "rviz_embed_url": "http://127.0.0.1:6080/vnc.html?autoconnect=1&resize=remote",
+            "rviz_embed_enabled": True,
             "map_prefix": "maps/h1_2_lab",
             "pcd_prefix": "maps/h1_2_lab",
             "localization": "global_gicp",
@@ -971,12 +1073,15 @@ class WebGuiApp:
             )
         config["camera_preview_enabled"] = False
         config["workflow_version"] = CONFIG_WORKFLOW_VERSION
+        config["rviz_embed_url"] = str(config.get("rviz_embed_url", "")).strip()
+        config["rviz_embed_enabled"] = bool(config.get("rviz_embed_enabled", True))
         config["voice_remote_host"] = normalize_ssh_target(config.get("voice_remote_host", ""))
         config["voice_workspace"] = normalize_voice_workspace(config.get("voice_workspace", "~/ros2_ws"))
         config["vision_remote_host"] = normalize_ssh_target(config.get("vision_remote_host", ""))
         config["vision_workspace"] = normalize_voice_workspace(
             config.get("vision_workspace", "~/ros2_ws")
         )
+        config["ui_only"] = self.ui_only
         return config
 
     def save_config(self, config):
@@ -987,6 +1092,8 @@ class WebGuiApp:
         config["teaching_path_file"] = str(config.get("teaching_path_file", "")).strip()
         config["teaching_events_file"] = str(config.get("teaching_events_file", "")).strip()
         config["teaching_loop"] = bool(config.get("teaching_loop", True))
+        config["rviz_embed_url"] = str(config.get("rviz_embed_url", "")).strip()
+        config["rviz_embed_enabled"] = bool(config.get("rviz_embed_enabled", True))
         config["workflow_version"] = CONFIG_WORKFLOW_VERSION
         if "voice_remote_host" in config:
             config["voice_remote_host"] = normalize_ssh_target(config["voice_remote_host"])
@@ -1185,12 +1292,23 @@ class RequestHandler(BaseHTTPRequestHandler):
             query = parse_qs(parsed.query)
             after = int(query.get("after", ["0"])[0] or 0)
             self._send_json({"entries": self.app.logs.since(after)})
+        elif parsed.path == "/assets/h1_2_status.png":
+            self._send_file(self.app.workspace_root / "src" / "h1_2_nav_tools" / "assets" / "h1_2_status.png", "image/png")
         else:
             self.send_error(404)
 
     def do_POST(self):
         parsed = urlparse(self.path)
         payload = self._read_json()
+        if self.app.ui_only and parsed.path != "/api/config":
+            self.app.logs.add("ui-only", f"blocked control request: {parsed.path}")
+            self._send_json(
+                {
+                    "success": False,
+                    "message": "UI-only 模式：未连接 ROS，控制操作未执行",
+                }
+            )
+            return
         if parsed.path == "/api/config":
             self.app.save_config(payload)
             self._send_json({"success": True, "message": "config saved"})
@@ -1314,6 +1432,19 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _send_file(self, path, content_type):
+        try:
+            body = Path(path).read_bytes()
+        except OSError:
+            self.send_error(404)
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "public, max-age=3600")
+        self.end_headers()
+        self.wfile.write(body)
+
     def _send_mjpeg(self, stream):
         self.send_response(200)
         self.send_header("Content-Type", "multipart/x-mixed-replace; boundary=frame")
@@ -1344,15 +1475,17 @@ INDEX_HTML = r"""<!doctype html>
   <title>H1-2 Offline Navigation</title>
   <style>
     :root {
-      --bg: #f7f7f4;
-      --panel: #ffffff;
-      --panel-2: #fbfbf9;
-      --text: #1f2328;
-      --muted: #6b7280;
-      --line: #e3e3df;
-      --accent: #2563eb;
-      --accent-2: #0f766e;
-      --danger: #b42318;
+      --bg: #070b0f;
+      --panel: #0d151a;
+      --panel-2: #101d24;
+      --panel-3: #13252e;
+      --text: #e5f3f6;
+      --muted: #82a3ad;
+      --line: #1f343c;
+      --accent: #22d3ee;
+      --accent-2: #34d399;
+      --danger: #f87171;
+      --warn: #fbbf24;
       --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       --sans: Inter, "Noto Sans SC", "Microsoft YaHei", Arial, sans-serif;
     }
@@ -1370,29 +1503,30 @@ INDEX_HTML = r"""<!doctype html>
     .app {
       min-height: 100vh;
       display: grid;
-      grid-template-rows: auto 1fr auto;
+      grid-template-rows: 108px minmax(0, 1fr) 190px;
     }
     header {
-      min-height: 96px;
+      min-height: 108px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 18px;
-      padding: 0 28px;
+      gap: 16px;
+      padding: 0 16px;
       border-bottom: 1px solid var(--line);
-      background: #fff;
-      backdrop-filter: blur(14px);
+      background: #091016;
       position: sticky;
       top: 0;
-      z-index: 2;
+      z-index: 3;
     }
-    .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .brand { display: flex; align-items: center; gap: 14px; min-width: 0; }
     .logo {
       width: 112px;
+      min-height: 92px;
       display: grid;
       justify-items: center;
+      align-content: center;
       padding: 8px 0 6px;
-      color: #111827;
+      color: var(--text);
       line-height: 1;
     }
     .logo-main {
@@ -1405,102 +1539,117 @@ INDEX_HTML = r"""<!doctype html>
       width: 88px;
       height: 2px;
       margin: 8px 0 7px;
-      background: #111827;
+      background: var(--text);
     }
     .logo-sub {
       font-size: 14px;
       font-weight: 850;
       white-space: nowrap;
-      color: #374151;
+      color: var(--muted);
     }
     .actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
     .btn {
-      height: 34px;
+      min-height: 32px;
       border: 1px solid var(--line);
-      border-radius: 8px;
+      border-radius: 6px;
       padding: 0 12px;
-      background: #fff;
+      background: #132229;
       color: var(--text);
       font-weight: 750;
       cursor: pointer;
     }
-    .btn:hover { background: #f1f5f9; }
-    .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-    .btn.soft { background: #ecfdf5; border-color: #bbf7d0; color: var(--accent-2); }
-    .btn.danger { background: #fff1f0; border-color: #fecaca; color: var(--danger); }
+    .btn:hover { background: #18313a; border-color: #2c5663; }
+    .btn.primary { background: #0891b2; border-color: #22d3ee; color: #ecfeff; }
+    .btn.soft { background: #0f2c2a; border-color: #176a62; color: #86efac; }
+    .btn.danger { background: #3b1217; border-color: #7f1d1d; color: #fecaca; }
+    .btn:disabled { opacity: .55; cursor: not-allowed; }
+    .ui-only-badge {
+      display: none;
+      padding: 7px 10px;
+      border: 1px solid #a16207;
+      border-radius: 999px;
+      background: #422006;
+      color: #fde68a;
+      font-size: 12px;
+      font-weight: 850;
+    }
+    body.ui-only .ui-only-badge { display: inline-flex; }
     main {
       display: grid;
-      grid-template-columns: 280px minmax(520px, 1fr) 340px;
-      gap: 14px;
-      padding: 14px;
+      grid-template-columns: 300px minmax(540px, 1fr) 340px;
+      gap: 10px;
+      padding: 10px;
       min-height: 0;
+      overflow: hidden;
     }
     .panel {
       min-width: 0;
       background: var(--panel);
       border: 1px solid var(--line);
-      border-radius: 12px;
+      border-radius: 8px;
       overflow: hidden;
     }
     .panel-head {
-      height: 44px;
+      min-height: 38px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 0 14px;
+      gap: 10px;
+      padding: 8px 12px;
       border-bottom: 1px solid var(--line);
       background: var(--panel-2);
       font-weight: 850;
     }
-    .body { padding: 14px; }
-    .stack { display: grid; gap: 11px; align-content: start; }
+    .body { padding: 12px; }
+    .stack { display: grid; gap: 10px; align-content: start; min-height: 0; }
     label { display: block; margin-bottom: 6px; color: var(--muted); font-size: 12px; font-weight: 800; }
     input, select {
       width: 100%;
-      height: 34px;
+      height: 32px;
       border: 1px solid var(--line);
-      border-radius: 8px;
-      background: #fff;
+      border-radius: 6px;
+      background: #081116;
       padding: 0 10px;
       color: var(--text);
       outline: none;
     }
-    input:focus, select:focus { border-color: #93c5fd; box-shadow: 0 0 0 3px rgba(37, 99, 235, .12); }
+    input:focus, select:focus { border-color: #22d3ee; box-shadow: 0 0 0 3px rgba(34, 211, 238, .14); }
     .check {
       display: flex; gap: 8px; align-items: center;
       color: var(--text); font-weight: 650; font-size: 13px;
     }
     .check input { width: 15px; height: 15px; }
     table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-    th, td { height: 44px; border-bottom: 1px solid #ededeb; padding: 8px 10px; text-align: left; }
-    th { color: var(--muted); background: #fafafa; font-size: 12px; font-weight: 850; }
-    th:first-child, td:first-child { width: 56px; text-align: center; }
-    th:nth-child(2), td:nth-child(2) { width: 90px; }
-    th:nth-child(3), td:nth-child(3) { width: 150px; }
+    th, td { height: 38px; border-bottom: 1px solid var(--line); padding: 7px 8px; text-align: left; }
+    th { color: var(--muted); background: #0a1217; font-size: 12px; font-weight: 850; }
+    th:first-child, td:first-child { width: 44px; text-align: center; }
+    th:nth-child(2), td:nth-child(2) { width: 72px; }
+    th:nth-child(3), td:nth-child(3) { width: 118px; }
     tr:last-child td { border-bottom: 0; }
     .point {
-      display: inline-flex; min-width: 36px; height: 26px;
+      display: inline-flex; min-width: 32px; height: 24px;
       align-items: center; justify-content: center;
-      background: #eef2ff; color: #3730a3;
-      border-radius: 7px; font-weight: 900;
+      background: #073344; color: #67e8f9;
+      border: 1px solid #155e75;
+      border-radius: 6px; font-weight: 900;
     }
     .pos { color: var(--muted); font-family: var(--mono); font-size: 12px; }
     .two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-    .status-row { display: grid; grid-template-columns: 90px 1fr; gap: 10px; padding: 9px 0; border-bottom: 1px solid #ededeb; }
+    .status-row { display: grid; grid-template-columns: 88px 1fr; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); }
     .status-row:last-child { border-bottom: 0; }
     .key { color: var(--muted); font-size: 12px; font-weight: 850; }
     .pill {
       display: inline-flex; align-items: center; width: fit-content;
-      min-height: 24px; padding: 3px 9px; border-radius: 999px;
-      background: #eef2f7; color: #475569; font-weight: 850; font-size: 12px;
+      min-height: 23px; padding: 3px 9px; border-radius: 999px;
+      background: #15252d; color: #bad6dc; font-weight: 850; font-size: 12px;
     }
-    .pill.ok { background: #ecfdf5; color: #047857; }
-    .pill.warn { background: #fff7ed; color: #c2410c; }
+    .pill.ok { background: #063f32; color: #86efac; }
+    .pill.warn { background: #3d2a08; color: #fcd34d; }
     .localization-indicator {
       width: 100%;
-      min-height: 56px;
-      border: 1px solid #cbd5e1;
-      border-radius: 10px;
+      min-height: 52px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
       padding: 10px 14px;
       font-size: 15px;
       font-weight: 900;
@@ -1509,54 +1658,223 @@ INDEX_HTML = r"""<!doctype html>
       transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
     }
     .localization-indicator.waiting {
-      background: #f1f5f9;
-      border-color: #cbd5e1;
-      color: #64748b;
+      background: #111c23;
+      border-color: #314751;
+      color: #9bb3bb;
     }
     .localization-indicator.checking {
-      background: #fff7ed;
-      border-color: #fdba74;
-      color: #c2410c;
+      background: #312308;
+      border-color: #b45309;
+      color: #fbbf24;
     }
     .localization-indicator.ready {
-      background: #dcfce7;
-      border-color: #4ade80;
-      color: #166534;
-      box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.18);
+      background: #073b2d;
+      border-color: #22c55e;
+      color: #bbf7d0;
+      box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.15);
     }
-    .camera-section { margin: 0 14px 14px; }
-    .camera-config {
+    .robot-overview {
       display: grid;
-      grid-template-columns: 1fr 1fr 1fr auto;
-      gap: 10px;
-      align-items: end;
-      padding: 14px;
+      grid-template-columns: 118px minmax(0, 1fr);
+      gap: 12px;
+      align-items: center;
+      padding-bottom: 12px;
       border-bottom: 1px solid var(--line);
+      margin-bottom: 10px;
     }
-    .camera-grid {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 14px;
-      padding: 14px;
-    }
-    .vision-config {
-      display: grid;
-      grid-template-columns: 1.3fr 1fr 1fr 1fr auto auto;
-      gap: 10px;
-      align-items: end;
-      padding: 14px;
-      border-bottom: 1px solid var(--line);
-      background: #fbfbf9;
-    }
-    .camera-view {
-      position: relative;
-      min-height: 260px;
+    .robot-figure {
+      height: 184px;
       display: grid;
       place-items: center;
       overflow: hidden;
       border: 1px solid var(--line);
-      border-radius: 10px;
-      background: #111827;
+      border-radius: 8px;
+      background: #081116;
+    }
+    .robot-figure img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center;
+      display: block;
+    }
+    .robot-summary {
+      display: grid;
+      gap: 10px;
+      min-width: 0;
+    }
+    .status-metric {
+      display: grid;
+      gap: 5px;
+      width: 100%;
+      min-height: 72px;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #091218;
+      text-align: left;
+      cursor: default;
+      align-content: center;
+      transition: background 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+    }
+    .status-metric .metric-label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 850;
+    }
+    .status-metric .metric-value {
+      color: var(--text);
+      font-size: 18px;
+      font-weight: 950;
+      line-height: 1.25;
+      word-break: break-word;
+    }
+    .status-metric.ready {
+      background: #063f32;
+      border-color: #22c55e;
+      box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.14);
+    }
+    .status-metric.ready .metric-value { color: #bbf7d0; }
+    .status-metric.waiting {
+      background: #312308;
+      border-color: #b45309;
+    }
+    .status-metric.waiting .metric-value { color: #fbbf24; }
+    .status-metric.motion {
+      background: #0b171d;
+      border-color: #274955;
+    }
+    .status-metric.motion.active {
+      background: #073344;
+      border-color: #0891b2;
+      box-shadow: 0 0 0 3px rgba(8, 145, 178, 0.12);
+    }
+    .status-metric.motion.active .metric-value { color: #67e8f9; }
+    .runtime-panel {
+      padding-top: 12px;
+      border-top: 1px solid var(--line);
+      display: grid;
+      gap: 12px;
+    }
+    .runtime-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      color: var(--text);
+      font-weight: 900;
+    }
+    .runtime-grid {
+      display: grid;
+      grid-template-columns: 92px minmax(0, 1fr);
+      gap: 12px;
+      align-items: center;
+    }
+    .runtime-ring {
+      --percent: 0%;
+      width: 80px;
+      height: 80px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: conic-gradient(#22c55e var(--percent), #20323a 0);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.06);
+      position: relative;
+    }
+    .runtime-ring::after {
+      content: "";
+      position: absolute;
+      inset: 8px;
+      border-radius: 50%;
+      background: #091218;
+      border: 1px solid var(--line);
+    }
+    .runtime-ring span {
+      position: relative;
+      z-index: 1;
+      color: var(--text);
+      font-size: 17px;
+      font-weight: 950;
+    }
+    .runtime-list {
+      display: grid;
+      gap: 7px;
+    }
+    .runtime-item {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: center;
+      min-height: 28px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .runtime-dot {
+      min-width: 52px;
+      min-height: 22px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #15252d;
+      color: #bad6dc;
+      font-size: 12px;
+      font-weight: 900;
+    }
+    .runtime-dot.ok { background: #063f32; color: #86efac; }
+    .runtime-dot.warn { background: #3d2a08; color: #fcd34d; }
+    .runtime-hidden { display: none; }
+    .left-rail, .center-stage, .right-rail { min-height: 0; overflow: auto; }
+    .center-stage { display: grid; grid-template-rows: minmax(300px, 46vh) auto minmax(0, 1fr); gap: 10px; overflow: hidden; }
+    .center-controls .body { padding: 10px; }
+    .control-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+      gap: 8px;
+    }
+    .control-grid .btn {
+      width: 100%;
+      min-height: 32px;
+      padding: 6px 10px;
+    }
+    .setup-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .advanced-config { max-height: 230px; overflow: auto; }
+    .route-panel { min-height: 0; overflow: auto; }
+    .camera-section { margin: 0; }
+    .camera-config {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+      align-items: end;
+      padding: 12px;
+      border-bottom: 1px solid var(--line);
+    }
+    .camera-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+      padding: 12px;
+    }
+    .vision-config {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+      align-items: end;
+      padding: 12px;
+      border-bottom: 1px solid var(--line);
+      background: #0a1217;
+    }
+    .camera-view {
+      position: relative;
+      min-height: 138px;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: #020608;
     }
     .camera-view img { width: 100%; height: auto; display: none; }
     .camera-view.online img { display: block; }
@@ -1570,36 +1888,84 @@ INDEX_HTML = r"""<!doctype html>
       display: flex;
       justify-content: space-between;
       gap: 10px;
-      padding: 8px 10px;
+      padding: 7px 9px;
       color: var(--muted);
-      background: #fff;
+      background: #0a1217;
       font-size: 12px;
+    }
+    .rviz-stage {
+      min-height: 0;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      background: #020608;
+    }
+    .rviz-toolbar { display: none; }
+    .rviz-url-row { display: grid; grid-template-columns: 140px minmax(0, 1fr); gap: 8px; align-items: end; }
+    .rviz-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+    .rviz-frame-wrap {
+      position: relative;
+      min-height: 0;
+      overflow: hidden;
+      background: #020608;
+    }
+    #rviz_embed_frame {
+      width: 100%;
+      height: 100%;
+      min-height: 100%;
+      border: 0;
+      display: none;
+      background: #020608;
+    }
+    .rviz-frame-wrap.online #rviz_embed_frame { display: block; }
+    .rviz-placeholder {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      color: var(--muted);
+      text-align: center;
+      background:
+        linear-gradient(transparent 31px, rgba(34, 211, 238, .08) 32px),
+        linear-gradient(90deg, transparent 31px, rgba(34, 211, 238, .08) 32px),
+        #020608;
+      background-size: 32px 32px;
+    }
+    .rviz-frame-wrap.online .rviz-placeholder { display: none; }
+    .rviz-placeholder strong {
+      display: block;
+      color: var(--text);
+      font-size: 20px;
+      margin-bottom: 8px;
     }
     footer {
       display: grid;
       grid-template-columns: minmax(0, 1fr) 420px;
-      gap: 14px;
-      padding: 0 14px 14px;
+      gap: 10px;
+      padding: 0 10px 10px;
+      min-height: 0;
     }
     pre {
       margin: 0;
-      min-height: 168px;
-      max-height: 240px;
+      min-height: 130px;
+      max-height: 148px;
       overflow: auto;
-      padding: 13px 14px;
+      padding: 12px;
       font-family: var(--mono);
       font-size: 12px;
       line-height: 1.55;
       white-space: pre-wrap;
       word-break: break-word;
     }
-    #logs { background: #0b1020; color: #e0ecff; }
+    #logs { background: #020608; color: #d3eef5; }
     #logs { user-select: text; }
-    #command { background: #fafafa; color: #334155; }
-    @media (max-width: 1120px) {
-      main, footer, .camera-grid, .camera-config, .vision-config { grid-template-columns: 1fr; }
+    #command { background: #081116; color: #bad6dc; }
+    @media (max-width: 1220px) {
+      .app { grid-template-rows: auto auto auto; }
+      main, footer, .setup-grid, .rviz-toolbar, .rviz-url-row { grid-template-columns: 1fr; }
       header { height: auto; padding: 12px 14px; align-items: flex-start; flex-direction: column; }
       .actions { justify-content: flex-start; }
+      .left-rail, .center-stage, .right-rail { overflow: visible; }
     }
   </style>
 </head>
@@ -1614,152 +1980,208 @@ INDEX_HTML = r"""<!doctype html>
         </div>
       </div>
       <div class="actions">
+        <span class="ui-only-badge">UI ONLY · 未连接 ROS</span>
         <button class="btn primary" onclick="startNavigation()">启动当前模式</button>
         <button class="btn danger" onclick="postAction('/api/navigation/stop_all')">停止全部</button>
-        <button class="btn soft" onclick="postAction('/api/rviz/open', true)">打开 RViz</button>
+        <button id="native_rviz_button" class="btn soft" onclick="openNativeRviz()">打开原生 RViz</button>
       </div>
     </header>
 
     <main>
-      <section class="panel">
-        <div class="panel-head">Setup</div>
-        <div class="body stack">
-          <div><label>Run Mode</label><select id="run_mode" onchange="onModeChanged()"><option value="online">在线建图导航</option><option value="navigation">离线地图导航</option><option value="save_map">保存 2D 地图</option><option value="save_pcd_map">保存 3D PCD</option></select></div>
-          <div><label>RViz Mode</label><select id="rviz_mode"><option value="auto">跟随 Run Mode</option><option value="online">在线 RViz</option><option value="offline">离线 RViz</option></select></div>
-          <div><label>Map YAML</label><input id="map"></div>
-          <div><label>PCD Map</label><input id="pcd"></div>
-          <div><label>Map Prefix</label><input id="map_prefix" value="maps/h1_2_lab"></div>
-          <div><label>PCD Prefix</label><input id="pcd_prefix" value="maps/h1_2_lab"></div>
-          <div><label>Localization</label><select id="localization"><option>global_gicp</option><option>icp</option></select></div>
-          <div><label>Initial Pose</label><input id="initial_pose" value="START"></div>
-          <div><label>Nav2 Params</label><input id="nav2_params_file" placeholder="/home/llx/h1_nav2_ros2_ws/src/h1_2_nav_tools/config/nav2_h1_2_rpp.yaml"></div>
-          <div><label>Voice SSH</label><input id="voice_remote_host" placeholder="unitree@192.168.x.x"></div>
-          <div><label>Voice Workspace</label><input id="voice_workspace" value="~/ros2_ws"></div>
-          <div><label>Voice ROS setup</label><input id="voice_ros_setup" value="/opt/ros/humble/setup.bash"></div>
-          <div><label>Teaching Path</label><input id="teaching_path_file"></div>
-          <div><label>Teaching Events</label><input id="teaching_events_file"></div>
-          <label class="check"><input id="auto_start_route" type="checkbox"> auto_start_route</label>
-          <label class="check"><input id="return_to_start" type="checkbox"> return_to_start</label>
-          <label class="check"><input id="teaching_loop" type="checkbox"> teaching_loop</label>
-          <button class="btn" onclick="saveConfig()">保存配置</button>
-        </div>
-      </section>
-
-      <section class="panel">
-        <div class="panel-head">
-          <span>Route</span>
-          <span>
-            <button class="btn" onclick="selectAll(true)">全选</button>
-            <button class="btn" onclick="selectAll(false)">清空</button>
-            <button class="btn" onclick="loadPoints()">刷新点位</button>
-          </span>
-        </div>
-        <div class="body">
-          <table>
-            <thead><tr><th>启用</th><th>点位</th><th>动作</th><th>位置</th></tr></thead>
-            <tbody id="routeBody"></tbody>
-          </table>
-        </div>
-      </section>
-
-      <aside class="stack">
+      <aside class="left-rail stack">
         <section class="panel">
-          <div class="panel-head">Route Control</div>
-          <div class="body stack">
-            <button id="localization_indicator" class="localization-indicator waiting" type="button" disabled>
-              ● 等待定位
-            </button>
-            <div class="two">
-            <button id="start_route_button" class="btn primary" onclick="startRoute()" disabled>开始巡航</button>
-            <button class="btn" onclick="postAction('/api/route/stop')">停止巡航</button>
+          <div class="panel-head">机器人状态</div>
+          <div class="body">
+            <div class="robot-overview">
+              <div class="robot-figure">
+                <img id="robot_status_image" src="/assets/h1_2_status.png" alt="H1-2 Robot">
+              </div>
+              <div class="robot-summary">
+                <button id="cruise_ready_card" class="status-metric waiting" type="button" disabled>
+                  <div id="cruise_ready_text" class="metric-value">等待定位</div>
+                </button>
+                <button id="motion_state_card" class="status-metric motion" type="button" disabled>
+                  <div class="metric-label">当前运动状态</div>
+                  <div id="motion_state" class="metric-value">待机</div>
+                </button>
+              </div>
             </div>
-            <div class="two">
-              <button id="start_teaching_record_button" class="btn primary" onclick="postAction('/api/teaching_record/start', true)" disabled>启动示教录制</button>
-              <button class="btn" onclick="postAction('/api/teaching_record/process/stop')">结束示教录制</button>
+            <div class="runtime-panel">
+              <div class="runtime-head">
+                <span>系统运行状态</span>
+                <span id="battery_state" class="pill">未接入</span>
+              </div>
+              <div class="runtime-grid">
+                <div id="battery_ring" class="runtime-ring" style="--percent: 0%">
+                  <span id="battery_percent">0%</span>
+                </div>
+                <div class="runtime-list">
+                  <div class="runtime-item"><span>电压</span><span id="battery_voltage" class="runtime-dot">--</span></div>
+                  <div class="runtime-item"><span>温度</span><span id="battery_temperature" class="runtime-dot">--</span></div>
+                  <div class="runtime-item"><span>充放电</span><span id="battery_charge_state" class="runtime-dot">--</span></div>
+                  <div class="runtime-item"><span>循环次数</span><span id="battery_cycles" class="runtime-dot">--</span></div>
+                </div>
+              </div>
             </div>
-            <div class="two">
-              <button id="start_teaching_route_button" class="btn primary" onclick="startTeachingRoute()" disabled>启动示教巡航</button>
-              <button class="btn" onclick="postAction('/api/teaching_route/process/stop')">结束示教巡航</button>
-            </div>
-            <div class="two">
-              <button class="btn soft" onclick="postAction('/api/voice/start', true)">启动语音控制</button>
-              <button class="btn" onclick="postAction('/api/voice/stop', true)">停止语音控制</button>
-            </div>
-            <button class="btn" onclick="refreshStatus()">刷新状态</button>
-            <div class="two">
-              <button class="btn" onclick="gesture('wave_hand')">测试挥手</button>
-              <button class="btn" onclick="gesture('shake_hand')">测试出手</button>
-            </div>
-            <div class="two">
-              <button class="btn" onclick="postAction('/api/rviz/close')">关闭 RViz</button>
-              <button class="btn" onclick="postAction('/api/rviz/restart', true)">重启 RViz</button>
+            <div class="runtime-hidden">
+              <span id="state" class="pill">-</span>
+              <span id="goal">-</span>
+              <span id="teaching_state" class="pill">-</span>
+              <span id="teaching_goal">-</span>
+              <span id="localization_state">定位未稳定</span>
+              <span id="processes">-</span>
+              <span id="message">-</span>
+              <span id="teaching_message">-</span>
             </div>
           </div>
         </section>
+
+        <section class="panel camera-section">
+          <div class="panel-head">
+            <span>Camera Preview</span>
+            <span id="camera_state" class="pill warn">等待相机话题</span>
+          </div>
+          <div class="camera-grid">
+            <div>
+              <div id="camera_rgb_view" class="camera-view">
+                <img id="camera_rgb" alt="RealSense RGB">
+                <div class="camera-placeholder">等待 RGB 相机话题</div>
+              </div>
+              <div class="camera-caption"><strong>RGB</strong><span id="camera_rgb_meta">-</span></div>
+            </div>
+            <div>
+              <div id="camera_depth_view" class="camera-view">
+                <img id="camera_depth" alt="RealSense aligned depth">
+                <div class="camera-placeholder">等待对齐深度话题</div>
+              </div>
+              <div class="camera-caption"><strong>Aligned Depth</strong><span id="camera_depth_meta">-</span></div>
+            </div>
+            <div>
+              <div id="vision_annotated_view" class="camera-view">
+                <img id="vision_annotated" alt="YOLO detection">
+                <div class="camera-placeholder">等待 YOLO 检测话题</div>
+              </div>
+              <div class="camera-caption">
+                <strong>YOLO Detection</strong>
+                <span><span id="vision_state">waiting</span> · <span id="vision_annotated_meta">-</span></span>
+              </div>
+            </div>
+          </div>
+        </section>
+      </aside>
+
+      <section class="center-stage">
+        <section class="panel rviz-stage">
+          <div class="panel-head">
+            <span>RViz 监控大屏</span>
+            <span id="rviz_embed_state" class="pill warn">等待 RViz Web 地址</span>
+          </div>
+          <div id="rviz_frame_wrap" class="rviz-frame-wrap">
+            <iframe id="rviz_embed_frame" title="RViz Web View" referrerpolicy="no-referrer"></iframe>
+            <div class="rviz-placeholder">
+              <div>
+                <strong>RViz Web 画面未加载</strong>
+                <span>启动 noVNC/xpra 后填写地址，或直接打开原生 RViz 调试。</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel center-controls">
+          <div class="panel-head">主控制</div>
+          <div class="body control-grid">
+            <button id="start_route_button" class="btn primary" onclick="startRoute()" disabled>开始巡航</button>
+            <button class="btn" onclick="postAction('/api/route/stop')">停止巡航</button>
+            <button id="start_teaching_record_button" class="btn primary" onclick="postAction('/api/teaching_record/start', true)" disabled>启动示教录制</button>
+            <button class="btn" onclick="postAction('/api/teaching_record/process/stop')">结束示教录制</button>
+            <button id="start_teaching_route_button" class="btn primary" onclick="startTeachingRoute()" disabled>启动示教巡航</button>
+            <button class="btn" onclick="postAction('/api/teaching_route/process/stop')">结束示教巡航</button>
+            <button class="btn soft" onclick="postAction('/api/voice/start', true)">启动语音控制</button>
+            <button class="btn" onclick="postAction('/api/voice/stop', true)">停止语音控制</button>
+            <button class="btn" onclick="gesture('wave_hand')">测试挥手</button>
+            <button class="btn" onclick="gesture('shake_hand')">测试出手</button>
+            <button class="btn soft" onclick="loadRvizEmbed()">加载中间 RViz</button>
+            <button class="btn" onclick="reloadRvizEmbed()">刷新嵌入画面</button>
+            <button class="btn" onclick="openRvizEmbedWindow()">新窗口打开</button>
+            <button class="btn soft" onclick="openNativeRviz()">打开原生 RViz</button>
+            <button class="btn" onclick="postAction('/api/rviz/close')">关闭 RViz</button>
+            <button class="btn" onclick="postAction('/api/rviz/restart', true)">重启 RViz</button>
+            <button class="btn" onclick="refreshStatus()">刷新状态</button>
+          </div>
+        </section>
+
         <section class="panel">
-          <div class="panel-head">Runtime Status</div>
+          <div class="panel-head">Setup</div>
+          <div class="body stack advanced-config">
+            <div class="setup-grid">
+              <div><label>Run Mode</label><select id="run_mode" onchange="onModeChanged()"><option value="online">在线建图导航</option><option value="navigation">离线地图导航</option><option value="save_map">保存 2D 地图</option><option value="save_pcd_map">保存 3D PCD</option></select></div>
+              <div><label>RViz Mode</label><select id="rviz_mode"><option value="auto">跟随 Run Mode</option><option value="online">在线 RViz</option><option value="offline">离线 RViz</option></select></div>
+              <label class="check"><input id="rviz_embed_enabled" type="checkbox"> 启用中间 RViz 嵌入</label>
+              <div><label>RViz Web URL</label><input id="rviz_embed_url" placeholder="http://127.0.0.1:6080/vnc.html?autoconnect=1&resize=remote"></div>
+              <div><label>Map YAML</label><input id="map"></div>
+              <div><label>PCD Map</label><input id="pcd"></div>
+              <div><label>Map Prefix</label><input id="map_prefix" value="maps/h1_2_lab"></div>
+              <div><label>PCD Prefix</label><input id="pcd_prefix" value="maps/h1_2_lab"></div>
+              <div><label>Localization</label><select id="localization"><option>global_gicp</option><option>icp</option></select></div>
+              <div><label>Initial Pose</label><input id="initial_pose" value="START"></div>
+              <div><label>Nav2 Params</label><input id="nav2_params_file" placeholder="/home/llx/h1_nav2_ros2_ws/src/h1_2_nav_tools/config/nav2_h1_2_rpp.yaml"></div>
+              <div><label>Teaching Path</label><input id="teaching_path_file"></div>
+              <div><label>Teaching Events</label><input id="teaching_events_file"></div>
+              <div><label>Voice SSH</label><input id="voice_remote_host" placeholder="unitree@192.168.x.x"></div>
+              <div><label>Voice Workspace</label><input id="voice_workspace" value="~/ros2_ws"></div>
+              <div><label>Voice ROS setup</label><input id="voice_ros_setup" value="/opt/ros/humble/setup.bash"></div>
+            </div>
+            <div class="two">
+              <label class="check"><input id="auto_start_route" type="checkbox"> auto_start_route</label>
+              <label class="check"><input id="return_to_start" type="checkbox"> return_to_start</label>
+            </div>
+            <label class="check"><input id="teaching_loop" type="checkbox"> teaching_loop</label>
+            <button class="btn" onclick="saveConfig()">保存配置</button>
+          </div>
+        </section>
+      </section>
+
+      <aside class="right-rail stack">
+        <section class="panel route-panel">
+          <div class="panel-head">
+            <span>Route</span>
+            <span>
+              <button class="btn" onclick="selectAll(true)">全选</button>
+              <button class="btn" onclick="selectAll(false)">清空</button>
+              <button class="btn" onclick="loadPoints()">刷新点位</button>
+            </span>
+          </div>
           <div class="body">
-            <div class="status-row"><div class="key">state</div><div><span id="state" class="pill">-</span></div></div>
-            <div class="status-row"><div class="key">goal</div><div id="goal">-</div></div>
-            <div class="status-row"><div class="key">teaching</div><div><span id="teaching_state" class="pill">-</span></div></div>
-            <div class="status-row"><div class="key">teach goal</div><div id="teaching_goal">-</div></div>
-            <div class="status-row"><div class="key">message</div><div id="message">-</div></div>
-            <div class="status-row"><div class="key">teach msg</div><div id="teaching_message">-</div></div>
-            <div class="status-row"><div class="key">localization</div><div id="localization_state">定位未稳定</div></div>
-            <div class="status-row"><div class="key">process</div><div id="processes">-</div></div>
+            <table>
+              <thead><tr><th>启用</th><th>点位</th><th>动作</th><th>位置</th></tr></thead>
+              <tbody id="routeBody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">Camera / Vision Control</div>
+          <div class="body stack">
+            <div><label>RGB Topic</label><input id="camera_rgb_topic"></div>
+            <div><label>Aligned Depth Topic</label><input id="camera_depth_topic"></div>
+            <div><label>CameraInfo Topic</label><input id="camera_info_topic"></div>
+            <div class="two">
+              <button class="btn soft" onclick="startCameraPreview()">开启相机预览</button>
+              <button class="btn" onclick="stopCameraPreview()">关闭相机预览</button>
+            </div>
+            <button class="btn" onclick="reconnectCamera()">重新连接</button>
+            <div><label>YOLO Annotated Topic</label><input id="vision_annotated_topic"></div>
+            <div><label>Vision SSH</label><input id="vision_remote_host" placeholder="unitree@192.168.x.x"></div>
+            <div><label>Vision Workspace</label><input id="vision_workspace" value="~/ros2_ws"></div>
+            <div><label>Vision ROS setup</label><input id="vision_ros_setup" value="/opt/ros/humble/setup.bash"></div>
+            <div class="two">
+              <button class="btn soft" onclick="postAction('/api/vision/start', true)">启动识别</button>
+              <button class="btn" onclick="postAction('/api/vision/stop', true)">停止识别</button>
+            </div>
           </div>
         </section>
       </aside>
     </main>
-
-    <section class="panel camera-section">
-      <div class="panel-head">
-        <span>Camera Preview</span>
-        <span id="camera_state" class="pill warn">等待相机话题</span>
-      </div>
-      <div class="camera-config">
-        <div><label>RGB Topic</label><input id="camera_rgb_topic"></div>
-        <div><label>Aligned Depth Topic</label><input id="camera_depth_topic"></div>
-        <div><label>CameraInfo Topic</label><input id="camera_info_topic"></div>
-        <button class="btn soft" onclick="startCameraPreview()">开启相机预览</button>
-        <button class="btn" onclick="stopCameraPreview()">关闭相机预览</button>
-        <button class="btn" onclick="reconnectCamera()">重新连接</button>
-      </div>
-      <div class="vision-config">
-        <div><label>YOLO Annotated Topic</label><input id="vision_annotated_topic"></div>
-        <div><label>Vision SSH</label><input id="vision_remote_host" placeholder="unitree@192.168.x.x"></div>
-        <div><label>Vision Workspace</label><input id="vision_workspace" value="~/ros2_ws"></div>
-        <div><label>Vision ROS setup</label><input id="vision_ros_setup" value="/opt/ros/humble/setup.bash"></div>
-        <button class="btn soft" onclick="postAction('/api/vision/start', true)">启动识别</button>
-        <button class="btn" onclick="postAction('/api/vision/stop', true)">停止识别</button>
-      </div>
-      <div class="camera-grid">
-        <div>
-          <div id="camera_rgb_view" class="camera-view">
-            <img id="camera_rgb" alt="RealSense RGB">
-            <div class="camera-placeholder">等待 RGB 相机话题</div>
-          </div>
-          <div class="camera-caption"><strong>RGB</strong><span id="camera_rgb_meta">-</span></div>
-        </div>
-        <div>
-          <div id="camera_depth_view" class="camera-view">
-            <img id="camera_depth" alt="RealSense aligned depth">
-            <div class="camera-placeholder">等待对齐深度话题</div>
-          </div>
-          <div class="camera-caption"><strong>Aligned Depth</strong><span id="camera_depth_meta">-</span></div>
-        </div>
-        <div>
-          <div id="vision_annotated_view" class="camera-view">
-            <img id="vision_annotated" alt="YOLO detection">
-            <div class="camera-placeholder">等待 YOLO 检测话题</div>
-          </div>
-          <div class="camera-caption">
-            <strong>YOLO Detection</strong>
-            <span><span id="vision_state">waiting</span> · <span id="vision_annotated_meta">-</span></span>
-          </div>
-        </div>
-      </div>
-    </section>
 
     <footer>
       <section class="panel">
@@ -1780,6 +2202,7 @@ INDEX_HTML = r"""<!doctype html>
     let logsAutoFollow = true;
     let logsSelecting = false;
     let cameraPreviewEnabled = false;
+    let rvizEmbedLoaded = false;
 
     const $ = (id) => document.getElementById(id);
 
@@ -1791,6 +2214,8 @@ INDEX_HTML = r"""<!doctype html>
       return {
         run_mode: $("run_mode").value,
         rviz_mode: $("rviz_mode").value,
+        rviz_embed_url: $("rviz_embed_url").value.trim(),
+        rviz_embed_enabled: $("rviz_embed_enabled").checked,
         map: $("map").value.trim(),
         pcd: $("pcd").value.trim(),
         map_prefix: $("map_prefix").value.trim(),
@@ -1857,8 +2282,11 @@ INDEX_HTML = r"""<!doctype html>
 
     async function loadConfig() {
       const config = await api("/api/config");
+      document.body.classList.toggle("ui-only", config.ui_only === true);
       $("run_mode").value = config.run_mode || "online";
       $("rviz_mode").value = config.rviz_mode || "auto";
+      $("rviz_embed_url").value = config.rviz_embed_url || "http://127.0.0.1:6080/vnc.html?autoconnect=1&resize=remote";
+      $("rviz_embed_enabled").checked = config.rviz_embed_enabled !== false;
       $("map").value = config.map || "";
       $("pcd").value = config.pcd || "";
       $("map_prefix").value = config.map_prefix || "maps/h1_2_lab";
@@ -1885,6 +2313,7 @@ INDEX_HTML = r"""<!doctype html>
       routeState.__memory_route = config.memory_route || "A,B,C";
       routeState.__gesture_route = config.gesture_route || "";
       onModeChanged();
+      updateRvizEmbedState();
       updateCommand();
     }
 
@@ -1966,6 +2395,63 @@ INDEX_HTML = r"""<!doctype html>
       const result = await api(path, { method: "POST", body: JSON.stringify(includePayload ? payload() : {}) });
       appendLog("web", result.message || JSON.stringify(result));
       refreshStatus();
+    }
+
+    async function openNativeRviz() {
+      await postAction("/api/rviz/open", true);
+    }
+
+    function updateRvizEmbedState(message = null, state = null) {
+      const enabled = $("rviz_embed_enabled").checked;
+      const url = $("rviz_embed_url").value.trim();
+      const badge = $("rviz_embed_state");
+      const wrap = $("rviz_frame_wrap");
+      wrap.classList.toggle("online", enabled && rvizEmbedLoaded && !!url);
+      if (!enabled) {
+        badge.textContent = "嵌入已关闭";
+        badge.className = "pill warn";
+        return;
+      }
+      if (!url) {
+        badge.textContent = "等待 RViz Web 地址";
+        badge.className = "pill warn";
+        return;
+      }
+      badge.textContent = message || (rvizEmbedLoaded ? "RViz Web 已加载" : "可加载 RViz Web");
+      badge.className = "pill " + (state || (rvizEmbedLoaded ? "ok" : ""));
+    }
+
+    function loadRvizEmbed() {
+      const url = $("rviz_embed_url").value.trim();
+      if (!$("rviz_embed_enabled").checked || !url) {
+        rvizEmbedLoaded = false;
+        $("rviz_embed_frame").removeAttribute("src");
+        updateRvizEmbedState();
+        return;
+      }
+      $("rviz_embed_frame").src = url;
+      rvizEmbedLoaded = true;
+      updateRvizEmbedState("RViz Web 已加载", "ok");
+    }
+
+    function reloadRvizEmbed() {
+      const url = $("rviz_embed_url").value.trim();
+      if (!url) {
+        updateRvizEmbedState();
+        return;
+      }
+      $("rviz_embed_frame").src = `${url}${url.includes("?") ? "&" : "?"}t=${Date.now()}`;
+      rvizEmbedLoaded = true;
+      updateRvizEmbedState("RViz Web 已刷新", "ok");
+    }
+
+    function openRvizEmbedWindow() {
+      const url = $("rviz_embed_url").value.trim();
+      if (!url) {
+        updateRvizEmbedState();
+        return;
+      }
+      window.open(url, "_blank", "noopener,noreferrer");
     }
 
     async function startRoute() {
@@ -2056,6 +2542,12 @@ INDEX_HTML = r"""<!doctype html>
         `${stream.resolution || "-"} · ${fps} FPS · age ${age}`;
     }
 
+    function formatBatteryMetric(value, unit) {
+      if (value == null || value === "") return "--";
+      const numeric = Number(value);
+      return Number.isFinite(numeric) ? `${numeric.toFixed(1)}${unit}` : String(value);
+    }
+
     async function refreshStatus() {
       const data = await api("/api/status");
       const route = data.route || {};
@@ -2070,19 +2562,19 @@ INDEX_HTML = r"""<!doctype html>
       $("teaching_message").textContent = teachingRoute.message || "-";
       const localization = data.localization || {};
       $("localization_state").textContent = localization.message || "定位未稳定";
-      const localizationIndicator = $("localization_indicator");
       const indicatorState = localization.ready
         ? "ready"
         : localization.score == null
           ? "waiting"
           : "checking";
-      localizationIndicator.className = `localization-indicator ${indicatorState}`;
-      localizationIndicator.textContent = localization.ready
+      const cruiseReadyCard = $("cruise_ready_card");
+      cruiseReadyCard.className = "status-metric " + (localization.ready ? "ready" : "waiting");
+      cruiseReadyCard.title = localization.message || "定位未稳定";
+      $("cruise_ready_text").textContent = localization.ready
         ? "● 可开始巡航"
         : indicatorState === "checking"
-          ? "● 定位稳定性确认中"
-          : "● 等待定位";
-      localizationIndicator.title = localization.message || "定位未稳定";
+          ? "● 定位确认中"
+          : "● 不可开始巡航";
       const startButton = $("start_route_button");
       startButton.disabled = !localization.ready;
       startButton.title = localization.message || "定位未稳定";
@@ -2093,6 +2585,29 @@ INDEX_HTML = r"""<!doctype html>
       startTeachingRecordButton.disabled = !localization.ready;
       startTeachingRecordButton.title = localization.message || "定位未稳定";
       const processes = data.processes || {};
+      const motionState = processes.teaching_route?.running
+        ? `示教巡航 ${teachingRoute.state || "running"}`
+        : processes.navigation?.running
+          ? `导航 ${route.state || "running"}`
+          : route.state && route.state !== "-"
+            ? route.state
+            : "待机";
+      $("motion_state_card").className =
+        "status-metric motion " + ((processes.teaching_route?.running || processes.navigation?.running) ? "active" : "");
+      $("motion_state").textContent = motionState;
+      const battery = data.battery || {};
+      const batteryPercent = Number.isFinite(Number(battery.percent))
+        ? Math.max(0, Math.min(100, Math.round(Number(battery.percent))))
+        : 0;
+      $("battery_ring").style.setProperty("--percent", `${batteryPercent}%`);
+      $("battery_percent").textContent = `${batteryPercent}%`;
+      $("battery_state").textContent = battery.state || (data.battery ? "在线" : "未接入");
+      $("battery_state").className = "pill " + (data.battery ? "ok" : "warn");
+      $("battery_voltage").textContent = formatBatteryMetric(battery.voltage, "V");
+      $("battery_temperature").textContent = formatBatteryMetric(battery.temperature, "°C");
+      $("battery_charge_state").textContent = battery.charge_state || "--";
+      $("battery_charge_state").className = "runtime-dot " + (battery.charge_state ? "ok" : "");
+      $("battery_cycles").textContent = battery.cycles == null ? "--" : String(battery.cycles);
       $("processes").textContent = `nav=${processes.navigation?.running ? "running" : "idle"}, rviz=${processes.rviz?.running ? "running" : "idle"}, teaching_record=${processes.teaching_record?.running ? "running" : "idle"}, teaching=${processes.teaching_route?.running ? "running" : "idle"}, voice_reader=${processes.voice?.running ? "running" : "idle"}, voice_bridge=${processes.voice_bridge?.running ? "running" : "idle"}, vision=${processes.vision?.running ? "running" : "idle"}`;
       await refreshCameraStatus(data.camera || null);
       await refreshVisionStatus(data.vision || null);
@@ -2153,10 +2668,16 @@ INDEX_HTML = r"""<!doctype html>
       });
     }
 
-    for (const id of ["run_mode", "rviz_mode", "map", "pcd", "map_prefix", "pcd_prefix", "localization", "initial_pose", "nav2_params_file", "voice_remote_host", "voice_workspace", "voice_ros_setup", "teaching_path_file", "teaching_events_file", "camera_rgb_topic", "camera_depth_topic", "camera_info_topic", "vision_annotated_topic", "vision_remote_host", "vision_workspace", "vision_ros_setup", "auto_start_route", "return_to_start", "teaching_loop"]) {
+    for (const id of ["run_mode", "rviz_mode", "rviz_embed_url", "rviz_embed_enabled", "map", "pcd", "map_prefix", "pcd_prefix", "localization", "initial_pose", "nav2_params_file", "voice_remote_host", "voice_workspace", "voice_ros_setup", "teaching_path_file", "teaching_events_file", "camera_rgb_topic", "camera_depth_topic", "camera_info_topic", "vision_annotated_topic", "vision_remote_host", "vision_workspace", "vision_ros_setup", "auto_start_route", "return_to_start", "teaching_loop"]) {
       document.addEventListener("input", (event) => { if (event.target.id === id) updateCommand(); });
       document.addEventListener("change", (event) => { if (event.target.id === id) updateCommand(); });
     }
+    document.addEventListener("input", (event) => {
+      if (event.target.id === "rviz_embed_url") updateRvizEmbedState();
+    });
+    document.addEventListener("change", (event) => {
+      if (event.target.id === "rviz_embed_url" || event.target.id === "rviz_embed_enabled") updateRvizEmbedState();
+    });
 
     (async function boot() {
       await loadConfig();
@@ -2180,6 +2701,11 @@ def main():
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--port-tries", type=int, default=20, help="number of sequential ports to try")
     parser.add_argument("--no-single-instance", action="store_true", help="do not stop older Web GUI instances")
+    parser.add_argument(
+        "--ui-only",
+        action="store_true",
+        help="serve the UI without initializing ROS or allowing process controls",
+    )
     args = parser.parse_args()
     if args.port_tries < 1:
         parser.error("--port-tries must be >= 1")
@@ -2189,7 +2715,7 @@ def main():
 
     workspace_root = find_workspace_root()
     server, actual_port = bind_http_server(args.host, args.port, RequestHandler, args.port_tries)
-    app = WebGuiApp(workspace_root)
+    app = WebGuiApp(workspace_root, ui_only=args.ui_only)
     server.app = app
 
     stopping = threading.Event()

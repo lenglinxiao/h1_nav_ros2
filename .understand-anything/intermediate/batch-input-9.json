@@ -1,0 +1,29 @@
+{
+  "batchIndex": 9,
+  "files": [
+    {
+      "path": "config/cyclonedds_enp45s0.xml",
+      "language": "xml",
+      "sizeLines": 13,
+      "fileCategory": "config"
+    },
+    {
+      "path": "config/cyclonedds_localhost.xml",
+      "language": "xml",
+      "sizeLines": 13,
+      "fileCategory": "config"
+    },
+    {
+      "path": "config/fastdds_enp45s0_robot.xml",
+      "language": "xml",
+      "sizeLines": 33,
+      "fileCategory": "config"
+    }
+  ],
+  "batchImportData": {
+    "config/cyclonedds_enp45s0.xml": [],
+    "config/cyclonedds_localhost.xml": [],
+    "config/fastdds_enp45s0_robot.xml": []
+  },
+  "neighborMap": {}
+}

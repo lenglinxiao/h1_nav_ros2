@@ -1,0 +1,136 @@
+{
+  "nodes": [
+    {
+      "id": "file:src/h1_2_nav_tools/h1_2_nav_tools/memory_route_runner.py",
+      "type": "file",
+      "name": "memory_route_runner.py",
+      "filePath": "src/h1_2_nav_tools/h1_2_nav_tools/memory_route_runner.py",
+      "summary": "记忆点路线执行器 —— 基于 ROS2 的导航节点，按预定义记忆点序列逐一调用 Nav2 NavigateToPose 动作进行导航。支持在途径点触发手势动作（ExecuteGesture 服务），通过 RouteActivityGuard 防止与示教路线并行执行，内置定位 TF 校验、重试机制、端到端返回起点等完整状态机逻辑。",
+      "tags": ["ROS2", "导航", "记忆点", "路径点导航", "Nav2", "NavigateToPose", "手势", "状态机", "动作客户端", "路线守卫", "TF校验", "重试机制"],
+      "complexity": "high",
+      "languageNotes": "Python ROS2 节点，使用 ActionClient 调用 Nav2 动作，MultiThreadedExecutor 多线程执行。状态机涵盖 idle / running / waiting / retrying / gesturing / stopping / blocked 七个状态，通过 create_timer 实现延迟调度，cancel_pending_timer 管理定时器生命周期。"
+    },
+    {
+      "id": "file:src/h1_2_nav_tools/h1_2_nav_tools/route_activity_guard.py",
+      "type": "file",
+      "name": "route_activity_guard.py",
+      "filePath": "src/h1_2_nav_tools/h1_2_nav_tools/route_activity_guard.py",
+      "summary": "路线活动互斥守卫 —— 轻量级 ROS2 辅助类，通过异步调用对方路线节点的 RouteStatus 服务，判断对端是否处于活跃状态（非 idle/blocked），防止两条路线同时运行。使用 threading.Event 实现服务调用的超时控制。",
+      "tags": ["ROS2", "服务调用", "互斥", "路由守卫", "并发控制", "ReentrantCallbackGroup"],
+      "complexity": "low",
+      "languageNotes": "简洁的 Python 辅助类，核心在于 check_peer_inactive 方法。使用 ReentrantCallbackGroup 避免死锁，threading.Event 配合 done.wait(timeout) 实现非阻塞超时检测，INACTIVE_ROUTE_STATES 集合定义了空闲状态白名单（空字符串、idle、blocked）。"
+    },
+    {
+      "id": "file:src/h1_2_nav_tools/h1_2_nav_tools/teaching_route_runner.py",
+      "type": "file",
+      "name": "teaching_route_runner.py",
+      "filePath": "src/h1_2_nav_tools/h1_2_nav_tools/teaching_route_runner.py",
+      "summary": "示教路线执行器 —— ROS2 导航节点，沿录制的示教轨迹执行路径跟踪。支持两种控制模式：Nav2 FollowPath 动作（nav2 模式）和基于纯追踪算法的直接速度控制（direct 模式）。按事件点（手势、语音播报）将路径分段，支持循环执行、起点位姿校验、偏离路线检测与停止保护。",
+      "tags": ["ROS2", "示教路径", "轨迹跟踪", "纯追踪", "直接控制", "FollowPath", "路径分段", "手势", "语音反馈", "状态机", "动作客户端", "cmd_vel", "起点校验", "偏离检测"],
+      "complexity": "high",
+      "languageNotes": "最复杂的导航节点，789 行。核心亮点：direct 模式下实现了简化版纯追踪控制器（lookahead 前视 + heading/lateral 误差解耦），支持速度缩放（大角度转向时减速）和横向偏差前馈。通过 build_segments 按事件点将完整路径切分为子段。start_pose_guard 通过 TF 校验机器人当前位置与路径起点的 XY/偏航偏差，防止从错误位置启动。事件系统支持 memory_points 投影到路径最近点（project_event），以及 trigger_radius 阈值校验。"
+    },
+    {
+      "id": "class:MemoryRouteRunner",
+      "type": "class",
+      "name": "MemoryRouteRunner",
+      "filePath": "src/h1_2_nav_tools/h1_2_nav_tools/memory_route_runner.py",
+      "summary": "ROS2 节点类，继承 rclpy.node.Node。从 JSON 文件加载记忆点坐标，按配置的路线名称序列逐个调用 Nav2 NavigateToPose 动作进行点对点导航。每个目标点到达后可选执行手势动作，支持重试（max_retries_per_goal）、端到端返回起点、定位 TF 校验及路线互斥守卫。",
+      "tags": ["ROS2", "Node", "NavigateToPose", "ActionClient", "Service", "记忆点", "手势", "状态机"],
+      "complexity": "high",
+      "languageNotes": "提供三个 ROS2 服务接口（start/stop/status），通过 ActionClient 发送 NavigateToPose 目标。状态机在 start_callback 中完成所有前置校验（TF、服务可用性、记忆点存在性）后进入 running 状态，goal_result_callback 中根据成功/失败/取消分别处理。手势执行有独立超时保护（gesture_timeout_callback）。"
+    },
+    {
+      "id": "class:RouteActivityGuard",
+      "type": "class",
+      "name": "RouteActivityGuard",
+      "filePath": "src/h1_2_nav_tools/h1_2_nav_tools/route_activity_guard.py",
+      "summary": "路线活动互斥守卫类。通过异步调用对方路线的 RouteStatus 服务，判断对端当前状态是否为活跃（不在 {'', 'idle', 'blocked'} 集合内），若对端活跃则拒绝启动本方路线，以此实现两条路线的互斥运行。",
+      "tags": ["ROS2", "Service", "互斥", "守卫", "ReentrantCallbackGroup", "threading"],
+      "complexity": "low",
+      "languageNotes": "构造函数接收 node、status_service_name、peer_label 和 timeout_sec，创建 ReentrantCallbackGroup 的 Service 客户端。check_peer_inactive 返回 (allowed: bool, message: str) 元组，服务不可用时默认为放行（fail-open 策略），仅在对端明确活跃时拦截。"
+    },
+    {
+      "id": "class:TeachingRouteRunner",
+      "type": "class",
+      "name": "TeachingRouteRunner",
+      "filePath": "src/h1_2_nav_tools/h1_2_nav_tools/teaching_route_runner.py",
+      "summary": "ROS2 节点类，继承 rclpy.node.Node。加载示教路径文件（每行 7 个浮点数表示位姿）和事件配置文件，沿示教轨迹执行路径跟踪。支持 nav2 模式（调用 FollowPath 动作）和 direct 模式（基于纯追踪算法的直接速度指令发布），可配置循环执行、起点位姿校验、偏离路线检测及手势/语音事件触发。",
+      "tags": ["ROS2", "Node", "FollowPath", "直接控制", "纯追踪", "cmd_vel", "轨迹跟踪", "手势", "语音", "ActionClient", "状态机"],
+      "complexity": "high",
+      "languageNotes": "提供 start/stop/status 三个服务接口。build_segments 按 events 数组将路径切分为子段，每个子段关联一个可选事件。direct 模式的核心算法 direct_tracking_step 使用 lookahead 前视点计算 heading_error 和 signed_lateral_error，通过 heading_gain 和 lateral_gain 解耦控制角速度，速度缩放依据航向和横向误差。project_event 将命名记忆点投影到路径上最近位姿索引。"
+    },
+    {
+      "id": "pkg:h1_2_nav_tools",
+      "type": "package",
+      "name": "h1_2_nav_tools",
+      "filePath": "src/h1_2_nav_tools",
+      "summary": "H1-2 导航工具包，包含记忆点路线执行器、示教路线执行器、路线互斥守卫等 ROS2 节点，为轮式机器人提供多种导航模式支持。",
+      "tags": ["ROS2", "导航", "Python", "H1-2", "路线执行", "路径跟踪"],
+      "complexity": "high",
+      "languageNotes": "Python ROS2 包，包含多个可执行节点脚本。通过 setup.py 注册入口点。"
+    }
+  ],
+  "edges": [
+    {
+      "source": "class:MemoryRouteRunner",
+      "target": "file:src/h1_2_nav_tools/h1_2_nav_tools/memory_route_runner.py",
+      "type": "defined_in",
+      "label": "定义于"
+    },
+    {
+      "source": "class:RouteActivityGuard",
+      "target": "file:src/h1_2_nav_tools/h1_2_nav_tools/route_activity_guard.py",
+      "type": "defined_in",
+      "label": "定义于"
+    },
+    {
+      "source": "class:TeachingRouteRunner",
+      "target": "file:src/h1_2_nav_tools/h1_2_nav_tools/teaching_route_runner.py",
+      "type": "defined_in",
+      "label": "定义于"
+    },
+    {
+      "source": "file:src/h1_2_nav_tools/h1_2_nav_tools/memory_route_runner.py",
+      "target": "file:src/h1_2_nav_tools/h1_2_nav_tools/route_activity_guard.py",
+      "type": "imports",
+      "label": "导入 route_activity_guard"
+    },
+    {
+      "source": "file:src/h1_2_nav_tools/h1_2_nav_tools/teaching_route_runner.py",
+      "target": "file:src/h1_2_nav_tools/h1_2_nav_tools/route_activity_guard.py",
+      "type": "imports",
+      "label": "导入 route_activity_guard"
+    },
+    {
+      "source": "class:MemoryRouteRunner",
+      "target": "class:RouteActivityGuard",
+      "type": "uses",
+      "label": "实例化并调用 check_peer_inactive"
+    },
+    {
+      "source": "class:TeachingRouteRunner",
+      "target": "class:RouteActivityGuard",
+      "type": "uses",
+      "label": "实例化并调用 check_peer_inactive"
+    },
+    {
+      "source": "file:src/h1_2_nav_tools/h1_2_nav_tools/memory_route_runner.py",
+      "target": "pkg:h1_2_nav_tools",
+      "type": "belongs_to",
+      "label": "属于"
+    },
+    {
+      "source": "file:src/h1_2_nav_tools/h1_2_nav_tools/route_activity_guard.py",
+      "target": "pkg:h1_2_nav_tools",
+      "type": "belongs_to",
+      "label": "属于"
+    },
+    {
+      "source": "file:src/h1_2_nav_tools/h1_2_nav_tools/teaching_route_runner.py",
+      "target": "pkg:h1_2_nav_tools",
+      "type": "belongs_to",
+      "label": "属于"
+    }
+  ]
+}

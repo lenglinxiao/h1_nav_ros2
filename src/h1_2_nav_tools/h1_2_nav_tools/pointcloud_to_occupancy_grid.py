@@ -39,6 +39,8 @@ class PointCloudToOccupancyGrid(Node):
         self.declare_parameter("occupancy_miss_decrement", 1)
         self.declare_parameter("occupancy_threshold", 3)
         self.declare_parameter("occupancy_max_score", 20)
+        self.declare_parameter("occupied_decay_after_misses", 6)
+        self.declare_parameter("occupied_decay_decrement", 2)
         self.declare_parameter("raytrace_free", False)
         self.declare_parameter("raytrace_clears_occupied", False)
         self.declare_parameter("filter_floating_points", False)
@@ -74,6 +76,8 @@ class PointCloudToOccupancyGrid(Node):
         self.occupancy_miss_decrement = max(1, int(self.get_parameter("occupancy_miss_decrement").value))
         self.occupancy_threshold = max(1, int(self.get_parameter("occupancy_threshold").value))
         self.occupancy_max_score = max(self.occupancy_threshold, int(self.get_parameter("occupancy_max_score").value))
+        self.occupied_decay_after_misses = max(0, int(self.get_parameter("occupied_decay_after_misses").value))
+        self.occupied_decay_decrement = max(1, int(self.get_parameter("occupied_decay_decrement").value))
         self.raytrace_free = bool(self.get_parameter("raytrace_free").value)
         self.raytrace_clears_occupied = self.as_bool(self.get_parameter("raytrace_clears_occupied").value)
         self.filter_floating_points = self.as_bool(self.get_parameter("filter_floating_points").value)
@@ -91,6 +95,7 @@ class PointCloudToOccupancyGrid(Node):
 
         self.latest_grid = [self.unknown_value] * (self.width * self.height)
         self.occupancy_scores = [0] * (self.width * self.height)
+        self.occupied_miss_counts = [0] * (self.width * self.height)
         self.has_cloud = False
 
         cloud_qos = QoSProfile(depth=1)
@@ -123,6 +128,8 @@ class PointCloudToOccupancyGrid(Node):
             f"accumulate_map {self.accumulate_map}, "
             f"occupancy score hit +{self.occupancy_hit_increment}, "
             f"miss -{self.occupancy_miss_decrement}, threshold {self.occupancy_threshold}, "
+            f"occupied decay after {self.occupied_decay_after_misses} misses "
+            f"-{self.occupied_decay_decrement}, "
             f"raytrace_free {self.raytrace_free}, "
             f"raytrace_clears_occupied {self.raytrace_clears_occupied}, "
             f"filter_floating_points {self.filter_floating_points}, "
@@ -154,6 +161,7 @@ class PointCloudToOccupancyGrid(Node):
             x_off, y_off, z_off = offsets
             if not self.accumulate_map:
                 self.occupancy_scores = [0] * (self.width * self.height)
+                self.occupied_miss_counts = [0] * (self.width * self.height)
             grid = (
                 list(self.latest_grid)
                 if self.accumulate_map and self.has_cloud
@@ -163,10 +171,12 @@ class PointCloudToOccupancyGrid(Node):
             data = msg.data
             occupied_count = 0
             free_count = 0
+            decayed_count = 0
             origin_i = int((self.sensor_origin_x - self.origin_x) / self.resolution)
             origin_j = int((self.sensor_origin_y - self.origin_y) / self.resolution)
             candidate_points = []
             support_cells = set()
+            hit_indices = set()
             accepted_points = 0
 
             for point_index in range(0, total_points, self.point_stride):
@@ -196,8 +206,9 @@ class PointCloudToOccupancyGrid(Node):
                 accepted_points += 1
                 if self.raytrace_free and 0 <= origin_i < self.width and 0 <= origin_j < self.height:
                     free_count += self.mark_free_ray(grid, origin_i, origin_j, i, j)
-                occupied_count += self.mark_occupied(grid, i, j)
+                occupied_count += self.mark_occupied(grid, i, j, hit_indices)
 
+            decayed_count += self.decay_unseen_occupied(grid, hit_indices)
             free_count += self.clear_robot_footprint(grid, origin_i, origin_j)
             self.rebuild_grid_from_scores(grid)
             self.latest_grid = grid
@@ -209,7 +220,8 @@ class PointCloudToOccupancyGrid(Node):
                 self.get_logger().info(
                     f"Received cloud #{self.cloud_count}: {total_points} points, "
                     f"{len(candidate_points)} z-filtered points, {accepted_points} accepted points, "
-                    f"{occupied_count} newly occupied cells, {free_count} free cells before publish"
+                    f"{occupied_count} newly occupied cells, {free_count} free cells, "
+                    f"{decayed_count} decayed occupied cells before publish"
                 )
         except Exception as exc:
             self.get_logger().error(f"Failed to convert point cloud: {exc}")
@@ -236,10 +248,23 @@ class PointCloudToOccupancyGrid(Node):
             if x == x1 and y == y1:
                 break
             index = y * self.width + x
-            self.occupancy_scores[index] = max(0, self.occupancy_scores[index] - self.occupancy_miss_decrement)
-            if grid[index] != 0 and self.occupancy_scores[index] < self.occupancy_threshold:
-                grid[index] = 0
-                marked += 1
+            if self.occupancy_scores[index] >= self.occupancy_threshold:
+                if self.raytrace_clears_occupied:
+                    self.occupancy_scores[index] = max(
+                        0,
+                        self.occupancy_scores[index] - self.occupancy_miss_decrement,
+                    )
+                    if self.occupancy_scores[index] < self.occupancy_threshold:
+                        grid[index] = 0
+                        marked += 1
+            else:
+                self.occupancy_scores[index] = max(
+                    0,
+                    self.occupancy_scores[index] - self.occupancy_miss_decrement,
+                )
+                if grid[index] != 0:
+                    grid[index] = 0
+                    marked += 1
 
             e2 = 2 * err
             if e2 >= dy:
@@ -253,10 +278,12 @@ class PointCloudToOccupancyGrid(Node):
 
         return marked
 
-    def mark_occupied(self, grid, i: int, j: int):
+    def mark_occupied(self, grid, i: int, j: int, hit_indices):
         radius = self.inflation_cells
         if radius <= 0:
             index = j * self.width + i
+            hit_indices.add(index)
+            self.occupied_miss_counts[index] = 0
             before = self.occupancy_scores[index]
             self.occupancy_scores[index] = min(
                 self.occupancy_max_score,
@@ -275,6 +302,8 @@ class PointCloudToOccupancyGrid(Node):
                 jj = j + dj
                 if 0 <= ii < self.width and 0 <= jj < self.height:
                     index = jj * self.width + ii
+                    hit_indices.add(index)
+                    self.occupied_miss_counts[index] = 0
                     before = self.occupancy_scores[index]
                     self.occupancy_scores[index] = min(
                         self.occupancy_max_score,
@@ -283,6 +312,29 @@ class PointCloudToOccupancyGrid(Node):
                     if before < self.occupancy_threshold <= self.occupancy_scores[index]:
                         marked += 1
         return marked
+
+    def decay_unseen_occupied(self, grid, hit_indices):
+        if self.occupied_decay_after_misses <= 0:
+            return 0
+        decayed = 0
+        for index, score in enumerate(self.occupancy_scores):
+            if index in hit_indices or score < self.occupancy_threshold:
+                if score < self.occupancy_threshold:
+                    self.occupied_miss_counts[index] = 0
+                continue
+            self.occupied_miss_counts[index] += 1
+            if self.occupied_miss_counts[index] < self.occupied_decay_after_misses:
+                continue
+            before = self.occupancy_scores[index]
+            self.occupancy_scores[index] = max(
+                0,
+                self.occupancy_scores[index] - self.occupied_decay_decrement,
+            )
+            if before >= self.occupancy_threshold > self.occupancy_scores[index]:
+                grid[index] = 0 if self.raytrace_free else self.unknown_value
+                self.occupied_miss_counts[index] = 0
+                decayed += 1
+        return decayed
 
     def rebuild_grid_from_scores(self, grid):
         for index, score in enumerate(self.occupancy_scores):
@@ -311,6 +363,7 @@ class PointCloudToOccupancyGrid(Node):
                     index = jj * self.width + ii
                     if grid[index] != 0 or self.occupancy_scores[index] != 0:
                         self.occupancy_scores[index] = 0
+                        self.occupied_miss_counts[index] = 0
                         grid[index] = 0
                         cleared += 1
         return cleared

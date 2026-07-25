@@ -1,0 +1,185 @@
+{
+  "batchIndex": 18,
+  "files": [
+    {
+      "path": ".understand-anything/.understandignore",
+      "language": "unknown",
+      "sizeLines": 45,
+      "fileCategory": "code"
+    },
+    {
+      "path": ".understand-anything/config.json",
+      "language": "json",
+      "sizeLines": 1,
+      "fileCategory": "config"
+    },
+    {
+      "path": "docs/architecture/2026-06-11-offline-3d-icp-localization.md",
+      "language": "markdown",
+      "sizeLines": 234,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/architecture/2026-06-15-current-icp-vs-global-relocalization.md",
+      "language": "markdown",
+      "sizeLines": 169,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-06-11-offline-3d-icp-localization.md",
+      "language": "markdown",
+      "sizeLines": 201,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "scripts/install_relocalization_deps.sh",
+      "language": "shell",
+      "sizeLines": 214,
+      "fileCategory": "script"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/.github/stale.yml",
+      "language": "yaml",
+      "sizeLines": 17,
+      "fileCategory": "config"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/.gitmodules",
+      "language": "unknown",
+      "sizeLines": 4,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/include/common_lib.h",
+      "language": "c",
+      "sizeLines": 270,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/include/Exp_mat.h",
+      "language": "c",
+      "sizeLines": 103,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/include/ikd-Tree/ikd_Tree.cpp",
+      "language": "cpp",
+      "sizeLines": 1728,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/include/ikd-Tree/ikd_Tree.h",
+      "language": "c",
+      "sizeLines": 344,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/include/ikd-Tree/README.md",
+      "language": "markdown",
+      "sizeLines": 2,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/esekfom/esekfom.hpp",
+      "language": "cpp",
+      "sizeLines": 2008,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/esekfom/util.hpp",
+      "language": "cpp",
+      "sizeLines": 82,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/build_manifold.hpp",
+      "language": "cpp",
+      "sizeLines": 229,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/src/mtkmath.hpp",
+      "language": "cpp",
+      "sizeLines": 294,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/src/SubManifold.hpp",
+      "language": "cpp",
+      "sizeLines": 123,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/src/vectview.hpp",
+      "language": "cpp",
+      "sizeLines": 168,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/startIdx.hpp",
+      "language": "cpp",
+      "sizeLines": 328,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/types/S2.hpp",
+      "language": "cpp",
+      "sizeLines": 316,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/types/SOn.hpp",
+      "language": "cpp",
+      "sizeLines": 317,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/types/vect.hpp",
+      "language": "cpp",
+      "sizeLines": 461,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/types/wrapped_cv_mat.hpp",
+      "language": "cpp",
+      "sizeLines": 113,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/include/matplotlibcpp.h",
+      "language": "c",
+      "sizeLines": 2499,
+      "fileCategory": "code"
+    }
+  ],
+  "batchImportData": {
+    ".understand-anything/.understandignore": [],
+    ".understand-anything/config.json": [],
+    "docs/architecture/2026-06-11-offline-3d-icp-localization.md": [],
+    "docs/architecture/2026-06-15-current-icp-vs-global-relocalization.md": [],
+    "docs/superpowers/plans/2026-06-11-offline-3d-icp-localization.md": [],
+    "scripts/install_relocalization_deps.sh": [],
+    "src/FAST_LIO_ROS2/.github/stale.yml": [],
+    "src/FAST_LIO_ROS2/.gitmodules": [],
+    "src/FAST_LIO_ROS2/include/common_lib.h": [],
+    "src/FAST_LIO_ROS2/include/Exp_mat.h": [],
+    "src/FAST_LIO_ROS2/include/ikd-Tree/ikd_Tree.cpp": [
+      "src/FAST_LIO_ROS2/include/ikd-Tree/ikd_Tree.h"
+    ],
+    "src/FAST_LIO_ROS2/include/ikd-Tree/ikd_Tree.h": [],
+    "src/FAST_LIO_ROS2/include/ikd-Tree/README.md": [],
+    "src/FAST_LIO_ROS2/include/IKFoM_toolkit/esekfom/esekfom.hpp": [],
+    "src/FAST_LIO_ROS2/include/IKFoM_toolkit/esekfom/util.hpp": [],
+    "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/build_manifold.hpp": [],
+    "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/src/mtkmath.hpp": [],
+    "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/src/SubManifold.hpp": [],
+    "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/src/vectview.hpp": [],
+    "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/startIdx.hpp": [],
+    "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/types/S2.hpp": [],
+    "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/types/SOn.hpp": [],
+    "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/types/vect.hpp": [],
+    "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/types/wrapped_cv_mat.hpp": [],
+    "src/FAST_LIO_ROS2/include/matplotlibcpp.h": []
+  },
+  "neighborMap": {}
+}

@@ -1,0 +1,57 @@
+{
+  "nodes": [
+    {
+      "id": "config/cyclonedds_enp45s0.xml",
+      "type": "Configuration",
+      "name": "cyclonedds_enp45s0.xml",
+      "filePath": "config/cyclonedds_enp45s0.xml",
+      "summary": "CycloneDDS 中间件配置文件，将 DDS 通信绑定到物理网卡 enp45s0，启用 SPDP 多播发现机制，参与者索引范围设置为 auto，最大参与者数为 32。用于机器人通过有线网卡与其他 ROS2 节点进行跨主机通信。",
+      "tags": ["DDS", "CycloneDDS", "中间件", "网络配置", "enp45s0", "多播", "ROS2"],
+      "complexity": "low",
+      "languageNotes": "XML 格式的 CycloneDDS 领域配置，遵循 Eclipse CycloneDDS 配置规范，通过 <Domain> 元素定义全局发现和传输参数。"
+    },
+    {
+      "id": "config/cyclonedds_localhost.xml",
+      "type": "Configuration",
+      "name": "cyclonedds_localhost.xml",
+      "filePath": "config/cyclonedds_localhost.xml",
+      "summary": "CycloneDDS 本地回环配置文件，将 DDS 通信绑定到 lo（localhost）接口，禁用多播，参与者索引范围为 auto，最大参与者数为 32。用于单机开发调试场景，所有 ROS2 节点仅在本地主机内通信，不经过物理网络。",
+      "tags": ["DDS", "CycloneDDS", "中间件", "localhost", "本地通信", "单机调试", "ROS2"],
+      "complexity": "low",
+      "languageNotes": "XML 格式的 CycloneDDS 领域配置，与 enp45s0 版本结构一致，差异在于 NetworkInterfaceAddress 设为 lo 且 AllowMulticast 为 false，确保流量不出主机。"
+    },
+    {
+      "id": "config/fastdds_enp45s0_robot.xml",
+      "type": "Configuration",
+      "name": "fastdds_enp45s0_robot.xml",
+      "filePath": "config/fastdds_enp45s0_robot.xml",
+      "summary": "FastDDS (eProsima) 参与者配置文件，定义 UDPv4 传输层绑定到 IP 192.168.123.90 的 enp45s0 网卡，禁用内置传输，配置对等发现列表指向远程机器人节点 192.168.123.164 的 8 个端口（7410-7424，步长 2）。用于基于 FastDDS 的 ROS2 多机发现与通信。",
+      "tags": ["DDS", "FastDDS", "eProsima", "UDPv4", "对等发现", "enp45s0", "ROS2", "多机通信"],
+      "complexity": "low",
+      "languageNotes": "XML 格式的 FastDDS 参与者档案配置，遵循 eProsima FastRTPS Profiles XSD 规范，通过 <transport_descriptors> 定义传输层白名单，<participant> 指定对等节点 locator 地址列表。"
+    }
+  ],
+  "edges": [
+    {
+      "from": "config/cyclonedds_enp45s0.xml",
+      "to": "config/cyclonedds_localhost.xml",
+      "type": "related_to",
+      "label": "DDS配置变体",
+      "description": "同为 CycloneDDS 配置，分别针对物理网卡 enp45s0 和本地回环 lo，结构一致但网络绑定不同，互为部署场景的替代方案。"
+    },
+    {
+      "from": "config/cyclonedds_enp45s0.xml",
+      "to": "config/fastdds_enp45s0_robot.xml",
+      "type": "related_to",
+      "label": "DDS实现替代",
+      "description": "分别使用 CycloneDDS 和 FastDDS 两种不同 DDS 实现，均绑定 enp45s0 网卡，为同一机器人的 ROS2 通信提供可选的中间件方案。"
+    },
+    {
+      "from": "config/cyclonedds_localhost.xml",
+      "to": "config/fastdds_enp45s0_robot.xml",
+      "type": "related_to",
+      "label": "同项目DDS配置",
+      "description": "同属 h1_2 项目的 DDS 中间件配置集，分别覆盖本地调试和跨主机部署两种网络拓扑场景。"
+    }
+  ]
+}

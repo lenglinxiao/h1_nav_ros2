@@ -1,0 +1,51 @@
+{
+  "nodes": [
+    {
+      "id": "src/h1_2_vision/README.md",
+      "type": "file",
+      "name": "README.md",
+      "filePath": "src/h1_2_vision/README.md",
+      "language": "Markdown",
+      "summary": "h1_2_vision 包的说明文档。描述了基于 CPU 的 YOLO 目标检测节点，用于处理 RealSense RGB 图像流。包含 PyTorch/Ultralytics 的 pip 安装指令、ROS 消息包（vision_msgs、cv_bridge）安装、模型文件（yolov8n.pt）部署路径，以及 colcon 构建和 ros2 launch 运行命令。",
+      "tags": ["文档", "README", "YOLO", "RealSense", "目标检测", "安装指南"],
+      "complexity": "low",
+      "languageNotes": "标准 Markdown 格式的 ROS2 包说明文档，包含 bash 代码块示例。"
+    },
+    {
+      "id": "src/h1_2_vision/package.xml",
+      "type": "file",
+      "name": "package.xml",
+      "filePath": "src/h1_2_vision/package.xml",
+      "language": "XML",
+      "summary": "h1_2_vision 包的 ROS2 清单文件（format 3）。声明包名为 h1_2_vision，版本 0.1.0，基于 ament_python 构建类型。运行时依赖包括 cv_bridge、python3-numpy、python3-opencv、python3-pip、rclpy、sensor_msgs 和 vision_msgs，构成 CPU YOLO 目标检测节点的完整 ROS2 依赖链。",
+      "tags": ["配置", "package.xml", "ROS2", "ament_python", "依赖声明", "清单"],
+      "complexity": "low",
+      "languageNotes": "标准 ROS2 package.xml format 3，使用 exec_depend 而非 depend 标签声明纯运行时依赖。"
+    },
+    {
+      "id": "src/h1_2_vision/setup.cfg",
+      "type": "file",
+      "name": "setup.cfg",
+      "filePath": "src/h1_2_vision/setup.cfg",
+      "language": "Config",
+      "summary": "Python setuptools 配置文件，为 h1_2_vision 包指定脚本安装目录。在 develop 和 install 两种模式下，均将脚本安装至 $base/lib/h1_2_vision 路径下。",
+      "tags": ["配置", "setup.cfg", "setuptools", "脚本安装路径", "ament_python"],
+      "complexity": "low",
+      "languageNotes": "极简的 INI 格式配置文件，仅包含 [develop] 和 [install] 两个 section。"
+    }
+  ],
+  "edges": [
+    {
+      "sourceId": "src/h1_2_vision/package.xml",
+      "targetId": "src/h1_2_vision/README.md",
+      "type": "documents",
+      "label": "清单对应的使用文档"
+    },
+    {
+      "sourceId": "src/h1_2_vision/setup.cfg",
+      "targetId": "src/h1_2_vision/package.xml",
+      "type": "configures",
+      "label": "配置 ament_python 包的脚本安装路径"
+    }
+  ]
+}

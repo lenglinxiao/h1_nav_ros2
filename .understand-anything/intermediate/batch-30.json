@@ -1,0 +1,265 @@
+{
+  "nodes": [
+    {
+      "id": "src/livox_ros_driver2/3rdparty/rapidjson/license.txt",
+      "type": "license",
+      "name": "license.txt",
+      "filePath": "src/livox_ros_driver2/3rdparty/rapidjson/license.txt",
+      "summary": "RapidJSON 库的开源许可证文件，声明主体代码使用 MIT License，第三方组件 msinttypes 使用 BSD License，json.org 相关代码使用 JSON License。由腾讯 THL A29 Limited 和 Milo Yip 版权所有。",
+      "tags": ["许可证", "MIT License", "BSD License", "JSON License", "第三方授权", "腾讯"],
+      "complexity": "low"
+    },
+    {
+      "id": "src/livox_ros_driver2/3rdparty/rapidjson/memorybuffer.h",
+      "type": "header",
+      "name": "memorybuffer.h",
+      "filePath": "src/livox_ros_driver2/3rdparty/rapidjson/memorybuffer.h",
+      "summary": "GenericMemoryBuffer 模板类，实现内存输出字节流。内部使用 internal::Stack 管理缓冲区，提供 Put、Clear、ShrinkToFit、Push/Pop 等操作。与 StringBuffer 的区别在于不含编码、不自动添加 null 终止符。包含针对 memset 的 PutN 特化优化。",
+      "tags": ["内存缓冲区", "输出流", "字节流", "Stream 概念", "模板类", "RapidJSON"],
+      "complexity": "medium",
+      "languageNotes": "实现 C++ 模板类 GenericMemoryBuffer，依赖于 internal::Stack 和 stream.h 中的 Stream 概念"
+    },
+    {
+      "id": "src/livox_ros_driver2/3rdparty/rapidjson/memorystream.h",
+      "type": "header",
+      "name": "memorystream.h",
+      "filePath": "src/livox_ros_driver2/3rdparty/rapidjson/memorystream.h",
+      "summary": "MemoryStream 结构体，实现内存输入字节流。支持 Peek、Take、Tell 等读取操作，提供 Peek4() 用于编码检测。与 StringStream 的区别在于需要指定缓冲区大小、不要求 null 终止、支持编码检测。写操作会触发断言失败。",
+      "tags": ["内存流", "输入流", "字节流", "Stream 概念", "编码检测", "RapidJSON"],
+      "complexity": "medium",
+      "languageNotes": "实现 C++ 结构体 MemoryStream，遵循 Stream 概念的只读接口规范"
+    },
+    {
+      "id": "src/livox_ros_driver2/3rdparty/rapidjson/msinttypes/inttypes.h",
+      "type": "header",
+      "name": "inttypes.h",
+      "filePath": "src/livox_ros_driver2/3rdparty/rapidjson/msinttypes/inttypes.h",
+      "summary": "为 Microsoft Visual C++ 编译器提供的 ISO C9x 兼容 inttypes.h 实现。定义格式化宏 (PRId/SCNd 系列)、整型最大宽度类型函数 (imaxabs/imaxdiv/strtoimax/strtoumax)。仅适用于 MSVC，VC2013 及以上版本委托给系统标准头文件。",
+      "tags": ["inttypes.h", "MSVC 兼容", "格式宏", "printf/scanf", "整数类型", "跨平台", "第三方库"],
+      "complexity": "medium",
+      "languageNotes": "大量预处理器宏定义，用于 printf/scanf 系列函数的格式化字符串，针对 MSVC 编译器的 32 位/64 位差异做了条件编译处理"
+    },
+    {
+      "id": "src/livox_ros_driver2/3rdparty/rapidjson/msinttypes/stdint.h",
+      "type": "header",
+      "name": "stdint.h",
+      "filePath": "src/livox_ros_driver2/3rdparty/rapidjson/msinttypes/stdint.h",
+      "summary": "为 Microsoft Visual C++ 编译器提供的 ISO C9x 兼容 stdint.h 实现。定义精确宽度整数类型 (int8_t 到 int64_t)、最小宽度类型、最快宽度类型、指针宽度类型、最大值类型，以及各类整数极限宏和常量宏。仅适用于 MSVC 编译器。",
+      "tags": ["stdint.h", "MSVC 兼容", "整数类型定义", "类型极限", "常量宏", "跨平台", "第三方库"],
+      "complexity": "medium",
+      "languageNotes": "大量 typedef 和预处理器宏，条件编译覆盖 Visual Studio 6 到 VS2010，处理 _WIN64 等平台差异"
+    },
+    {
+      "id": "src/livox_ros_driver2/3rdparty/rapidjson/ostreamwrapper.h",
+      "type": "header",
+      "name": "ostreamwrapper.h",
+      "filePath": "src/livox_ros_driver2/3rdparty/rapidjson/ostreamwrapper.h",
+      "summary": "BasicOStreamWrapper 模板类，将 std::basic_ostream 及其派生类（如 ostringstream、ifstream、fstream 等）包装为 RapidJSON 的 Stream 概念。仅实现输出功能（Put/Flush），读取方法（Peek/Take/Tell）均触发断言。",
+      "tags": ["输出流包装", "std::ostream", "Stream 概念", "输出适配器", "RapidJSON"],
+      "complexity": "medium",
+      "languageNotes": "实现模板类 BasicOStreamWrapper，仅实现 Stream 概念的输出部分（Put/Flush），读取方法标记为未实现"
+    },
+    {
+      "id": "src/livox_ros_driver2/3rdparty/rapidjson/pointer.h",
+      "type": "header",
+      "name": "pointer.h",
+      "filePath": "src/livox_ros_driver2/3rdparty/rapidjson/pointer.h",
+      "summary": "GenericPointer 模板类，实现 RFC 6901 JSON Pointer 标准。支持解析字符串或 URI 片段形式的 JSON 指针，用于标识 JSON DOM 树中的特定值。提供 Get/Set/Erase/Create/Swap 等 DOM 操作，支持错误处理和自定义分配器。依赖于 GenericDocument 和 GenericValue。",
+      "tags": ["JSON Pointer", "RFC 6901", "DOM 操作", "JSON 导航", "值访问", "RapidJSON"],
+      "complexity": "high",
+      "languageNotes": "1712 行复杂模板类实现，包含完整的 JSON Pointer 解析、URI 转义、数组索引处理、DOM 遍历和就地操作逻辑"
+    },
+    {
+      "id": "src/livox_ros_driver2/3rdparty/rapidjson/prettywriter.h",
+      "type": "header",
+      "name": "prettywriter.h",
+      "filePath": "src/livox_ros_driver2/3rdparty/rapidjson/prettywriter.h",
+      "summary": "PrettyWriter 模板类，继承自 Writer，提供带缩进和换行的格式化 JSON 输出。支持自定义缩进字符和数量、单行数组格式化选项 (kFormatSingleLineArray)、PrettyPrefix 预处理逻辑正确处理对象和数组的逗号、冒号位置。",
+      "tags": ["JSON 美化输出", "格式化写入", "缩进", "Writer 扩展", "RapidJSON"],
+      "complexity": "high",
+      "languageNotes": "继承 Writer 模板类，重写所有 Handler 方法以在写入前插入 PrettyPrefix 格式化逻辑，模板参数包含 OutputStream、SourceEncoding、TargetEncoding、StackAllocator"
+    },
+    {
+      "id": "src/livox_ros_driver2/3rdparty/rapidjson/rapidjson.h",
+      "type": "header",
+      "name": "rapidjson.h",
+      "filePath": "src/livox_ros_driver2/3rdparty/rapidjson/rapidjson.h",
+      "summary": "RapidJSON 库的主配置头文件，定义版本号 (1.1.0)、命名空间宏、平台检测（字节序、64 位架构、数据对齐）、编译器特性检测（C++11 右值引用/noexcept/type_traits/range for、C++17 fallthrough）、SIMD 优化开关、诊断宏、断言、内存分配、JSON 类型枚举等全局配置。",
+      "tags": ["全局配置", "版本定义", "平台检测", "字节序", "SIMD", "C++11 特性", "编译器兼容", "RapidJSON"],
+      "complexity": "medium",
+      "languageNotes": "719 行纯预处理器宏定义，跨 GCC/Clang/MSVC 编译器兼容，自动检测 x86/ARM 架构特性，可定制命名空间和 64 位类型"
+    },
+    {
+      "id": "src/livox_ros_driver2/3rdparty/rapidjson/reader.h",
+      "type": "header",
+      "name": "reader.h",
+      "filePath": "src/livox_ros_driver2/3rdparty/rapidjson/reader.h",
+      "summary": "GenericReader 模板类，SAX 风格的事件驱动 JSON 解析器。定义 ParseFlag 解析标志（就地解析、编码验证、迭代模式、注释支持、尾逗号、NaN/Inf 等）、Handler 事件接口概念。使用 SIMD (SSE2/SSE4.2/NEON) 加速数值和字符串解析。支持自定义错误处理宏。",
+      "tags": ["JSON 解析器", "SAX 解析", "事件驱动", "SIMD 优化", "Handler 接口", "RapidJSON"],
+      "complexity": "high",
+      "languageNotes": "2458 行高性能 JSON 解析器实现，使用 SIMD 内联函数加速，模板参数包含 InputStream、Encoding、parseFlags 等，是最核心的解析引擎"
+    },
+    {
+      "id": "src/livox_ros_driver2/3rdparty/rapidjson/schema.h",
+      "type": "header",
+      "name": "schema.h",
+      "filePath": "src/livox_ros_driver2/3rdparty/rapidjson/schema.h",
+      "summary": "JSON Schema 验证器实现。定义 GenericSchemaDocument 加载 Schema 文档、ISchemaValidator 验证器接口、IValidationErrorHandler 错误处理接口。支持 JSON Schema draft v4 规范的全部验证关键字，包括类型检查、数值范围、字符串正则、数组/对象约束、条件验证 (allOf/anyOf/oneOf/not) 等。可选集成内部正则引擎或 std::regex。",
+      "tags": ["JSON Schema", "Schema 验证", "draft v4", "验证器", "错误处理", "正则表达式", "RapidJSON"],
+      "complexity": "high",
+      "languageNotes": "2743 行完整 JSON Schema 验证实现，递归验证 Schema 文档，包含远程引用解析、自定义错误处理器、状态工厂等复杂架构"
+    },
+    {
+      "id": "src/livox_ros_driver2/3rdparty/rapidjson/stream.h",
+      "type": "header",
+      "name": "stream.h",
+      "filePath": "src/livox_ros_driver2/3rdparty/rapidjson/stream.h",
+      "summary": "RapidJSON 的 Stream 概念定义和基础流实现。包含 StreamTraits 特征类、PutReserve/PutUnsafe/PutN 流辅助函数、GenericStreamWrapper 通用流包装器、GenericStringStream 只读字符串流、GenericInsituStringStream 就地读写字符串流。定义了 Peek/Take/Tell/Put/PutBegin/PutEnd 等流接口约定。",
+      "tags": ["Stream 概念", "字符串流", "就地流", "流包装器", "输入输出抽象", "RapidJSON"],
+      "complexity": "medium",
+      "languageNotes": "定义 RapidJSON 的流接口概念和多个基础流实现，所有 Reader/Writer 均依赖此抽象"
+    },
+    {
+      "id": "src/livox_ros_driver2/3rdparty/rapidjson/stringbuffer.h",
+      "type": "header",
+      "name": "stringbuffer.h",
+      "filePath": "src/livox_ros_driver2/3rdparty/rapidjson/stringbuffer.h",
+      "summary": "GenericStringBuffer 模板类，实现带编码的内存输出流。内部使用 internal::Stack 管理缓冲区，支持 Put/Push/Pop/Reserve 等操作，提供 GetString() 获取 null 终止字符串。实现了 PutReserve/PutUnsafe/PutN 特化以提升性能。与 MemoryBuffer 的区别在于包含编码类型信息。",
+      "tags": ["字符串缓冲区", "输出流", "编码感知", "Stream 概念", "memset 优化", "RapidJSON"],
+      "complexity": "medium",
+      "languageNotes": "模板类 GenericStringBuffer，比 MemoryBuffer 多了编码模板参数和 memset 优化特化版本"
+    },
+    {
+      "id": "src/livox_ros_driver2/3rdparty/rapidjson/writer.h",
+      "type": "header",
+      "name": "writer.h",
+      "filePath": "src/livox_ros_driver2/3rdparty/rapidjson/writer.h",
+      "summary": "Writer 模板类，实现 Handler 概念以生成 JSON 文本输出。支持所有 JSON 类型 (Null/Bool/Int/Double/String/Object/Array) 的事件处理，提供编码转换（SourceEncoding → TargetEncoding）、小数位控制、写入标志（编码验证、NaN/Inf 支持）等功能。可配合 Document::Accept() 和 Reader::Parse() 使用。",
+      "tags": ["JSON 写入器", "Handler 接口", "JSON 生成", "事件处理", "编码转换", "RapidJSON"],
+      "complexity": "high",
+      "languageNotes": "811 行模板类实现，依赖 internal::Stack、internal::itoa、internal::dtoa 等多个内部模块，实现完整的 JSON 序列化逻辑"
+    },
+    {
+      "id": "src/livox_ros_driver2/cmake/version.cmake",
+      "type": "cmake_script",
+      "name": "version.cmake",
+      "filePath": "src/livox_ros_driver2/cmake/version.cmake",
+      "summary": "CMake 版本提取脚本，通过正则表达式从 include/livox_ros_driver2.h 头文件中提取 LIVOX_ROS_DRIVER2_VER_MAJOR/MINOR/PATCH 宏定义，组合为完整的版本号字符串。如果提取失败则报 FATAL_ERROR 终止构建。",
+      "tags": ["CMake", "版本管理", "正则解析", "构建配置", "Livox ROS 驱动"],
+      "complexity": "low",
+      "languageNotes": "使用 CMake 的 file(READ) 和 string(REGEX MATCH) 命令从 C++ 头文件中提取版本宏定义"
+    },
+    {
+      "id": "src/livox_ros_driver2/config/display_point_cloud_ROS1.rviz",
+      "type": "rviz_config",
+      "name": "display_point_cloud_ROS1.rviz",
+      "filePath": "src/livox_ros_driver2/config/display_point_cloud_ROS1.rviz",
+      "summary": "ROS1 RViz 可视化配置文件，用于显示 Livox LiDAR 点云数据。配置包含 Grid 网格显示、PointCloud2 点云显示（强度着色、Rainbow 颜色映射）、固定参考系为 livox_frame、Topic 为 /livox/lidar。包含 Orbit 视角、工具（SetInitialPose/SetGoal/PublishPoint）和窗口布局设置。",
+      "tags": ["RViz", "ROS1", "点云可视化", "LiDAR", "配置文件", "强度着色"],
+      "complexity": "low"
+    },
+    {
+      "id": "src/livox_ros_driver2/config/display_point_cloud_ROS2.rviz",
+      "type": "rviz_config",
+      "name": "display_point_cloud_ROS2.rviz",
+      "filePath": "src/livox_ros_driver2/config/display_point_cloud_ROS2.rviz",
+      "summary": "ROS2 RViz2 可视化配置文件，用于显示 Livox LiDAR 点云数据。使用 rviz_default_plugins 命名空间下的插件（Grid/PointCloud2/Orbit/TF），固定参考系 livox_frame，Topic /livox/lidar，点云以 Flat Squares 样式渲染（像素大小 3），衰减时间 0.2s，强度色阶范围 0-150。",
+      "tags": ["RViz2", "ROS2", "点云可视化", "LiDAR", "配置文件", "Flat Squares"],
+      "complexity": "low"
+    },
+    {
+      "id": "src/livox_ros_driver2/launch_ROS1/msg_HAP.launch",
+      "type": "launch_file",
+      "name": "msg_HAP.launch",
+      "filePath": "src/livox_ros_driver2/launch_ROS1/msg_HAP.launch",
+      "summary": "ROS1 Launch 文件，启动 Livox HAP 激光雷达的消息发布模式（仅发布节点，无 RViz）。配置参数包括传输格式、多话题模式、数据源、发布频率、帧 ID (livox_frame)、命令行参数等。使用 HAP_config.json 作为设备配置文件。支持可选的 rosbag 录制。",
+      "tags": ["ROS1", "Launch", "Livox HAP", "LiDAR 驱动", "消息发布", "TF"],
+      "complexity": "low",
+      "languageNotes": "标准 ROS1 XML Launch 文件，使用 arg/param/node/group 标签配置参数和节点启动"
+    },
+    {
+      "id": "src/livox_ros_driver2/launch_ROS1/msg_MID360.launch",
+      "type": "launch_file",
+      "name": "msg_MID360.launch",
+      "filePath": "src/livox_ros_driver2/launch_ROS1/msg_MID360.launch",
+      "summary": "ROS1 Launch 文件，启动 Livox MID360 激光雷达的消息发布模式（仅发布节点，无 RViz）。使用 MID360_config.json 作为设备配置文件，其他参数与 HAP 版本一致。支持可选的 rosbag 录制。",
+      "tags": ["ROS1", "Launch", "Livox MID360", "LiDAR 驱动", "消息发布"],
+      "complexity": "low",
+      "languageNotes": "与 msg_HAP.launch 结构相同，仅 config 路径指向 MID360_config.json"
+    },
+    {
+      "id": "src/livox_ros_driver2/launch_ROS1/msg_mixed.launch",
+      "type": "launch_file",
+      "name": "msg_mixed.launch",
+      "filePath": "src/livox_ros_driver2/launch_ROS1/msg_mixed.launch",
+      "summary": "ROS1 Launch 文件，启动 Livox HAP 和 MID360 混合使用场景的消息发布模式。使用 mixed_HAP_MID360_config.json 作为配置文件。支持连接多种型号的 LiDAR 设备并在统一接口下发布数据。",
+      "tags": ["ROS1", "Launch", "混合配置", "HAP+MID360", "LiDAR 驱动", "多设备"],
+      "complexity": "low",
+      "languageNotes": "与 msg_HAP.launch 结构相同，config 指向 mixed_HAP_MID360_config.json 混合设备配置"
+    },
+    {
+      "id": "src/livox_ros_driver2/launch_ROS1/rviz_HAP.launch",
+      "type": "launch_file",
+      "name": "rviz_HAP.launch",
+      "filePath": "src/livox_ros_driver2/launch_ROS1/rviz_HAP.launch",
+      "summary": "ROS1 Launch 文件，启动 Livox HAP 激光雷达节点并附带 RViz 可视化。rviz_enable 默认为 true，启动 RViz 加载 display_point_cloud_ROS1.rviz 配置。xfer_format 默认为 0 (PointCloud2 格式)，便于 RViz 直接显示。",
+      "tags": ["ROS1", "Launch", "Livox HAP", "RViz 可视化", "点云显示", "调试"],
+      "complexity": "low",
+      "languageNotes": "在 msg_HAP.launch 基础上增加 RViz 启动组，xfer_format 改为 0 以输出标准 PointCloud2 格式"
+    },
+    {
+      "id": "src/livox_ros_driver2/launch_ROS1/rviz_MID360.launch",
+      "type": "launch_file",
+      "name": "rviz_MID360.launch",
+      "filePath": "src/livox_ros_driver2/launch_ROS1/rviz_MID360.launch",
+      "summary": "ROS1 Launch 文件，启动 Livox MID360 激光雷达节点并附带 RViz 可视化。使用 MID360_config.json 配置，xfer_format 为 0 输出标准 PointCloud2 格式供 RViz 显示。",
+      "tags": ["ROS1", "Launch", "Livox MID360", "RViz 可视化", "点云显示", "调试"],
+      "complexity": "low",
+      "languageNotes": "rviz_MID360 变体，仅 config 文件和设备型号不同"
+    },
+    {
+      "id": "src/livox_ros_driver2/launch_ROS1/rviz_mixed.launch",
+      "type": "launch_file",
+      "name": "rviz_mixed.launch",
+      "filePath": "src/livox_ros_driver2/launch_ROS1/rviz_mixed.launch",
+      "summary": "ROS1 Launch 文件，启动 Livox HAP 和 MID360 混合模式并附带 RViz 可视化。使用 mixed_HAP_MID360_config.json 混合配置，xfer_format 为 0 输出标准 PointCloud2 格式。",
+      "tags": ["ROS1", "Launch", "混合配置", "RViz 可视化", "多设备", "调试"],
+      "complexity": "low",
+      "languageNotes": "rviz_mixed 变体，结合 HAP 和 MID360 设备的混合启动和可视化"
+    },
+    {
+      "id": "src/livox_ros_driver2/launch_ROS2/msg_HAP_launch.py",
+      "type": "launch_python",
+      "name": "msg_HAP_launch.py",
+      "filePath": "src/livox_ros_driver2/launch_ROS2/msg_HAP_launch.py",
+      "summary": "ROS2 Python Launch 文件，启动 Livox HAP 激光雷达驱动节点。模块级配置参数包括传输格式 (xfer_format=1 自定义格式)、发布频率 (10Hz)、帧 ID (livox_frame)、设备配置文件 (HAP_config.json)。使用 LaunchDescription 和 Node 动作启动 livox_ros_driver2_node 节点。",
+      "tags": ["ROS2", "Python Launch", "Livox HAP", "LiDAR 驱动", "ament"],
+      "complexity": "low",
+      "languageNotes": "ROS2 Python Launch API，使用 ament_index_python 获取包路径，launch_ros.actions.Node 启动节点"
+    },
+    {
+      "id": "src/livox_ros_driver2/launch_ROS2/msg_MID360_launch.py",
+      "type": "launch_python",
+      "name": "msg_MID360_launch.py",
+      "filePath": "src/livox_ros_driver2/launch_ROS2/msg_MID360_launch.py",
+      "summary": "ROS2 Python Launch 文件，启动 Livox MID360 激光雷达驱动节点。配置参数与 HAP 版本基本一致，设备配置文件指向 MID360_config.json。使用 LaunchDescription 和 Node 动作启动 livox_ros_driver2_node 节点。",
+      "tags": ["ROS2", "Python Launch", "Livox MID360", "LiDAR 驱动", "ament"],
+      "complexity": "low",
+      "languageNotes": "与 msg_HAP_launch.py 结构相同，仅 user_config_path 指向 MID360_config.json"
+    }
+  ],
+  "edges": [
+    {
+      "source": "src/livox_ros_driver2/3rdparty/rapidjson/msinttypes/stdint.h",
+      "target": "src/livox_ros_driver2/3rdparty/rapidjson/msinttypes/stdint.h",
+      "type": "IMPORTS",
+      "label": "自引用（VS2010+ 委托给系统 <stdint.h>）"
+    },
+    {
+      "source": "src/livox_ros_driver2/3rdparty/rapidjson/stream.h",
+      "target": "src/livox_ros_driver2/3rdparty/rapidjson/rapidjson.h",
+      "type": "IMPORTS",
+      "label": "包含主配置头文件"
+    }
+  ]
+}

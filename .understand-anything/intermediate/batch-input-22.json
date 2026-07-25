@@ -1,0 +1,183 @@
+{
+  "batchIndex": 22,
+  "files": [
+    {
+      "path": "src/h1_2_description/meshes/link13_L.STL",
+      "language": "stl",
+      "sizeLines": 1508,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/link13_R.STL",
+      "language": "stl",
+      "sizeLines": 1512,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/link14_L.STL",
+      "language": "stl",
+      "sizeLines": 566,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/link14_R.STL",
+      "language": "stl",
+      "sizeLines": 574,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/link15_L.STL",
+      "language": "stl",
+      "sizeLines": 1797,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/link15_R.STL",
+      "language": "stl",
+      "sizeLines": 2109,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/link16_L.STL",
+      "language": "stl",
+      "sizeLines": 995,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/link16_R.STL",
+      "language": "stl",
+      "sizeLines": 851,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/link17_L.STL",
+      "language": "stl",
+      "sizeLines": 1795,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/link17_R.STL",
+      "language": "stl",
+      "sizeLines": 1787,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/link18_L.STL",
+      "language": "stl",
+      "sizeLines": 585,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/link18_R.STL",
+      "language": "stl",
+      "sizeLines": 625,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/link19_L.STL",
+      "language": "stl",
+      "sizeLines": 1981,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/link19_R.STL",
+      "language": "stl",
+      "sizeLines": 1790,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/link20_L.STL",
+      "language": "stl",
+      "sizeLines": 1150,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/link20_R.STL",
+      "language": "stl",
+      "sizeLines": 1016,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/link21_L.STL",
+      "language": "stl",
+      "sizeLines": 1790,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/link21_R.STL",
+      "language": "stl",
+      "sizeLines": 1788,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/link22_L.STL",
+      "language": "stl",
+      "sizeLines": 1533,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/link22_R.STL",
+      "language": "stl",
+      "sizeLines": 1579,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/logo_link.STL",
+      "language": "stl",
+      "sizeLines": 233,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/pelvis.STL",
+      "language": "stl",
+      "sizeLines": 2240,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/R_hand_base_link.STL",
+      "language": "stl",
+      "sizeLines": 10322,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/R_index_intermediate.STL",
+      "language": "stl",
+      "sizeLines": 851,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/R_index_proximal.STL",
+      "language": "stl",
+      "sizeLines": 2109,
+      "fileCategory": "code"
+    }
+  ],
+  "batchImportData": {
+    "src/h1_2_description/meshes/link13_L.STL": [],
+    "src/h1_2_description/meshes/link13_R.STL": [],
+    "src/h1_2_description/meshes/link14_L.STL": [],
+    "src/h1_2_description/meshes/link14_R.STL": [],
+    "src/h1_2_description/meshes/link15_L.STL": [],
+    "src/h1_2_description/meshes/link15_R.STL": [],
+    "src/h1_2_description/meshes/link16_L.STL": [],
+    "src/h1_2_description/meshes/link16_R.STL": [],
+    "src/h1_2_description/meshes/link17_L.STL": [],
+    "src/h1_2_description/meshes/link17_R.STL": [],
+    "src/h1_2_description/meshes/link18_L.STL": [],
+    "src/h1_2_description/meshes/link18_R.STL": [],
+    "src/h1_2_description/meshes/link19_L.STL": [],
+    "src/h1_2_description/meshes/link19_R.STL": [],
+    "src/h1_2_description/meshes/link20_L.STL": [],
+    "src/h1_2_description/meshes/link20_R.STL": [],
+    "src/h1_2_description/meshes/link21_L.STL": [],
+    "src/h1_2_description/meshes/link21_R.STL": [],
+    "src/h1_2_description/meshes/link22_L.STL": [],
+    "src/h1_2_description/meshes/link22_R.STL": [],
+    "src/h1_2_description/meshes/logo_link.STL": [],
+    "src/h1_2_description/meshes/pelvis.STL": [],
+    "src/h1_2_description/meshes/R_hand_base_link.STL": [],
+    "src/h1_2_description/meshes/R_index_intermediate.STL": [],
+    "src/h1_2_description/meshes/R_index_proximal.STL": []
+  },
+  "neighborMap": {}
+}

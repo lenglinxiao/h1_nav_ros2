@@ -1,6 +1,6 @@
 # h1_2_nav2_ros2_ws
 
-这个工程把当前 `H1-2Nav2D` 里和雷达、SLAM、导航/路径示教直接相关的部分整理成了 ROS2 工作空间。当前上位机是 ROS2 Foxy；如果换 Humble，把下面命令里的 `foxy` 改成 `humble` 即可。
+这个工程把当前 `H1-2Nav2D` 里和雷达、SLAM、导航/路径示教直接相关的部分整理成了 ROS2 工作空间。当前上位机是 ROS2 Humble。
 
 ## 包内容
 
@@ -21,13 +21,13 @@
 ```bash
 sudo apt update
 sudo apt install -y \
-  ros-foxy-navigation2 \
-  ros-foxy-nav2-bringup \
-  ros-foxy-slam-toolbox \
-  ros-foxy-pointcloud-to-laserscan \
-  ros-foxy-pcl-ros \
-  ros-foxy-pcl-conversions \
-  ros-foxy-rclcpp-components \
+  ros-humble-navigation2 \
+  ros-humble-nav2-bringup \
+  ros-humble-slam-toolbox \
+  ros-humble-pointcloud-to-laserscan \
+  ros-humble-pcl-ros \
+  ros-humble-pcl-conversions \
+  ros-humble-rclcpp-components \
   libpcl-dev \
   libapr1-dev
 ```
@@ -44,7 +44,7 @@ ls /usr/local/include/livox_lidar_def.h
 
 ```bash
 cd ~/h1_2_nav2_ros2_ws
-source /opt/ros/foxy/setup.bash
+source /opt/ros/humble/setup.bash
 rosdep install --from-paths src -y --ignore-src
 colcon build --symlink-install
 source install/setup.bash
@@ -321,7 +321,7 @@ rsync -a --exclude '*/build/' --exclude '*/install/' third_party/ <new-machine-w
 安装后可显式验证 H1 包能发现这两个依赖：
 
 ```bash
-source /opt/ros/foxy/setup.bash
+source /opt/ros/humble/setup.bash
 colcon build --packages-select h1_2_icp_localization \
   --cmake-args -DH1_USE_KISS_MATCHER=ON -DH1_USE_SMALL_GICP=ON
 ```

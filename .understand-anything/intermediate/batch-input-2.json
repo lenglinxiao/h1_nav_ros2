@@ -1,0 +1,120 @@
+{
+  "batchIndex": 2,
+  "files": [
+    {
+      "path": "src/livox_ros_driver2/src/comm/comm.h",
+      "language": "c",
+      "sizeLines": 304,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/src/driver_node.cpp",
+      "language": "cpp",
+      "sizeLines": 46,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/src/driver_node.h",
+      "language": "c",
+      "sizeLines": 77,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/src/include/livox_ros_driver2.h",
+      "language": "c",
+      "sizeLines": 40,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/src/include/ros_headers.h",
+      "language": "c",
+      "sizeLines": 34,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/src/lddc.cpp",
+      "language": "cpp",
+      "sizeLines": 703,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/src/lddc.h",
+      "language": "c",
+      "sizeLines": 163,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/src/livox_ros_driver2.cpp",
+      "language": "cpp",
+      "sizeLines": 235,
+      "fileCategory": "code"
+    }
+  ],
+  "batchImportData": {
+    "src/livox_ros_driver2/src/comm/comm.h": [],
+    "src/livox_ros_driver2/src/driver_node.cpp": [
+      "src/livox_ros_driver2/src/driver_node.h",
+      "src/livox_ros_driver2/src/lddc.h"
+    ],
+    "src/livox_ros_driver2/src/driver_node.h": [],
+    "src/livox_ros_driver2/src/include/livox_ros_driver2.h": [],
+    "src/livox_ros_driver2/src/include/ros_headers.h": [],
+    "src/livox_ros_driver2/src/lddc.cpp": [
+      "src/livox_ros_driver2/src/comm/comm.h",
+      "src/livox_ros_driver2/src/comm/ldq.h",
+      "src/livox_ros_driver2/src/driver_node.h",
+      "src/livox_ros_driver2/src/include/ros_headers.h",
+      "src/livox_ros_driver2/src/lddc.h",
+      "src/livox_ros_driver2/src/lds_lidar.h"
+    ],
+    "src/livox_ros_driver2/src/lddc.h": [],
+    "src/livox_ros_driver2/src/livox_ros_driver2.cpp": [
+      "src/livox_ros_driver2/src/driver_node.h",
+      "src/livox_ros_driver2/src/include/livox_ros_driver2.h",
+      "src/livox_ros_driver2/src/include/ros_headers.h",
+      "src/livox_ros_driver2/src/lddc.h",
+      "src/livox_ros_driver2/src/lds_lidar.h"
+    ]
+  },
+  "neighborMap": {
+    "src/livox_ros_driver2/src/comm/comm.h": [
+      {
+        "path": "src/livox_ros_driver2/src/lds_lidar.cpp",
+        "batchIndex": 1,
+        "symbols": [
+          "LdsLidar",
+          "~LdsLidar",
+          "ResetLdsLidar",
+          "InitLdsLidar",
+          "InitLidars",
+          "Start",
+          "ParseSummaryConfig",
+          "InitLivoxLidar",
+          "SetLidarPubHandle",
+          "LivoxLidarStart",
+          "DeInitLdsLidar",
+          "PrepareExit"
+        ]
+      }
+    ],
+    "src/livox_ros_driver2/src/lddc.cpp": [
+      {
+        "path": "src/livox_ros_driver2/src/comm/ldq.h",
+        "batchIndex": 6,
+        "symbols": []
+      },
+      {
+        "path": "src/livox_ros_driver2/src/lds_lidar.h",
+        "batchIndex": 1,
+        "symbols": []
+      }
+    ],
+    "src/livox_ros_driver2/src/livox_ros_driver2.cpp": [
+      {
+        "path": "src/livox_ros_driver2/src/lds_lidar.h",
+        "batchIndex": 1,
+        "symbols": []
+      }
+    ]
+  }
+}

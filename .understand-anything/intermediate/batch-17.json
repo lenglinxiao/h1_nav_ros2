@@ -1,0 +1,63 @@
+{
+  "nodes": [
+    {
+      "id": "src/livox_ros_driver2/config/HAP_config.json",
+      "type": "Config",
+      "name": "Livox HAP LiDAR 配置",
+      "filePath": "src/livox_ros_driver2/config/HAP_config.json",
+      "summary": "Livox HAP 型激光雷达的独立网络与参数配置文件。定义激光雷达类型(lidar_type=8)、HAP 设备的网络端口(CMD 56000、点云 57000、IMU 58000、日志 59000)、主机端 IP(192.168.1.5)及对应端口、以及单台雷达设备(192.168.1.100)的点云数据类型、扫描模式和外参(roll/pitch/yaw/x/y/z 均为零)。push_msg 功能未启用(端口为 0)。",
+      "tags": ["Livox", "HAP", "LiDAR", "网络配置", "外参", "ros2-driver"],
+      "complexity": "simple",
+      "languageNotes": "JSON 格式；livox_ros_driver2 驱动包的标准配置文件，lidar_type=8 对应 Livox 私有协议类型标识。"
+    },
+    {
+      "id": "src/livox_ros_driver2/config/MID360_config.json",
+      "type": "Config",
+      "name": "Livox MID360 LiDAR 配置",
+      "filePath": "src/livox_ros_driver2/config/MID360_config.json",
+      "summary": "Livox MID360 型激光雷达的独立网络与参数配置文件。定义激光雷达类型(lidar_type=8)、MID360 设备的网络端口(CMD 56100、push_msg 56200、点云 56300、IMU 56400、日志 56500)、主机端 IP(192.168.123.104)及对应端口(偏移+1)、以及单台雷达设备(192.168.123.120)的点云数据类型、扫描模式和外参(均为零)。与 HAP 不同的是 MID360 启用了 push_msg 消息推送通道。",
+      "tags": ["Livox", "MID360", "LiDAR", "网络配置", "外参", "ros2-driver"],
+      "complexity": "simple",
+      "languageNotes": "JSON 格式；使用 192.168.123.x 独立子网，主机端与雷达端端口号采用偏移+1 的模式以避免冲突。push_msg_port 非零，表示该型号支持主动消息推送。"
+    },
+    {
+      "id": "src/livox_ros_driver2/config/mixed_HAP_MID360_config.json",
+      "type": "Config",
+      "name": "Livox HAP+MID360 混合配置",
+      "filePath": "src/livox_ros_driver2/config/mixed_HAP_MID360_config.json",
+      "summary": "同时驱动一台 Livox HAP 和一台 Livox MID360 激光雷达的混合配置文件。合并了 HAP 的网络端口(CMD 56000、点云 57000、IMU 58000、日志 59000)与 MID360 的网络端口(CMD 56100、push_msg 56200、点云 56300、IMU 56400、日志 56500)，主机端统一使用 IP 192.168.1.5。lidar_configs 数组包含两台雷达：HAP(192.168.1.100)和 MID360(192.168.1.12)，各自带有独立的点云数据类型、扫描模式和外参配置。",
+      "tags": ["Livox", "HAP", "MID360", "LiDAR", "多雷达", "混合配置", "网络配置", "ros2-driver"],
+      "complexity": "medium",
+      "languageNotes": "JSON 格式；通过将两个独立配置文件合并，实现单驱动实例同时管理多台异构 Livox 雷达。主机端 IP 统一为 192.168.1.5，不同雷达通过不同端口组区分数据流。MID360 的 host_net_info IP 从独立配置的 192.168.123.104 改为 192.168.1.5 以统一网络。"
+    }
+  ],
+  "edges": [
+    {
+      "source": "src/livox_ros_driver2/config/mixed_HAP_MID360_config.json",
+      "target": "src/livox_ros_driver2/config/HAP_config.json",
+      "type": "derives_from",
+      "label": "合并引用 HAP 配置段",
+      "properties": {
+        "relationship": "mixed 配置文件直接复用 HAP 独立配置中的 lidar_net_info 和 host_net_info 端口参数，并将 HAP 雷达 IP 192.168.1.100 纳入 lidar_configs 数组"
+      }
+    },
+    {
+      "source": "src/livox_ros_driver2/config/mixed_HAP_MID360_config.json",
+      "target": "src/livox_ros_driver2/config/MID360_config.json",
+      "type": "derives_from",
+      "label": "合并引用 MID360 配置段",
+      "properties": {
+        "relationship": "mixed 配置文件直接复用 MID360 独立配置中的 lidar_net_info 和 host_net_info 端口参数(host IP 改为统一 192.168.1.5)，并将 MID360 雷达 IP 192.168.1.12 纳入 lidar_configs 数组"
+      }
+    },
+    {
+      "source": "src/livox_ros_driver2/config/HAP_config.json",
+      "target": "src/livox_ros_driver2/config/MID360_config.json",
+      "type": "sibling",
+      "label": "同类型 LiDAR 配置变体",
+      "properties": {
+        "relationship": "两者同为 livox_ros_driver2 包中的独立 LiDAR 型号配置文件，结构一致(lidar_summary_info + 型号专属网络段 + lidar_configs 数组)，参数按型号差异化"
+      }
+    }
+  ]
+}

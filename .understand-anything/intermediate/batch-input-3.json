@@ -1,0 +1,51 @@
+{
+  "batchIndex": 3,
+  "files": [
+    {
+      "path": "src/h1_2_nav_tools/h1_2_nav_tools/local2map_odom.py",
+      "language": "python",
+      "sizeLines": 41,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_tools/h1_2_nav_tools/memory_point_manager.py",
+      "language": "python",
+      "sizeLines": 205,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_tools/h1_2_nav_tools/path_to_waypoint.py",
+      "language": "python",
+      "sizeLines": 185,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_tools/h1_2_nav_tools/record_teaching_path.py",
+      "language": "python",
+      "sizeLines": 201,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_tools/h1_2_nav_tools/transform_utils.py",
+      "language": "python",
+      "sizeLines": 55,
+      "fileCategory": "code"
+    }
+  ],
+  "batchImportData": {
+    "src/h1_2_nav_tools/h1_2_nav_tools/local2map_odom.py": [
+      "src/h1_2_nav_tools/h1_2_nav_tools/transform_utils.py"
+    ],
+    "src/h1_2_nav_tools/h1_2_nav_tools/memory_point_manager.py": [
+      "src/h1_2_nav_tools/h1_2_nav_tools/transform_utils.py"
+    ],
+    "src/h1_2_nav_tools/h1_2_nav_tools/path_to_waypoint.py": [
+      "src/h1_2_nav_tools/h1_2_nav_tools/transform_utils.py"
+    ],
+    "src/h1_2_nav_tools/h1_2_nav_tools/record_teaching_path.py": [
+      "src/h1_2_nav_tools/h1_2_nav_tools/transform_utils.py"
+    ],
+    "src/h1_2_nav_tools/h1_2_nav_tools/transform_utils.py": []
+  },
+  "neighborMap": {}
+}

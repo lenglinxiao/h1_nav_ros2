@@ -1,0 +1,76 @@
+{
+  "nodes": [
+    {
+      "id": "src/FAST_LIO_ROS2/src/IMU_Processing.hpp",
+      "type": "C++ Header/Implementation 混合文件",
+      "name": "IMU_Processing.hpp — IMU数据处理与点云运动畸变校正",
+      "filePath": "src/FAST_LIO_ROS2/src/IMU_Processing.hpp",
+      "summary": "定义并实现 ImuProcess 类，负责 FAST-LIO2 激光惯性里程计中的 IMU 数据初始化、前向传播与后向传播，完成点云运动畸变校正（Undistortion）。包含重力对齐、IMU 零偏估计、协方差在线计算等功能，是连接 IMU 与 LiDAR 数据的关键模块。",
+      "tags": ["IMU", "运动畸变校正", "前向传播", "后向传播", "重力对齐", "协方差估计", "FAST-LIO2", "ESKF"],
+      "complexity": "中高",
+      "languageNotes": "C++ 头文件同时包含类声明与全部成员函数实现，使用了 Eigen、PCL 及自定义 SO(3)/SE(3) 数学库 so3_math.h。通过 use-ikfom.hpp 与 ESKF 状态（state_ikfom）交互，采用 ROS 2 接口类型 sensor_msgs::msg::Imu。"
+    },
+    {
+      "id": "src/FAST_LIO_ROS2/src/laserMapping.cpp",
+      "type": "C++ 源文件",
+      "name": "laserMapping.cpp — FAST-LIO2 激光建图主节点",
+      "filePath": "src/FAST_LIO_ROS2/src/laserMapping.cpp",
+      "summary": "FAST-LIO2 算法的核心激光建图模块，实现 LaserMappingNode (ROS 2 Node)。集成 IMU 数据同步、LiDAR 数据接收与预处理调度、迭代扩展卡尔曼滤波（IEKF）状态估计、ikd-Tree 地图增量更新、FOV 局部地图分割管理，以及里程计/tf/路径/点云发布。支持 Livox AVIA 及标准 PointCloud2 两种 LiDAR 输入。",
+      "tags": ["FAST-LIO2", "激光建图", "IEKF", "ikd-Tree", "地图增量更新", "LiDAR-IMU同步", "里程计发布", "ROS2 Node", "局部地图管理"],
+      "complexity": "极高",
+      "languageNotes": "大规模 C++ 实现（1200+ 行），深度依赖 ikd-Tree、Eigen、PCL、ESKF 模板库、so3_math 及 OpenMP 并行加速。通过 ROS 2 参数系统配置传感器外参、滤波参数、发布选项等，并通过 tf2_ros::TransformBroadcaster 发布坐标变换。"
+    },
+    {
+      "id": "src/FAST_LIO_ROS2/src/preprocess.cpp",
+      "type": "C++ 源文件",
+      "name": "preprocess.cpp — 多类型LiDAR点云预处理与特征提取",
+      "filePath": "src/FAST_LIO_ROS2/src/preprocess.cpp",
+      "summary": "实现 Preprocess 类的全部 LiDAR 点云预处理逻辑。支持 Livox AVIA、Ouster OS1-64、Velodyne VLP-16、Livox MID-360 及缺省的 PointXYZI 五种传感器。核心功能包括：点云时间戳解析与标定、盲区过滤（blind）、点降采样、基于线束的平面特征与边缘特征提取（give_feature / plane_judge / edge_jump_judge），输出 pl_surf（面特征）和 pl_corn（角特征）。",
+      "tags": ["点云预处理", "特征提取", "平面判断", "边缘跳变检测", "Livox AVIA", "Ouster", "Velodyne", "MID-360", "多传感器适配", "时间同步"],
+      "complexity": "高",
+      "languageNotes": "C++ 实现（1000+ 行），通过重载 process() 函数区分 Livox CustomMsg 与标准 PointCloud2 输入。内部使用 PCL 点云类型注册（POINT_CLOUD_REGISTER_POINT_STRUCT）适配不同厂商点云格式，特征提取算法基于 LOAM/Livox 的平面与边缘检测启发式规则。"
+    },
+    {
+      "id": "src/FAST_LIO_ROS2/src/preprocess.h",
+      "type": "C 头文件",
+      "name": "preprocess.h — LiDAR预处理类型定义与类接口",
+      "filePath": "src/FAST_LIO_ROS2/src/preprocess.h",
+      "summary": "Preprocess 类的头文件，定义 LiDAR 预处理所需的全部类型、枚举与常量。包含传感器类型枚举（LID_TYPE: AVIA/VELO16/OUST64/MID360）、时间单位枚举（TIME_UNIT: SEC/MS/US/NS）、点特征分类枚举（Feature: Nor/Poss_Plane/Real_Plane/Edge_Jump/Edge_Plane/Wire/ZeroPoint）、邻域方向与跳变类型枚举，以及为 Velodyne、Ouster、Livox 传感器定制的 PCL 点云结构体。声明 orgtype 结构体用于记录每点几何属性。",
+      "tags": ["类型定义", "枚举", "PCL点云注册", "传感器适配", "特征分类", "Preprocess类接口", "Velodyne", "Ouster", "Livox"],
+      "complexity": "中",
+      "languageNotes": "C/C++ 头文件，整体为 C 语言标记但实际使用 C++ 特性（namespace、class）。通过 PCL 宏（POINT_CLOUD_REGISTER_POINT_STRUCT）注册自定义点类型，使 Velodyne::Point、ouster::Point、LivoxPointXyzrtl/LivoxPointXyzitl 可被 PCL 库识别与序列化。"
+    }
+  ],
+  "edges": [
+    {
+      "source": "src/FAST_LIO_ROS2/src/laserMapping.cpp",
+      "target": "src/FAST_LIO_ROS2/src/IMU_Processing.hpp",
+      "type": "includes",
+      "label": "laserMapping.cpp 包含 IMU_Processing.hpp，使用 ImuProcess 类进行 IMU 数据处理与畸变校正"
+    },
+    {
+      "source": "src/FAST_LIO_ROS2/src/laserMapping.cpp",
+      "target": "src/FAST_LIO_ROS2/src/preprocess.h",
+      "type": "includes",
+      "label": "laserMapping.cpp 包含 preprocess.h，使用 Preprocess 类进行点云预处理及 PointType/PointCloudXYZI 等公共类型定义"
+    },
+    {
+      "source": "src/FAST_LIO_ROS2/src/preprocess.cpp",
+      "target": "src/FAST_LIO_ROS2/src/preprocess.h",
+      "type": "includes",
+      "label": "preprocess.cpp 包含 preprocess.h，实现其声明的 Preprocess 类及各传感器处理函数"
+    },
+    {
+      "source": "src/FAST_LIO_ROS2/src/laserMapping.cpp",
+      "target": "src/FAST_LIO_ROS2/src/preprocess.cpp",
+      "type": "logical",
+      "label": "laserMapping.cpp 中 LaserMappingNode 构造并持有 shared_ptr<Preprocess>，通过 p_pre->process() 调用预处理逻辑；preprocess.cpp 的 process() 输出 pl_surf 供后续建图使用"
+    },
+    {
+      "source": "src/FAST_LIO_ROS2/src/IMU_Processing.hpp",
+      "target": "src/FAST_LIO_ROS2/src/laserMapping.cpp",
+      "type": "logical",
+      "label": "ImuProcess::Process 输出畸变校正后的点云 feats_undistort，供 laserMapping.cpp 的 IEKF 更新与地图增量使用；ImuProcess 的 first_lidar_time / cov 等状态由 laserMapping 节点参数配置"
+    }
+  ]
+}

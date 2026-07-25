@@ -1,0 +1,183 @@
+{
+  "batchIndex": 20,
+  "files": [
+    {
+      "path": "src/h1_2_description/meshes/left_ankle_A_rod_link.STL",
+      "language": "stl",
+      "sizeLines": 108,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_ankle_B_link.STL",
+      "language": "stl",
+      "sizeLines": 938,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_ankle_B_rod_link.STL",
+      "language": "stl",
+      "sizeLines": 92,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_ankle_pitch_link.STL",
+      "language": "stl",
+      "sizeLines": 84,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_ankle_roll_link.STL",
+      "language": "stl",
+      "sizeLines": 765,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_base_link.STL",
+      "language": "stl",
+      "sizeLines": 16032,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_elbow_link.STL",
+      "language": "stl",
+      "sizeLines": 2991,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_hand_link.STL",
+      "language": "stl",
+      "sizeLines": 269,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_hip_pitch_link.STL",
+      "language": "stl",
+      "sizeLines": 4192,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_hip_roll_link.STL",
+      "language": "stl",
+      "sizeLines": 1057,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_hip_yaw_link.STL",
+      "language": "stl",
+      "sizeLines": 4746,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_index_1.STL",
+      "language": "stl",
+      "sizeLines": 2442,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_index_2.STL",
+      "language": "stl",
+      "sizeLines": 1042,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_index_force_sensor_1.STL",
+      "language": "stl",
+      "sizeLines": 979,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_index_force_sensor_2.STL",
+      "language": "stl",
+      "sizeLines": 1010,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_index_force_sensor_3.STL",
+      "language": "stl",
+      "sizeLines": 286,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_knee_link.STL",
+      "language": "stl",
+      "sizeLines": 682,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_little_1.STL",
+      "language": "stl",
+      "sizeLines": 2442,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_little_2.STL",
+      "language": "stl",
+      "sizeLines": 1128,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_little_force_sensor_1.STL",
+      "language": "stl",
+      "sizeLines": 1102,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_little_force_sensor_2.STL",
+      "language": "stl",
+      "sizeLines": 1197,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_little_force_sensor_3.STL",
+      "language": "stl",
+      "sizeLines": 280,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_middle_1.STL",
+      "language": "stl",
+      "sizeLines": 2442,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_middle_2.STL",
+      "language": "stl",
+      "sizeLines": 1503,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_middle_force_sensor_1.STL",
+      "language": "stl",
+      "sizeLines": 926,
+      "fileCategory": "code"
+    }
+  ],
+  "batchImportData": {
+    "src/h1_2_description/meshes/left_ankle_A_rod_link.STL": [],
+    "src/h1_2_description/meshes/left_ankle_B_link.STL": [],
+    "src/h1_2_description/meshes/left_ankle_B_rod_link.STL": [],
+    "src/h1_2_description/meshes/left_ankle_pitch_link.STL": [],
+    "src/h1_2_description/meshes/left_ankle_roll_link.STL": [],
+    "src/h1_2_description/meshes/left_base_link.STL": [],
+    "src/h1_2_description/meshes/left_elbow_link.STL": [],
+    "src/h1_2_description/meshes/left_hand_link.STL": [],
+    "src/h1_2_description/meshes/left_hip_pitch_link.STL": [],
+    "src/h1_2_description/meshes/left_hip_roll_link.STL": [],
+    "src/h1_2_description/meshes/left_hip_yaw_link.STL": [],
+    "src/h1_2_description/meshes/left_index_1.STL": [],
+    "src/h1_2_description/meshes/left_index_2.STL": [],
+    "src/h1_2_description/meshes/left_index_force_sensor_1.STL": [],
+    "src/h1_2_description/meshes/left_index_force_sensor_2.STL": [],
+    "src/h1_2_description/meshes/left_index_force_sensor_3.STL": [],
+    "src/h1_2_description/meshes/left_knee_link.STL": [],
+    "src/h1_2_description/meshes/left_little_1.STL": [],
+    "src/h1_2_description/meshes/left_little_2.STL": [],
+    "src/h1_2_description/meshes/left_little_force_sensor_1.STL": [],
+    "src/h1_2_description/meshes/left_little_force_sensor_2.STL": [],
+    "src/h1_2_description/meshes/left_little_force_sensor_3.STL": [],
+    "src/h1_2_description/meshes/left_middle_1.STL": [],
+    "src/h1_2_description/meshes/left_middle_2.STL": [],
+    "src/h1_2_description/meshes/left_middle_force_sensor_1.STL": []
+  },
+  "neighborMap": {}
+}

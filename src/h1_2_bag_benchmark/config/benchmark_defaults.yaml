@@ -1,0 +1,8 @@
+/**:
+  ros__parameters:
+    max_time_difference_sec: 0.05
+    max_endpoint_error_m: -1.0
+    max_pose_step_m: -1.0
+    max_position_regression_p95_m: -1.0
+    max_degraded_ratio: -1.0
+    min_converged_ratio: -1.0

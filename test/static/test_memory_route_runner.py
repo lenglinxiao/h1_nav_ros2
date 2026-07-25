@@ -23,7 +23,8 @@ def test_memory_route_runner_loads_points_and_route_names():
     assert "points_file" in source
     assert "maps/memory_points.json" in source
     assert "route_names" in source
-    assert "[\"A\", \"B\", \"C\"]" in source
+    assert '"A,B,C"' in source
+    assert "parse_route_names" in source
     assert "json.loads" in source
     assert "record_to_pose" in source
 

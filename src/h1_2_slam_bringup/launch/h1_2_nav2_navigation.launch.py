@@ -113,8 +113,10 @@ def generate_launch_description():
             DeclareLaunchArgument("initial_pose_publish_count", default_value="5"),
             DeclareLaunchArgument("initial_pose_publish_period_sec", default_value="0.5"),
             DeclareLaunchArgument("wait_for_icp_status", default_value="true"),
-            DeclareLaunchArgument("required_stable_samples", default_value="1"),
+            DeclareLaunchArgument("required_stable_samples", default_value="3"),
             DeclareLaunchArgument("max_icp_score", default_value="0.15"),
+            DeclareLaunchArgument("localization_status_max_age_sec", default_value="1.5"),
+            DeclareLaunchArgument("required_tf_max_age_sec", default_value="0.25"),
             DeclareLaunchArgument("localization_timeout_sec", default_value="15.0"),
             DeclareLaunchArgument("return_to_start", default_value="false"),
             DeclareLaunchArgument("global_voxel_resolution", default_value="0.35"),
@@ -125,7 +127,7 @@ def generate_launch_description():
             DeclareLaunchArgument("gicp_score_threshold", default_value="0.35"),
             DeclareLaunchArgument("gicp_max_correspondence_distance", default_value="1.0"),
             DeclareLaunchArgument("gicp_max_consecutive_failures", default_value="3"),
-            DeclareLaunchArgument("global_use_kiss_matcher", default_value="false"),
+            DeclareLaunchArgument("global_use_kiss_matcher", default_value="true"),
             DeclareLaunchArgument("global_use_small_gicp", default_value="true"),
             DeclareLaunchArgument("global_min_input_points", default_value="100"),
             DeclareLaunchArgument("global_max_accumulated_points", default_value="120000"),
@@ -133,7 +135,7 @@ def generate_launch_description():
             DeclareLaunchArgument("recovery_cooldown_sec", default_value="2.0"),
             DeclareLaunchArgument("global_registration_rate_hz", default_value="2.0"),
             DeclareLaunchArgument("global_tf_rate_hz", default_value="20.0"),
-            DeclareLaunchArgument("global_transform_tolerance_sec", default_value="0.5"),
+            DeclareLaunchArgument("global_transform_tolerance_sec", default_value="0.1"),
             DeclareLaunchArgument("global_num_threads", default_value="4"),
             Node(
                 package="robot_state_publisher",
@@ -431,6 +433,22 @@ def generate_launch_description():
                         "start_point_name": LaunchConfiguration("initial_pose_name"),
                         "required_tf_target_frame": "map",
                         "required_tf_source_frame": LaunchConfiguration("odom_frame"),
+                        "required_tf_max_age_sec": ParameterValue(
+                            LaunchConfiguration("required_tf_max_age_sec"), value_type=float
+                        ),
+                        "require_localization_status": ParameterValue(
+                            LaunchConfiguration("wait_for_icp_status"), value_type=bool
+                        ),
+                        "localization_status_topic": "/icp_localization/status",
+                        "max_localization_score": ParameterValue(
+                            LaunchConfiguration("max_icp_score"), value_type=float
+                        ),
+                        "required_stable_samples": ParameterValue(
+                            LaunchConfiguration("required_stable_samples"), value_type=int
+                        ),
+                        "localization_status_max_age_sec": ParameterValue(
+                            LaunchConfiguration("localization_status_max_age_sec"), value_type=float
+                        ),
                     }
                 ],
             ),
@@ -443,10 +461,10 @@ def generate_launch_description():
                     {
                         "raw_cmd_topic": "/cmd_vel",
                         "priority_cmd_topic": "/cmd_vel_voice",
-                        "cmd_topic": "/cmd_vel_nav",
+                        "cmd_topic": "/cmd_vel_final",
                         "cmd_rate": 20.0,
-                        "alpha_v": 0.45,
-                        "alpha_w": 0.45,
+                        "alpha_v": 1.0,
+                        "alpha_w": 1.0,
                         "min_linear_speed": ParameterValue(effective_min_linear_speed, value_type=float),
                         "min_linear_speed_max_angular": 0.12,
                     }
@@ -455,7 +473,7 @@ def generate_launch_description():
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource(loco_bridge_launch),
                 launch_arguments={
-                    "cmd_topic": "/cmd_vel_nav",
+                    "cmd_topic": "/cmd_vel_final",
                     "enabled": LaunchConfiguration("enable_sport_bridge"),
                     "start_ros_shim": "true",
                     "auto_start": LaunchConfiguration("auto_start_loco"),

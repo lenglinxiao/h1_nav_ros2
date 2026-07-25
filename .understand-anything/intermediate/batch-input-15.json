@@ -1,0 +1,29 @@
+{
+  "batchIndex": 15,
+  "files": [
+    {
+      "path": "src/h1_2_vision/README.md",
+      "language": "markdown",
+      "sizeLines": 27,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "src/h1_2_vision/package.xml",
+      "language": "xml",
+      "sizeLines": 22,
+      "fileCategory": "config"
+    },
+    {
+      "path": "src/h1_2_vision/setup.cfg",
+      "language": "config",
+      "sizeLines": 4,
+      "fileCategory": "config"
+    }
+  ],
+  "batchImportData": {
+    "src/h1_2_vision/README.md": [],
+    "src/h1_2_vision/package.xml": [],
+    "src/h1_2_vision/setup.cfg": []
+  },
+  "neighborMap": {}
+}

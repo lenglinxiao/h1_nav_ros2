@@ -1,0 +1,29 @@
+{
+  "batchIndex": 17,
+  "files": [
+    {
+      "path": "src/livox_ros_driver2/config/HAP_config.json",
+      "language": "json",
+      "sizeLines": 42,
+      "fileCategory": "config"
+    },
+    {
+      "path": "src/livox_ros_driver2/config/MID360_config.json",
+      "language": "json",
+      "sizeLines": 41,
+      "fileCategory": "config"
+    },
+    {
+      "path": "src/livox_ros_driver2/config/mixed_HAP_MID360_config.json",
+      "language": "json",
+      "sizeLines": 76,
+      "fileCategory": "config"
+    }
+  ],
+  "batchImportData": {
+    "src/livox_ros_driver2/config/HAP_config.json": [],
+    "src/livox_ros_driver2/config/MID360_config.json": [],
+    "src/livox_ros_driver2/config/mixed_HAP_MID360_config.json": []
+  },
+  "neighborMap": {}
+}

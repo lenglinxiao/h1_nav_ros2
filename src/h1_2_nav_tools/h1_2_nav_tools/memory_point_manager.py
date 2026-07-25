@@ -13,6 +13,9 @@ from .transform_utils import transform_pose
 
 
 class MemoryPointManager(Node):
+    STORAGE_FRAME = "map"
+    IDENTITY_FRAME_ALIASES = {"map", "camera_init"}
+
     def __init__(self):
         super().__init__("memory_point_manager")
         self.declare_parameter("points_file", "maps/memory_points.json")
@@ -23,7 +26,13 @@ class MemoryPointManager(Node):
         self.declare_parameter("list_service", "list_memory_points")
 
         self.points_file = Path(self.get_parameter("points_file").value).expanduser()
-        self.target_frame = self.get_parameter("target_frame").value
+        requested_target_frame = self.get_parameter("target_frame").value
+        self.target_frame = self.STORAGE_FRAME
+        if requested_target_frame != self.target_frame:
+            self.get_logger().warn(
+                f"Ignoring target_frame={requested_target_frame}; "
+                f"memory points are always stored in {self.target_frame}."
+            )
         self.latest_pose = None
         self.points = {}
         self.storage_error = None
@@ -122,9 +131,10 @@ class MemoryPointManager(Node):
     def current_pose_in_target_frame(self):
         if self.latest_pose is None:
             return None
-        if self.latest_pose.header.frame_id == self.target_frame:
+        if self.latest_pose.header.frame_id in self.IDENTITY_FRAME_ALIASES:
             pose = PoseStamped()
-            pose.header = self.latest_pose.header
+            pose.header.stamp = self.latest_pose.header.stamp
+            pose.header.frame_id = self.target_frame
             pose.pose = self.latest_pose.pose
             return pose
         try:
@@ -152,9 +162,13 @@ class MemoryPointManager(Node):
 
         frame_id = data.get("frame_id")
         if frame_id and frame_id != self.target_frame:
-            self.get_logger().warn(
-                f"Memory points file frame_id={frame_id} differs from target_frame={self.target_frame}."
+            self.storage_error = (
+                f"Memory points file frame_id={frame_id} differs from "
+                f"target_frame={self.target_frame}; refusing to mix coordinate frames."
             )
+            self.get_logger().error(self.storage_error)
+            self.points = {}
+            return
         points = data.get("points", {})
         self.points = points if isinstance(points, dict) else {}
 

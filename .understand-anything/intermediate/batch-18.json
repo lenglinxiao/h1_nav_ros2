@@ -1,0 +1,432 @@
+{
+  "nodes": [
+    {
+      "id": "understand-anything/.understandignore",
+      "type": "file",
+      "name": ".understandignore",
+      "filePath": ".understand-anything/.understandignore",
+      "summary": "Understand-Anything 分析工具的忽略模式配置文件，定义在代码分析过程中需要排除的文件和目录。包含从 .gitignore 继承的排除项（如 install/、log/、third_party/、maps/），以及 ROS2 特定的排除模式（如 *.pcd、*.pgm 点云地图文件）。已激活的排除项用标准 gitignore 通配符语法编写。",
+      "tags": ["配置", "工具配置", "忽略规则", "gitignore"],
+      "complexity": 0.02,
+      "languageNotes": "采用与 .gitignore 相同的 glob 语法，支持 # 注释、! 取反、目录尾缀 /。内置默认排除 node_modules/、.git/、dist/、build/ 等。"
+    },
+    {
+      "id": "understand-anything/config.json",
+      "type": "file",
+      "name": "config.json",
+      "filePath": ".understand-anything/config.json",
+      "summary": "Understand-Anything 工具的 JSON 配置文件，当前仅设置输出语言为中文（zh），控制知识图谱分析结果的生成语言。",
+      "tags": ["配置", "工具配置", "语言设置"],
+      "complexity": 0.01
+    },
+    {
+      "id": "docs/architecture/2026-06-11-offline-3d-icp-localization",
+      "type": "file",
+      "name": "离线3D ICP定位架构方案",
+      "filePath": "docs/architecture/2026-06-11-offline-3d-icp-localization.md",
+      "summary": "H1-2 机器人离线模式 3D ICP 定位的完整架构设计方案。提出用 3D PCD 地图与实时点云做 ICP 配准替代 AMCL 作为离线定位后端，保留 Nav2 规划栈。包含核心链路设计、Frame 坐标系合同（map -> camera_init -> body）、ICP 节点职责、多候选粗/精配准策略、质量门槛参数、三个备选方案对比及六阶段实施计划。推荐新增独立 ROS2 ICP 定位包 h1_2_icp_localization，保持在线模式不变。",
+      "tags": ["架构设计", "ICP定位", "3D激光雷达", "Nav2", "离线导航", "坐标系", "重定位", "PCL"],
+      "complexity": 0.45,
+      "languageNotes": "技术架构文档，参考了 WK 项目的 ICP 定位设计。定义了 rough/refine 两级体素分辨率、多候选搜索策略、fitness score 阈值（0.15）等关键参数。Frame 合同明确 map 为离线固定地图坐标系，camera_init 为 FAST-LIO2 局部里程计坐标系。"
+    },
+    {
+      "id": "docs/architecture/2026-06-15-current-icp-vs-global-relocalization",
+      "type": "file",
+      "name": "当前ICP定位与全局重定位方案对比",
+      "filePath": "docs/architecture/2026-06-15-current-icp-vs-global-relocalization.md",
+      "summary": "对比分析当前 H1-2 的 ICP 定位实现与参考项目中的 KISS-Matcher、small_gicp、NDT/NDP 等全局重定位方案。明确当前实现属于'初值辅助的连续 ICP 跟踪'而非一次性 ICP，列出了算法六步骤（地图加载、初始位姿来源、多候选粗搜索、精配准、发布全局定位、连续维护），并以表格对比各方案对初值依赖、连续维护能力和抗初值错误能力。结论是短期继续使用当前 ICP，中期抽象定位 backend 支持多种后端切换。",
+      "tags": ["架构对比", "ICP定位", "全局重定位", "KISS-Matcher", "small_gicp", "NDT", "定位后端"],
+      "complexity": 0.35,
+      "languageNotes": "技术分析文档。与 /home/llx/Lidar_nav2_ws 中描述的三类全局重定位方案做对比。指出当前问题主要集中在 frame、TF 时间戳和路线点坐标解释，而非 ICP 匹配质量本身。"
+    },
+    {
+      "id": "docs/superpowers/plans/2026-06-11-offline-3d-icp-localization",
+      "type": "file",
+      "name": "离线3D ICP定位实施计划",
+      "filePath": "docs/superpowers/plans/2026-06-11-offline-3d-icp-localization.md",
+      "summary": "离线 3D ICP 定位功能的详细实施计划，采用 TDD 驱动开发模式，包含六个任务：CLI/Launch 参数新增、离线 launch 后端分离、ROS2 ICP 定位包创建、路线启动门控、3D 地图保存工作流和验证覆盖。每个任务包含完整的 Python 静态测试代码和实现步骤，目标是在不破坏在线模式的前提下将 ICP 定位集成到离线导航链路中。",
+      "tags": ["实施计划", "TDD", "ICP定位", "ROS2包", "静态测试", "launch集成", "验证"],
+      "complexity": 0.4,
+      "languageNotes": "面向 agentic worker 的实施计划文档，使用 checkbox 语法跟踪任务。每个任务包含写入失败测试、实现功能、验证通过的 TDD 循环。测试文件覆盖 entrypoint、backend switch、package structure、status gate 和 map save workflow。"
+    },
+    {
+      "id": "scripts/install_relocalization_deps.sh",
+      "type": "file",
+      "name": "install_relocalization_deps.sh",
+      "filePath": "scripts/install_relocalization_deps.sh",
+      "summary": "离线重定位依赖安装脚本，负责编译安装 KISS-Matcher 和 small_gicp 两个第三方库及其依赖链（ROBIN、PMC、Xenium）。包含源码检查、Git commit 锁定、离线 ROBIN 构建、CMake 编译安装和编译验证等完整流程。KISS-Matcher 固定 commit 669fe86，small_gicp 固定 57c1106d，确保可复现构建。",
+      "tags": ["构建脚本", "依赖安装", "KISS-Matcher", "small_gicp", "ROBIN", "CMake", "第三方库"],
+      "complexity": 0.35,
+      "languageNotes": "使用 set -euo pipefail 严格错误处理。离线 ROBIN 构建时会替换 cmake/DownloadExternal.cmake 以指向本地 PMC 和 Xenium 源码，避免网络下载。最后通过一个小型 CMake 项目验证 kiss_matcher 和 small_gicp 可被 find_package 正确发现。"
+    },
+    {
+      "id": "src/FAST_LIO_ROS2/.github/stale.yml",
+      "type": "file",
+      "name": "stale.yml",
+      "filePath": "src/FAST_LIO_ROS2/.github/stale.yml",
+      "summary": "GitHub Stale Bot 配置文件，用于自动管理 Issue 和 PR。21 天无活动标记为 stale，再过 1 天自动关闭。pinned 和 security 标签的 Issue 不会被标记为 stale。",
+      "tags": ["CI/CD", "GitHub配置", "Issue管理", "stale-bot"],
+      "complexity": 0.03
+    },
+    {
+      "id": "src/FAST_LIO_ROS2/.gitmodules",
+      "type": "file",
+      "name": ".gitmodules",
+      "filePath": "src/FAST_LIO_ROS2/.gitmodules",
+      "summary": "Git 子模块配置文件，声明 ikd-Tree 子模块，指向 hku-mars/ikd-Tree.git 仓库的 fast_lio 分支，安装在 include/ikd-Tree 目录下。",
+      "tags": ["Git配置", "子模块", "ikd-Tree"],
+      "complexity": 0.02
+    },
+    {
+      "id": "src/FAST_LIO_ROS2/include/common_lib.h",
+      "type": "file",
+      "name": "common_lib.h",
+      "filePath": "src/FAST_LIO_ROS2/include/common_lib.h",
+      "summary": "FAST-LIO2 通用库头文件，定义系统常量和核心数据结构。包含状态维度常量（DIM_STATE=18）、过程噪声维度（DIM_PROC_N=12）、物理常数（重力加速度 9.81）、StatesGroup 状态结构体（rot_end/pos_end/vel_end/bias_g/bias_a/gravity/cov）及其流形运算（加减法使用 Exp/Log），MeasureGroup 测量数据结构，以及平面估计、法向量估计、距离计算等工具函数。同时定义了宏和类型别名。",
+      "tags": ["FAST-LIO2", "核心库", "状态定义", "流形运算", "平面估计", "点云类型", "Eigen", "PCL"],
+      "complexity": 0.3,
+      "languageNotes": "使用 #define USE_IKFOM 宏控制使用 IKFoM 迭代卡尔曼滤波器。StatesGroup 重载 operator+/- 时使用 Exp/Log 处理旋转部分的 SO(3) 流形加法。esti_plane 使用 QR 分解拟合平面方程 Ax+By+Cz+D=0。"
+    },
+    {
+      "id": "src/FAST_LIO_ROS2/include/Exp_mat.h",
+      "type": "file",
+      "name": "Exp_mat.h",
+      "filePath": "src/FAST_LIO_ROS2/include/Exp_mat.h",
+      "summary": "SO(3) 旋转群的指数映射（Exp）和对数映射（Log）模板函数库。提供三种 Exp 重载（从角度向量、角速度*时间、三个标量构建旋转矩阵），使用 Rodrigues 公式实现。Log 函数从旋转矩阵反算旋转向量。依赖 Eigen 和 OpenCV，注释掉了 cv::Mat 版本的 Exp 重载。",
+      "tags": ["数学库", "SO(3)", "李代数", "Rodrigues公式", "指数映射", "对数映射", "Eigen"],
+      "complexity": 0.2,
+      "languageNotes": "使用 SKEW_SYM_MATRX 宏生成反对称矩阵。Exp 函数通过 R = I + sin(θ)K + (1-cos(θ))K² 的 Rodrigues 公式实现。当旋转角度小于 1e-7 时直接返回单位矩阵避免数值问题。"
+    },
+    {
+      "id": "src/FAST_LIO_ROS2/include/ikd-Tree/ikd_Tree.h",
+      "type": "file",
+      "name": "ikd_Tree.h",
+      "filePath": "src/FAST_LIO_ROS2/include/ikd-Tree/ikd_Tree.h",
+      "summary": "ikd-Tree（增量 KD 树）模板类头文件，专为机器人应用设计的数据结构。定义了 KD_TREE 模板类，包含 KD_TREE_NODE（支持懒删除标记、降采样标记、push-down 机制）、MANUAL_HEAP（手动最小堆用于 KNN 搜索）、MANUAL_Q（环形操作日志队列）等内部结构。支持多线程后台重建、点增删、降采样、KNN 搜索、范围搜索、半径搜索等操作。",
+      "tags": ["ikd-Tree", "KD树", "增量数据结构", "点云", "KNN搜索", "多线程重建", "懒删除", "降采样"],
+      "complexity": 0.4,
+      "languageNotes": "支持 PointXYZ、PointXYZI、PointXYZINormal 三种 PCL 点类型。使用 pthread 互斥锁实现多线程安全的重建。定义了 force_rebuild 百分比阈值（0.2）和最小不平衡树大小（10）等参数。"
+    },
+    {
+      "id": "src/FAST_LIO_ROS2/include/ikd-Tree/ikd_Tree.cpp",
+      "type": "file",
+      "name": "ikd_Tree.cpp",
+      "filePath": "src/FAST_LIO_ROS2/include/ikd-Tree/ikd_Tree.cpp",
+      "summary": "ikd-Tree 完整实现文件，约 1728 行。实现了增量 KD 树的所有核心操作：树构建与重建（BuildTree/Rebuild）、点增删（Add_by_point/Delete_by_point/Add_by_range）、KNN 搜索（Nearest_Search 使用 MANUAL_HEAP）、半径搜索（Radius_Search）、范围搜索（Box_Search）、Push_Down 懒更新传播、降采样（downsample）、多线程后台重建（start_thread/multi_thread_rebuild）、平衡性检查（Criterion_Check）等。末尾提供 pcl::PointXYZ、pcl::PointXYZI、pcl::PointXYZINormal 三种显式模板实例化。",
+      "tags": ["ikd-Tree", "KD树实现", "增量数据结构", "点云处理", "KNN搜索", "多线程", "树重建", "懒删除"],
+      "complexity": 0.7,
+      "languageNotes": "由 Yixi Cai (yixicai@connect.hku.hk) 实现。使用分离轴策略（按最长轴分割）构建 KD 树。支持 lazy delete（标记删除而不立即重建）和 downsample delete。多线程重建使用 pthread_create 在后台执行，通过 Rebuild_Logger 队列异步记录操作日志。"
+    },
+    {
+      "id": "src/FAST_LIO_ROS2/include/ikd-Tree/README.md",
+      "type": "file",
+      "name": "ikd-Tree README",
+      "filePath": "src/FAST_LIO_ROS2/include/ikd-Tree/README.md",
+      "summary": "ikd-Tree 的简短说明文件，描述为'用于机器人应用的增量 k-d 树'（incremental k-d tree for robotic applications）。",
+      "tags": ["文档", "ikd-Tree", "README"],
+      "complexity": 0.01
+    },
+    {
+      "id": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/esekfom/esekfom.hpp",
+      "type": "file",
+      "name": "esekfom.hpp",
+      "filePath": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/esekfom/esekfom.hpp",
+      "summary": "迭代误差状态卡尔曼滤波器（ESEKF）核心实现，约 2008 行。esekf 模板类支持在流形上进行状态估计，适用于 FAST-LIO2 的 IMU-激光雷达紧耦合融合。提供三种初始化模式（标准流形测量、动态维度测量、动态运行时测量），实现了完整的预测-更新循环：状态前向传播（predict）、基于迭代优化的测量更新（update_iterated_dyn_share）、协方差更新，以及在 SO(3) 和 S² 流形上的协方差修正。包含安全检查（check_safe_update 防止角度偏移 >20° 或位置偏移 >1m 的发散）。",
+      "tags": ["ESEKF", "卡尔曼滤波", "流形优化", "迭代更新", "SO(3)", "S2", "传感器融合", "FAST-LIO2"],
+      "complexity": 0.7,
+      "languageNotes": "由 Dongjiao HE (hdj65822@connect.hku.hk) 实现。核心使用 share_datastruct 和 dyn_share_datastruct 在一次函数调用中同时获得测量值、雅可比和噪声协方差。迭代更新中通过检查 dx 各分量是否小于 limit 阈值判断收敛；使用 A_matrix 和 Nx/Mx 矩阵对流形上的协方差进行重投影。"
+    },
+    {
+      "id": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/esekfom/util.hpp",
+      "type": "file",
+      "name": "util.hpp",
+      "filePath": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/esekfom/util.hpp",
+      "summary": "ESEKF 工具函数头文件，提供编译期类型检查工具。定义了 is_same（类型相同性检查）、is_double（双精度浮点检查）模板类，以及恒等函数 id。这些工具用于在模板元编程中进行类型判断，辅助 ESEKF 在编译期选择正确的代码路径。",
+      "tags": ["模板元编程", "类型检查", "工具函数", "ESEKF辅助"],
+      "complexity": 0.1,
+      "languageNotes": "is_same 通过模板特化实现：通用模板返回 false，偏特化 T1==T2 时返回 true。is_double 类似方式检查类型是否为 double。"
+    },
+    {
+      "id": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/build_manifold.hpp",
+      "type": "file",
+      "name": "build_manifold.hpp",
+      "filePath": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/build_manifold.hpp",
+      "summary": "复合流形宏构建器，使用 Boost.Preprocessor 在编译期自动生成复合流形类。MTK_BUILD_MANIFOLD 宏接收流形名称和子流形列表，自动生成包含 boxplus/boxminus/oplus/S2_hat/S2_Nx_yy/S2_Mx 等流形运算接口的完整类。支持自动推导 DOF（自由度）和 DIM（维度），并构建 S2_state、SO3_state、vect_state 列表用于协方差传播。",
+      "tags": ["宏编程", "Boost.PP", "复合流形", "编译期代码生成", "MTK", "协方差传播"],
+      "complexity": 0.35,
+      "languageNotes": "基于 Hertzberg 等人 2011 年论文'Integrating Generic Sensor Fusion Algorithms with Sound State Representations through Encapsulation of Manifolds'。使用 Boost.Preprocessor 的 SEQ 序列操作实现编译期类型展开。子流形类型不能包含逗号（如 vect<double,3>），需要先 typedef。"
+    },
+    {
+      "id": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/src/mtkmath.hpp",
+      "type": "file",
+      "name": "mtkmath.hpp",
+      "filePath": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/src/mtkmath.hpp",
+      "summary": "流形数学工具库，提供 SO(3)/S² 流形上的核心数学函数。包含 hat 映射（向量转反对称矩阵）、A_matrix 和 A_inv 矩阵（用于协方差传播的 SO(3) 重投影矩阵）、cos_sinc_sqrt（小角度 Taylor 展开优化）、exp/log（流形上的指数/对数映射）、normalize（角度归一化）、S2_w_expw_（S² 流形权重矩阵）等。定义了 scalar traits 和数值容差常量。",
+      "tags": ["流形数学", "SO(3)", "hat映射", "指数映射", "对数映射", "协方差传播", "Taylor展开", "Eigen"],
+      "complexity": 0.35,
+      "languageNotes": "A_matrix 实现了 SO(3) 右乘更新的协方差重投影: A = I + (1-cosθ)/θ² * hat(v) + (1-sinθ/θ)/θ² * hat(v)²。cos_sinc_sqrt 对小角度使用 Taylor 展开避免数值不稳定。normalize 使用位运算优化取模运算。"
+    },
+    {
+      "id": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/src/SubManifold.hpp",
+      "type": "file",
+      "name": "SubManifold.hpp",
+      "filePath": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/src/SubManifold.hpp",
+      "summary": "子流形包装类模板，作为复合流形的构建块。SubManifold<T, idx, dim> 继承自流形类型 T，并通过枚举 IDX 和 DIM 记录该子流形在复合流形中的索引和维度。支持从派生类型和内部类型的构造，并继承基类赋值运算符。通过成员指针可用于 startIdx.hpp 中的子流形访问函数。",
+      "tags": ["MTK", "子流形", "流形组合", "模板编程", "索引管理"],
+      "complexity": 0.15,
+      "languageNotes": "模板参数 idx 和 dim 由 MTK_BUILD_MANIFOLD 宏在编译期自动计算。IDX 枚举值用于 startIdx.hpp 中的 getStartIdx 和 subvector/subblock 函数定位子流形在大向量/矩阵中的位置。"
+    },
+    {
+      "id": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/src/vectview.hpp",
+      "type": "file",
+      "name": "vectview.hpp",
+      "filePath": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/src/vectview.hpp",
+      "summary": "向量视图类模板，本质是指向标量数组的 Eigen::Map 包装。vectview<scalar, dim> 提供对原始内存的高效视图访问，可如 Eigen 向量般直接参与表达式计算。提供 const 特化版本保证只读语义，并定义了 CovBlock/CovBlock_/CrossCovBlock 等内部类型用于在复合流形协方差矩阵中定位子块。",
+      "tags": ["向量视图", "Eigen::Map", "内存映射", "MTK", "协方差子块"],
+      "complexity": 0.2,
+      "languageNotes": "vectview 本质是 Eigen::Map 的改进版本，增加了 const 正确性。内部 CovBlock/CovBlock_ 类型使用 Eigen::Block 在协方差矩阵中定位子流形对应的块。支持从 Eigen::VectorBlock、Eigen::Block 和 Eigen::Matrix 构造。"
+    },
+    {
+      "id": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/startIdx.hpp",
+      "type": "file",
+      "name": "startIdx.hpp",
+      "filePath": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/startIdx.hpp",
+      "summary": "复合流形子元素索引访问工具集。通过成员指针（如 &Pose::orient）编译期确定子流形在复合流形中的 DOF 起始索引和维度，提供 getStartIdx/getDof/getDim 查询、subvector（提取子向量）、subblock（提取协方差子矩阵块）、setDiagonal（设置协方差对角元素）等函数。同时定义了 get_cov/get_cross_cov 等协方差矩阵类型推导工具。",
+      "tags": ["MTK", "索引访问", "子向量提取", "协方差子块", "成员指针", "模板编程"],
+      "complexity": 0.35,
+      "languageNotes": "利用 SFINAE 和模板偏特化实现基于成员指针的编译期索引推导。DOF 版本（subvector/subblock）对应流形自由度维度，DIM 版本（subvector_/subblock_）对应流形参数化维度。这是 MTK 流形框架的核心基础设施。"
+    },
+    {
+      "id": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/types/S2.hpp",
+      "type": "file",
+      "name": "S2.hpp",
+      "filePath": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/types/S2.hpp",
+      "summary": "S² 球面流形类型，表示 3D 空间中的单位方向向量。支持三种基准方向类型（S2_typ=1/2/3 分别对应 x/y/z 轴），提供 boxplus（2 自由度切空间更新）、boxminus（S² 上的差异计算）、S2_Bx（切空间基矩阵）、S2_Nx/S2_Nx_yy/S2_Mx（用于 ESEKF 协方差传播的雅可比和变换矩阵）等流形运算。重载了与 SO3 旋转群的乘法运算符。",
+      "tags": ["S2流形", "球面几何", "方向向量", "流形优化", "切空间", "ESEKF"],
+      "complexity": 0.4,
+      "languageNotes": "S2_Bx 计算当前单位向量处的 3x2 切空间基矩阵，在不同 S2_typ 下使用不同的退化处理策略（当接近极点时使用硬编码的零矩阵+特殊值）。boxplus 将 2D 切空间增量通过 Bx 映射到 3D 速度，再用 SO3 旋转实现更新。"
+    },
+    {
+      "id": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/types/SOn.hpp",
+      "type": "file",
+      "name": "SOn.hpp",
+      "filePath": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/types/SOn.hpp",
+      "summary": "SO(2) 和 SO(3) 旋转群流形类型。SO2 基于 Eigen::Rotation2D 实现 2D 旋转（1 自由度），SO3 基于 Eigen::Quaternion 实现 3D 旋转（3 自由度）。提供 boxplus（右乘指数映射增量）、boxminus（对数映射差异）、exp（从旋转向量构建 SO3）和 log（从 SO3 提取旋转向量）等流形运算。重载 % 运算符为逆乘法（this⁻¹ * other）。",
+      "tags": ["SO(3)", "SO(2)", "旋转群", "四元数", "流形优化", "指数映射", "对数映射"],
+      "complexity": 0.35,
+      "languageNotes": "SO3::boxplus 通过 exp(delta) 生成旋转增量，然后右乘。SO3::exp 调用 MTK::exp 计算四元数指数映射。SO3::log 使用 MTK::log 并设置 plus_minus_periodicity=true 以支持四元数双覆盖。TYP 枚举值为 2（SO3）和 3（SO2），用于 build_manifold 宏的流形类型分类。"
+    },
+    {
+      "id": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/types/vect.hpp",
+      "type": "file",
+      "name": "vect.hpp",
+      "filePath": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/types/vect.hpp",
+      "summary": "MTK 流形框架的基础类型集合。定义了 vect（欧几里得向量流形，boxplus/boxminus 为普通加减法）、matrix（矩阵流形，展平为向量处理）、Scalar（标量流形）、PositiveScalar（正标量流形，boxplus 为 x*exp(δ)）、Complex（复数流形）等。所有类型都提供统一的流形接口（boxplus/boxminus/oplus/S2_hat/S2_Nx_yy/S2_Mx），并通过 TYP 枚举值分类。同时实现了动态维度的输入运算符（支持括号分割）。",
+      "tags": ["MTK类型", "向量流形", "矩阵流形", "正标量", "复数流形", "流形接口"],
+      "complexity": 0.35,
+      "languageNotes": "TYP 枚举值：vect=0, S2=1, SO3=2, SO2=3, matrix=4, Scalar=5, PositiveScalar=6, Complex=7。这些值用于 MTK_BUILD_MANIFOLD 宏在构建复合流形时分类子流形。Eigen::Dynamic 维度支持通过括号检测和 vector 临时存储实现。"
+    },
+    {
+      "id": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/types/wrapped_cv_mat.hpp",
+      "type": "file",
+      "name": "wrapped_cv_mat.hpp",
+      "filePath": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/types/wrapped_cv_mat.hpp",
+      "summary": "OpenCV CvMat 矩阵包装类，继承自 MTK::matrix，在其内部维护一个 CvMat 结构。通过重载 & 运算符返回 CvMat* 指针，使 MTK 矩阵类型可直接传递给需要 CvMat 参数的 OpenCV 函数。cv_f_type 模板特化将 C++ double/float 类型映射为 CV_64F/CV_32F 常量。",
+      "tags": ["OpenCV", "CvMat", "矩阵包装", "MTK", "类型转换"],
+      "complexity": 0.15,
+      "languageNotes": "cv_mat 使用 Eigen::Matrix 作为底层存储，通过 & 运算符暴露 CvMat* 视图。注释提示重载 & 运算符可能不是好设计。依赖已弃用的 OpenCV C API（cv.h 而非 cv2）。"
+    },
+    {
+      "id": "src/FAST_LIO_ROS2/include/matplotlibcpp.h",
+      "type": "file",
+      "name": "matplotlibcpp.h",
+      "filePath": "src/FAST_LIO_ROS2/include/matplotlibcpp.h",
+      "summary": "C++ matplotlib 封装库（约 2500 行），通过 Python C API 调用 matplotlib 实现 C++ 代码中的数据可视化。支持 plot、scatter、hist、imshow、bar、errorbar、contour、quiver、stem、boxplot 等常用图表类型，以及 figure、subplot、legend、title、xlabel/ylabel、xlim/ylim、grid、tight_layout、annotate、xkcd 等图形控制功能。可选支持 NumPy 数组转换和 OpenCV 图像显示。",
+      "tags": ["可视化", "matplotlib", "Python/C++互操作", "画图", "数据可视化", "NumPy"],
+      "complexity": 0.55,
+      "languageNotes": "通过嵌入 Python 解释器（Py_Initialize）和直接调用 PyObject_Call 实现 matplotlib 命令。使用 _interpreter 单例管理所有 Python 函数对象引用。Plot 类封装单条曲线的创建和动态更新。支持 C++11 特性如 std::function、lambda 表达式。"
+    }
+  ],
+  "edges": [
+    {
+      "source": "src/FAST_LIO_ROS2/include/ikd-Tree/ikd_Tree.cpp",
+      "target": "src/FAST_LIO_ROS2/include/ikd-Tree/ikd_Tree.h",
+      "type": "includes",
+      "label": "实现依赖"
+    },
+    {
+      "source": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/esekfom/esekfom.hpp",
+      "target": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/esekfom/util.hpp",
+      "type": "includes",
+      "label": "包含工具函数"
+    },
+    {
+      "source": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/esekfom/esekfom.hpp",
+      "target": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/types/vect.hpp",
+      "type": "includes",
+      "label": "使用流形类型"
+    },
+    {
+      "source": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/esekfom/esekfom.hpp",
+      "target": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/types/SOn.hpp",
+      "type": "includes",
+      "label": "使用SO(3)旋转群"
+    },
+    {
+      "source": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/esekfom/esekfom.hpp",
+      "target": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/types/S2.hpp",
+      "type": "includes",
+      "label": "使用S2球面流形"
+    },
+    {
+      "source": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/esekfom/esekfom.hpp",
+      "target": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/startIdx.hpp",
+      "type": "includes",
+      "label": "访问子流形索引"
+    },
+    {
+      "source": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/esekfom/esekfom.hpp",
+      "target": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/build_manifold.hpp",
+      "type": "includes",
+      "label": "构建复合状态流形"
+    },
+    {
+      "source": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/build_manifold.hpp",
+      "target": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/src/SubManifold.hpp",
+      "type": "includes",
+      "label": "使用子流形类型"
+    },
+    {
+      "source": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/build_manifold.hpp",
+      "target": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/startIdx.hpp",
+      "type": "includes",
+      "label": "使用索引工具"
+    },
+    {
+      "source": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/src/SubManifold.hpp",
+      "target": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/src/vectview.hpp",
+      "type": "includes",
+      "label": "使用向量视图"
+    },
+    {
+      "source": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/src/mtkmath.hpp",
+      "target": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/types/vect.hpp",
+      "type": "includes",
+      "label": "基于向量流形"
+    },
+    {
+      "source": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/types/S2.hpp",
+      "target": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/types/vect.hpp",
+      "type": "includes",
+      "label": "基于向量类型"
+    },
+    {
+      "source": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/types/S2.hpp",
+      "target": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/types/SOn.hpp",
+      "type": "includes",
+      "label": "使用SO(3)旋转"
+    },
+    {
+      "source": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/types/S2.hpp",
+      "target": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/src/mtkmath.hpp",
+      "type": "includes",
+      "label": "使用流形数学工具"
+    },
+    {
+      "source": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/types/SOn.hpp",
+      "target": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/types/vect.hpp",
+      "type": "includes",
+      "label": "基于向量类型"
+    },
+    {
+      "source": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/types/SOn.hpp",
+      "target": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/src/mtkmath.hpp",
+      "type": "includes",
+      "label": "使用exp/log函数"
+    },
+    {
+      "source": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/startIdx.hpp",
+      "target": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/src/SubManifold.hpp",
+      "type": "includes",
+      "label": "操作子流形"
+    },
+    {
+      "source": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/startIdx.hpp",
+      "target": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/src/vectview.hpp",
+      "type": "includes",
+      "label": "返回向量视图"
+    },
+    {
+      "source": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/types/wrapped_cv_mat.hpp",
+      "target": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/types/vect.hpp",
+      "type": "includes",
+      "label": "继承自matrix流形"
+    },
+    {
+      "source": "src/FAST_LIO_ROS2/include/common_lib.h",
+      "target": "src/FAST_LIO_ROS2/include/Exp_mat.h",
+      "type": "depends_on",
+      "label": "使用Exp/Log函数（通过so3_math.h间接）"
+    },
+    {
+      "source": "src/FAST_LIO_ROS2/.gitmodules",
+      "target": "src/FAST_LIO_ROS2/include/ikd-Tree/ikd_Tree.h",
+      "type": "declares_submodule",
+      "label": "声明ikd-Tree子模块"
+    },
+    {
+      "source": "src/FAST_LIO_ROS2/.gitmodules",
+      "target": "src/FAST_LIO_ROS2/include/ikd-Tree/ikd_Tree.cpp",
+      "type": "declares_submodule",
+      "label": "声明ikd-Tree子模块"
+    },
+    {
+      "source": "src/FAST_LIO_ROS2/include/ikd-Tree/ikd_Tree.h",
+      "target": "src/FAST_LIO_ROS2/include/common_lib.h",
+      "type": "references",
+      "label": "使用PointType/PointVector定义"
+    },
+    {
+      "source": "docs/superpowers/plans/2026-06-11-offline-3d-icp-localization",
+      "target": "docs/architecture/2026-06-11-offline-3d-icp-localization",
+      "type": "implements",
+      "label": "实施架构方案"
+    },
+    {
+      "source": "docs/architecture/2026-06-15-current-icp-vs-global-relocalization",
+      "target": "docs/architecture/2026-06-11-offline-3d-icp-localization",
+      "type": "analyzes",
+      "label": "分析当前方案并对比替代方案"
+    },
+    {
+      "source": "scripts/install_relocalization_deps.sh",
+      "target": "docs/architecture/2026-06-15-current-icp-vs-global-relocalization",
+      "type": "supports",
+      "label": "安装KISS-Matcher和small_gicp以支持方案对比"
+    },
+    {
+      "source": "scripts/install_relocalization_deps.sh",
+      "target": "docs/architecture/2026-06-11-offline-3d-icp-localization",
+      "type": "supports",
+      "label": "安装ICP定位所需的第三方依赖"
+    },
+    {
+      "source": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/esekfom/esekfom.hpp",
+      "target": "src/FAST_LIO_ROS2/include/common_lib.h",
+      "type": "used_by",
+      "label": "FAST-LIO2使用ESEKF进行状态估计"
+    },
+    {
+      "source": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/types/vect.hpp",
+      "target": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/src/vectview.hpp",
+      "type": "includes",
+      "label": "使用向量视图"
+    },
+    {
+      "source": "src/FAST_LIO_ROS2/include/matplotlibcpp.h",
+      "target": "src/FAST_LIO_ROS2/include/ikd-Tree/ikd_Tree.h",
+      "type": "used_for",
+      "label": "调试时可视化ikd-Tree搜索过程"
+    }
+  ]
+}

@@ -1,0 +1,195 @@
+{
+  "batchIndex": 26,
+  "files": [
+    {
+      "path": "src/h1_2_loco_bridge/src/cmd_vel_to_h1_2_loco.cpp",
+      "language": "cpp",
+      "sizeLines": 146,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_loco_bridge/src/gesture_to_h1_2_loco.cpp",
+      "language": "cpp",
+      "sizeLines": 132,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_loco_bridge/src/h1_2_loco_udp_daemon.cpp",
+      "language": "cpp",
+      "sizeLines": 224,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_msgs/CMakeLists.txt",
+      "language": "txt",
+      "sizeLines": 20,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "src/h1_2_nav_msgs/package.xml",
+      "language": "xml",
+      "sizeLines": 22,
+      "fileCategory": "config"
+    },
+    {
+      "path": "src/h1_2_nav_msgs/srv/DeleteMemoryPoint.srv",
+      "language": "srv",
+      "sizeLines": 4,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_msgs/srv/ExecuteGesture.srv",
+      "language": "srv",
+      "sizeLines": 5,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_msgs/srv/ListMemoryPoints.srv",
+      "language": "srv",
+      "sizeLines": 5,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_msgs/srv/RouteStatus.srv",
+      "language": "srv",
+      "sizeLines": 6,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_msgs/srv/SaveMemoryPoint.srv",
+      "language": "srv",
+      "sizeLines": 6,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_msgs/srv/StartRoute.srv",
+      "language": "srv",
+      "sizeLines": 3,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_msgs/srv/StopRoute.srv",
+      "language": "srv",
+      "sizeLines": 3,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_tools/behavior_trees/h1_2_navigate_to_pose_no_spin_recovery.xml",
+      "language": "xml",
+      "sizeLines": 26,
+      "fileCategory": "config"
+    },
+    {
+      "path": "src/h1_2_nav_tools/h1_2_nav_tools/__init__.py",
+      "language": "python",
+      "sizeLines": 1,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_tools/h1_2_nav_tools/auto_initial_pose.py",
+      "language": "python",
+      "sizeLines": 297,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_tools/h1_2_nav_tools/camera_stream.py",
+      "language": "python",
+      "sizeLines": 197,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_tools/h1_2_nav_tools/cmd_vel_to_sport_mode.py",
+      "language": "python",
+      "sizeLines": 94,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_tools/h1_2_nav_tools/costmap_clear_on_initialpose.py",
+      "language": "python",
+      "sizeLines": 58,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_tools/h1_2_nav_tools/fastlio_odom_adapter.py",
+      "language": "python",
+      "sizeLines": 90,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_tools/h1_2_nav_tools/goal_pose_to_nav2.py",
+      "language": "python",
+      "sizeLines": 89,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_tools/h1_2_nav_tools/h1_2_nav_gui.py",
+      "language": "python",
+      "sizeLines": 1076,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_tools/h1_2_nav_tools/h1_2_nav_web_gui.py",
+      "language": "python",
+      "sizeLines": 2615,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_tools/h1_2_nav_tools/h1_2_voice_action_bridge.py",
+      "language": "python",
+      "sizeLines": 282,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_tools/h1_2_nav_tools/initialpose_time_adapter.py",
+      "language": "python",
+      "sizeLines": 58,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_tools/h1_2_nav_tools/memory_point_cli.py",
+      "language": "python",
+      "sizeLines": 92,
+      "fileCategory": "code"
+    }
+  ],
+  "batchImportData": {
+    "src/h1_2_loco_bridge/src/cmd_vel_to_h1_2_loco.cpp": [],
+    "src/h1_2_loco_bridge/src/gesture_to_h1_2_loco.cpp": [],
+    "src/h1_2_loco_bridge/src/h1_2_loco_udp_daemon.cpp": [],
+    "src/h1_2_nav_msgs/CMakeLists.txt": [],
+    "src/h1_2_nav_msgs/package.xml": [],
+    "src/h1_2_nav_msgs/srv/DeleteMemoryPoint.srv": [],
+    "src/h1_2_nav_msgs/srv/ExecuteGesture.srv": [],
+    "src/h1_2_nav_msgs/srv/ListMemoryPoints.srv": [],
+    "src/h1_2_nav_msgs/srv/RouteStatus.srv": [],
+    "src/h1_2_nav_msgs/srv/SaveMemoryPoint.srv": [],
+    "src/h1_2_nav_msgs/srv/StartRoute.srv": [],
+    "src/h1_2_nav_msgs/srv/StopRoute.srv": [],
+    "src/h1_2_nav_tools/behavior_trees/h1_2_navigate_to_pose_no_spin_recovery.xml": [],
+    "src/h1_2_nav_tools/h1_2_nav_tools/__init__.py": [],
+    "src/h1_2_nav_tools/h1_2_nav_tools/auto_initial_pose.py": [],
+    "src/h1_2_nav_tools/h1_2_nav_tools/camera_stream.py": [],
+    "src/h1_2_nav_tools/h1_2_nav_tools/cmd_vel_to_sport_mode.py": [],
+    "src/h1_2_nav_tools/h1_2_nav_tools/costmap_clear_on_initialpose.py": [],
+    "src/h1_2_nav_tools/h1_2_nav_tools/fastlio_odom_adapter.py": [],
+    "src/h1_2_nav_tools/h1_2_nav_tools/goal_pose_to_nav2.py": [],
+    "src/h1_2_nav_tools/h1_2_nav_tools/h1_2_nav_gui.py": [],
+    "src/h1_2_nav_tools/h1_2_nav_tools/h1_2_nav_web_gui.py": [
+      "src/h1_2_nav_tools/h1_2_nav_tools/camera_stream.py"
+    ],
+    "src/h1_2_nav_tools/h1_2_nav_tools/h1_2_voice_action_bridge.py": [
+      "src/h1_2_voice_control/h1_2_voice_control/__init__.py"
+    ],
+    "src/h1_2_nav_tools/h1_2_nav_tools/initialpose_time_adapter.py": [],
+    "src/h1_2_nav_tools/h1_2_nav_tools/memory_point_cli.py": []
+  },
+  "neighborMap": {
+    "src/h1_2_nav_tools/h1_2_nav_tools/h1_2_voice_action_bridge.py": [
+      {
+        "path": "src/h1_2_voice_control/h1_2_voice_control/__init__.py",
+        "batchIndex": 28,
+        "symbols": []
+      }
+    ]
+  }
+}

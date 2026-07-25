@@ -1,0 +1,116 @@
+{
+  "nodes": [
+    {
+      "id": "node-8-0",
+      "type": "docs",
+      "name": "AGENTS.md",
+      "filePath": "AGENTS.md",
+      "summary": "项目代理规则文件，约束 Claude Agent 在 h1_2_nav2_ros2_ws 工作空间中的行为，禁止在未经用户明确指令的情况下调用任何 superpowers:* 技能。",
+      "tags": ["代理规则", "Claude配置", "行为约束", "superpowers"],
+      "complexity": 1
+    },
+    {
+      "id": "node-8-1",
+      "type": "docs",
+      "name": "README.md",
+      "filePath": "README.md",
+      "summary": "h1_2_nav2_ros2_ws 项目的中文完整文档，涵盖包结构说明（Livox驱动、FAST-LIO2、SLAM建图、示教导航、路径录制/播放、速度平滑等）、编译指南、雷达启动、FAST-LIO2建图/里程计、2D SLAM备用链路、Nav2在线建图和导航、离线地图演示工作流（global_gicp/ICP定位、记忆点与循环巡航）、3D重定位依赖安装、示教路径录制与播放、机器人控制对接及ROS1到ROS2迁移注意事项。",
+      "tags": ["项目文档", "ROS2", "Humble", "FAST-LIO2", "Nav2", "导航", "SLAM", "Livox", "MID360", "示教路径", "global_gicp", "记忆点", "循环巡航", "DDS"],
+      "complexity": 5
+    },
+    {
+      "id": "node-8-2",
+      "type": "script",
+      "name": "check_remote_livox.sh",
+      "filePath": "check_remote_livox.sh",
+      "summary": "远程 Livox 雷达数据连通性检测脚本。配置 ROS2 Humble + Unitree ROS2 + 本工作空间环境后，使用 CycloneDDS 检查 /livox/lidar 话题是否可见，并通过 timeout 机制验证 /livox/imu 话题是否能实际接收到采样数据，用于排查 DDS 网络配置和远程雷达连接问题。",
+      "tags": ["诊断脚本", "Livox", "DDS", "CycloneDDS", "雷达检测", "ROS2话题", "网络调试"],
+      "complexity": 3
+    },
+    {
+      "id": "node-8-3",
+      "type": "config",
+      "name": "cyclonedds_upper.xml",
+      "filePath": "cyclonedds_upper.xml",
+      "summary": "CycloneDDS 网络配置文件，绑定网络接口 enp45s0 作为默认通信接口，启用 SPDP 多播发现，用于上位机与机器人之间的 DDS 通信。位于工作空间根目录，被 run_ai_slam_nav.sh 通过 CYCLONEDDS_URI 环境变量引用。",
+      "tags": ["CycloneDDS", "DDS配置", "网络接口", "SPDP", "多播", "enp45s0", "ROS2通信"],
+      "complexity": 1
+    },
+    {
+      "id": "node-8-4",
+      "type": "script",
+      "name": "run_ai_slam_nav.sh",
+      "filePath": "run_ai_slam_nav.sh",
+      "summary": "H1-2 机器人 AI SLAM 与导航一键启动主脚本。支持四种运行模式：online（camera_init在线建图+Nav2导航，默认）、navigation（离线固定地图导航，支持global_gicp/ICP定位）、save_map（保存当前2D栅格地图）、save_pcd_map（保存FAST-LIO2 3D点云地图）。提供丰富的启动参数：地图路径、定位后端、记忆路线、手势路线、自动启动路线、返回起点、Nav2参数文件等。启动前通过文件锁防重入，清理旧进程后根据模式选择对应的 launch 文件启动完整导航栈。",
+      "tags": ["一键启动", "SLAM", "导航", "FAST-LIO2", "Nav2", "global_gicp", "在线建图", "离线定位", "地图保存", "记忆路线", "手势路线", "文件锁", "进程管理", "CycloneDDS"],
+      "complexity": 7
+    },
+    {
+      "id": "node-8-5",
+      "type": "script",
+      "name": "stop_ai_slam_nav.sh",
+      "filePath": "stop_ai_slam_nav.sh",
+      "summary": "H1-2 AI SLAM 导航进程停止脚本。先通过 UDP 向机器人底盘发送零速指令确保安全停车，然后按 TERM→KILL 两阶段清理所有相关进程：ROS2 launch 文件、FAST-LIO2建图、导航辅助节点、ICP定位、运动桥接、Nav2生命周期节点、slam_toolbox等，最后释放锁文件。",
+      "tags": ["停止脚本", "进程清理", "安全停车", "零速指令", "pkill", "锁文件", "UDP"],
+      "complexity": 3
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge-8-0",
+      "source": "node-8-1",
+      "target": "node-8-0",
+      "type": "complements",
+      "label": "同属项目根文档"
+    },
+    {
+      "id": "edge-8-1",
+      "source": "node-8-1",
+      "target": "node-8-4",
+      "type": "documents",
+      "label": "README详细说明run_ai_slam_nav.sh的用法和模式"
+    },
+    {
+      "id": "edge-8-2",
+      "source": "node-8-1",
+      "target": "node-8-5",
+      "type": "documents",
+      "label": "README引用stop_ai_slam_nav.sh作为停止命令"
+    },
+    {
+      "id": "edge-8-3",
+      "source": "node-8-1",
+      "target": "node-8-2",
+      "type": "documents",
+      "label": "README描述DDS通信架构，check_remote_livox.sh用于验证该链路"
+    },
+    {
+      "id": "edge-8-4",
+      "source": "node-8-1",
+      "target": "node-8-3",
+      "type": "documents",
+      "label": "README描述CycloneDDS的DDS通信依赖"
+    },
+    {
+      "id": "edge-8-5",
+      "source": "node-8-4",
+      "target": "node-8-5",
+      "type": "complements",
+      "label": "共享锁文件/tmp/h1_2_ai_slam_nav.lock实现启动互斥与停止协调"
+    },
+    {
+      "id": "edge-8-6",
+      "source": "node-8-4",
+      "target": "node-8-3",
+      "type": "uses",
+      "label": "通过CYCLONEDDS_URI引用cyclonedds_upper.xml作为DDS网络配置"
+    },
+    {
+      "id": "edge-8-7",
+      "source": "node-8-2",
+      "target": "node-8-4",
+      "type": "complements",
+      "label": "同为启动前验证与系统准备脚本，共享ROS2/CycloneDDS环境配置模式"
+    }
+  ]
+}

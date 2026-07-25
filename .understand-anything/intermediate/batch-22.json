@@ -1,0 +1,484 @@
+{
+  "nodes": [
+    {
+      "id": "file:src/h1_2_description/meshes/link13_L.STL",
+      "type": "3d_mesh",
+      "name": "link13_L.STL",
+      "filePath": "src/h1_2_description/meshes/link13_L.STL",
+      "summary": "左手拇指中间指节（L_thumb_intermediate）的三角网格模型，包含 9770 个三角面，约 29K 顶点，文件大小 477 KB。用于 URDF 的 visual 和 collision 几何定义。",
+      "tags": ["STL", "三角网格", "机器人模型", "左手", "拇指", "中间指节", "h1_2", "URDF", "手指"],
+      "complexity": "simple",
+      "languageNotes": "二进制 STL 格式（Binary STL）：80 字节头部 + 4 字节三角面数量（uint32 LE）+ 每个三角面 50 字节（法向量 12B + 三顶点 36B + 属性 2B）。无文本可读内容，仅包含几何数据。"
+    },
+    {
+      "id": "file:src/h1_2_description/meshes/link13_R.STL",
+      "type": "3d_mesh",
+      "name": "link13_R.STL",
+      "filePath": "src/h1_2_description/meshes/link13_R.STL",
+      "summary": "右手拇指中间指节（R_thumb_intermediate）的三角网格模型，包含 9664 个三角面，约 29K 顶点，文件大小 472 KB。为 link13_L.STL 的右侧镜像对应模型。",
+      "tags": ["STL", "三角网格", "机器人模型", "右手", "拇指", "中间指节", "h1_2", "URDF", "手指"],
+      "complexity": "simple",
+      "languageNotes": "二进制 STL 格式，结构与 link13_L.STL 相同，80 字节零值头部，三角面数据从偏移 84 字节开始。"
+    },
+    {
+      "id": "file:src/h1_2_description/meshes/link14_L.STL",
+      "type": "3d_mesh",
+      "name": "link14_L.STL",
+      "filePath": "src/h1_2_description/meshes/link14_L.STL",
+      "summary": "左手拇指远端指节（L_thumb_distal）的三角网格模型，包含 3102 个三角面，约 9.3K 顶点，文件大小 152 KB。为拇指链中最末端的指节。",
+      "tags": ["STL", "三角网格", "机器人模型", "左手", "拇指", "远端指节", "h1_2", "URDF", "手指"],
+      "complexity": "simple",
+      "languageNotes": "二进制 STL 格式，拇指末端指节网格，面数较中间指节少。"
+    },
+    {
+      "id": "file:src/h1_2_description/meshes/link14_R.STL",
+      "type": "3d_mesh",
+      "name": "link14_R.STL",
+      "filePath": "src/h1_2_description/meshes/link14_R.STL",
+      "summary": "右手拇指远端指节（R_thumb_distal）的三角网格模型，包含 3110 个三角面，约 9.3K 顶点，文件大小 152 KB。为 link14_L.STL 的右侧镜像。",
+      "tags": ["STL", "三角网格", "机器人模型", "右手", "拇指", "远端指节", "h1_2", "URDF", "手指"],
+      "complexity": "simple",
+      "languageNotes": "二进制 STL 格式。"
+    },
+    {
+      "id": "file:src/h1_2_description/meshes/link15_L.STL",
+      "type": "3d_mesh",
+      "name": "link15_L.STL",
+      "filePath": "src/h1_2_description/meshes/link15_L.STL",
+      "summary": "左手食指近端指节（L_index_proximal）的三角网格模型，包含 8142 个三角面，约 24K 顶点，文件大小 398 KB。连接左手掌基座（L_hand_base_link），通过 mimic 关节驱动中间指节。",
+      "tags": ["STL", "三角网格", "机器人模型", "左手", "食指", "近端指节", "h1_2", "URDF", "手指"],
+      "complexity": "simple",
+      "languageNotes": "二进制 STL 格式，食指近端指节，关节限位 0~1.7 rad。"
+    },
+    {
+      "id": "file:src/h1_2_description/meshes/link15_R.STL",
+      "type": "3d_mesh",
+      "name": "link15_R.STL",
+      "filePath": "src/h1_2_description/meshes/link15_R.STL",
+      "summary": "右手食指近端指节（R_index_proximal）的三角网格模型，包含 8236 个三角面，约 25K 顶点，文件大小 402 KB。为 link15_L.STL 的右侧镜像。",
+      "tags": ["STL", "三角网格", "机器人模型", "右手", "食指", "近端指节", "h1_2", "URDF", "手指"],
+      "complexity": "simple",
+      "languageNotes": "二进制 STL 格式。"
+    },
+    {
+      "id": "file:src/h1_2_description/meshes/link16_L.STL",
+      "type": "3d_mesh",
+      "name": "link16_L.STL",
+      "filePath": "src/h1_2_description/meshes/link16_L.STL",
+      "summary": "左手食指中间指节（L_index_intermediate）的三角网格模型，包含 6586 个三角面，约 20K 顶点，文件大小 322 KB。通过 mimic 关节以 1:1 倍率跟随近端指节运动。",
+      "tags": ["STL", "三角网格", "机器人模型", "左手", "食指", "中间指节", "h1_2", "URDF", "手指"],
+      "complexity": "simple",
+      "languageNotes": "二进制 STL 格式，Mimic 关节 multiplier=1。"
+    },
+    {
+      "id": "file:src/h1_2_description/meshes/link16_R.STL",
+      "type": "3d_mesh",
+      "name": "link16_R.STL",
+      "filePath": "src/h1_2_description/meshes/link16_R.STL",
+      "summary": "右手食指中间指节（R_index_intermediate）的三角网格模型，包含 6708 个三角面，约 20K 顶点，文件大小 328 KB。为 link16_L.STL 的右侧镜像。",
+      "tags": ["STL", "三角网格", "机器人模型", "右手", "食指", "中间指节", "h1_2", "URDF", "手指"],
+      "complexity": "simple",
+      "languageNotes": "二进制 STL 格式。"
+    },
+    {
+      "id": "file:src/h1_2_description/meshes/link17_L.STL",
+      "type": "3d_mesh",
+      "name": "link17_L.STL",
+      "filePath": "src/h1_2_description/meshes/link17_L.STL",
+      "summary": "左手中指近端指节（L_middle_proximal）的三角网格模型，包含 8142 个三角面，约 24K 顶点，文件大小 398 KB。连接左手掌基座。",
+      "tags": ["STL", "三角网格", "机器人模型", "左手", "中指", "近端指节", "h1_2", "URDF", "手指"],
+      "complexity": "simple",
+      "languageNotes": "二进制 STL 格式。"
+    },
+    {
+      "id": "file:src/h1_2_description/meshes/link17_R.STL",
+      "type": "3d_mesh",
+      "name": "link17_R.STL",
+      "filePath": "src/h1_2_description/meshes/link17_R.STL",
+      "summary": "右手中指近端指节（R_middle_proximal）的三角网格模型，包含 8236 个三角面，约 25K 顶点，文件大小 402 KB。为 link17_L.STL 的右侧镜像。",
+      "tags": ["STL", "三角网格", "机器人模型", "右手", "中指", "近端指节", "h1_2", "URDF", "手指"],
+      "complexity": "simple",
+      "languageNotes": "二进制 STL 格式。"
+    },
+    {
+      "id": "file:src/h1_2_description/meshes/link18_L.STL",
+      "type": "3d_mesh",
+      "name": "link18_L.STL",
+      "filePath": "src/h1_2_description/meshes/link18_L.STL",
+      "summary": "左手中指中间指节（L_middle_intermediate）的三角网格模型，包含 3652 个三角面，约 11K 顶点，文件大小 178 KB。通过 mimic 关节以 1:1 倍率跟随近端指节运动。",
+      "tags": ["STL", "三角网格", "机器人模型", "左手", "中指", "中间指节", "h1_2", "URDF", "手指"],
+      "complexity": "simple",
+      "languageNotes": "二进制 STL 格式，Mimic 关节 multiplier=1。"
+    },
+    {
+      "id": "file:src/h1_2_description/meshes/link18_R.STL",
+      "type": "3d_mesh",
+      "name": "link18_R.STL",
+      "filePath": "src/h1_2_description/meshes/link18_R.STL",
+      "summary": "右手中指中间指节（R_middle_intermediate）的三角网格模型，包含 3658 个三角面，约 11K 顶点，文件大小 179 KB。为 link18_L.STL 的右侧镜像。",
+      "tags": ["STL", "三角网格", "机器人模型", "右手", "中指", "中间指节", "h1_2", "URDF", "手指"],
+      "complexity": "simple",
+      "languageNotes": "二进制 STL 格式。"
+    },
+    {
+      "id": "file:src/h1_2_description/meshes/link19_L.STL",
+      "type": "3d_mesh",
+      "name": "link19_L.STL",
+      "filePath": "src/h1_2_description/meshes/link19_L.STL",
+      "summary": "左手无名指近端指节（L_ring_proximal）的三角网格模型，包含 8142 个三角面，约 24K 顶点，文件大小 398 KB。连接左手掌基座。",
+      "tags": ["STL", "三角网格", "机器人模型", "左手", "无名指", "近端指节", "h1_2", "URDF", "手指"],
+      "complexity": "simple",
+      "languageNotes": "二进制 STL 格式。"
+    },
+    {
+      "id": "file:src/h1_2_description/meshes/link19_R.STL",
+      "type": "3d_mesh",
+      "name": "link19_R.STL",
+      "filePath": "src/h1_2_description/meshes/link19_R.STL",
+      "summary": "右手无名指近端指节（R_ring_proximal）的三角网格模型，包含 8236 个三角面，约 25K 顶点，文件大小 402 KB。为 link19_L.STL 的右侧镜像。",
+      "tags": ["STL", "三角网格", "机器人模型", "右手", "无名指", "近端指节", "h1_2", "URDF", "手指"],
+      "complexity": "simple",
+      "languageNotes": "二进制 STL 格式。"
+    },
+    {
+      "id": "file:src/h1_2_description/meshes/link20_L.STL",
+      "type": "3d_mesh",
+      "name": "link20_L.STL",
+      "filePath": "src/h1_2_description/meshes/link20_L.STL",
+      "summary": "左手无名指中间指节（L_ring_intermediate）的三角网格模型，包含 6588 个三角面，约 20K 顶点，文件大小 322 KB。通过 mimic 关节以 1:1 倍率跟随近端指节运动。",
+      "tags": ["STL", "三角网格", "机器人模型", "左手", "无名指", "中间指节", "h1_2", "URDF", "手指"],
+      "complexity": "simple",
+      "languageNotes": "二进制 STL 格式，Mimic 关节 multiplier=1。"
+    },
+    {
+      "id": "file:src/h1_2_description/meshes/link20_R.STL",
+      "type": "3d_mesh",
+      "name": "link20_R.STL",
+      "filePath": "src/h1_2_description/meshes/link20_R.STL",
+      "summary": "右手无名指中间指节（R_ring_intermediate）的三角网格模型，包含 6694 个三角面，约 20K 顶点，文件大小 327 KB。为 link20_L.STL 的右侧镜像。",
+      "tags": ["STL", "三角网格", "机器人模型", "右手", "无名指", "中间指节", "h1_2", "URDF", "手指"],
+      "complexity": "simple",
+      "languageNotes": "二进制 STL 格式。"
+    },
+    {
+      "id": "file:src/h1_2_description/meshes/link21_L.STL",
+      "type": "3d_mesh",
+      "name": "link21_L.STL",
+      "filePath": "src/h1_2_description/meshes/link21_L.STL",
+      "summary": "左手小指近端指节（L_pinky_proximal）的三角网格模型，包含 8142 个三角面，约 24K 顶点，文件大小 398 KB。连接左手掌基座，为小指链的首个指节。",
+      "tags": ["STL", "三角网格", "机器人模型", "左手", "小指", "近端指节", "h1_2", "URDF", "手指"],
+      "complexity": "simple",
+      "languageNotes": "二进制 STL 格式，URDF 中 link name 为 L_pinky_proximal。"
+    },
+    {
+      "id": "file:src/h1_2_description/meshes/link21_R.STL",
+      "type": "3d_mesh",
+      "name": "link21_R.STL",
+      "filePath": "src/h1_2_description/meshes/link21_R.STL",
+      "summary": "右手小指近端指节（R_pinky_proximal）的三角网格模型，包含 8236 个三角面，约 25K 顶点，文件大小 402 KB。为 link21_L.STL 的右侧镜像。",
+      "tags": ["STL", "三角网格", "机器人模型", "右手", "小指", "近端指节", "h1_2", "URDF", "手指"],
+      "complexity": "simple",
+      "languageNotes": "二进制 STL 格式，URDF 中 link name 为 R_pinky_proximal。"
+    },
+    {
+      "id": "file:src/h1_2_description/meshes/link22_L.STL",
+      "type": "3d_mesh",
+      "name": "link22_L.STL",
+      "filePath": "src/h1_2_description/meshes/link22_L.STL",
+      "summary": "左手小指中间指节（L_pinky_intermediate）的三角网格模型，包含 8266 个三角面，约 25K 顶点，文件大小 404 KB。通过 mimic 关节以 1:1 倍率跟随近端指节运动。",
+      "tags": ["STL", "三角网格", "机器人模型", "左手", "小指", "中间指节", "h1_2", "URDF", "手指"],
+      "complexity": "simple",
+      "languageNotes": "二进制 STL 格式，URDF 中 link name 为 L_pinky_intermediate，Mimic 关节 multiplier=1。"
+    },
+    {
+      "id": "file:src/h1_2_description/meshes/link22_R.STL",
+      "type": "3d_mesh",
+      "name": "link22_R.STL",
+      "filePath": "src/h1_2_description/meshes/link22_R.STL",
+      "summary": "右手小指中间指节（R_pinky_intermediate）的三角网格模型，包含 8328 个三角面，约 25K 顶点，文件大小 407 KB。为 link22_L.STL 的右侧镜像。",
+      "tags": ["STL", "三角网格", "机器人模型", "右手", "小指", "中间指节", "h1_2", "URDF", "手指"],
+      "complexity": "simple",
+      "languageNotes": "二进制 STL 格式，URDF 中 link name 为 R_pinky_intermediate。"
+    },
+    {
+      "id": "file:src/h1_2_description/meshes/logo_link.STL",
+      "type": "3d_mesh",
+      "name": "logo_link.STL",
+      "filePath": "src/h1_2_description/meshes/logo_link.STL",
+      "summary": "机器人躯干 LOGO 标志部件的三角网格模型，包含 2908 个三角面，约 8.7K 顶点，文件大小 142 KB。通过固定关节附着在 pelvis 上，用于显示品牌标识。",
+      "tags": ["STL", "三角网格", "机器人模型", "躯干", "LOGO", "品牌标识", "h1_2", "URDF"],
+      "complexity": "simple",
+      "languageNotes": "二进制 STL 格式，通过 fixed 类型关节与 pelvis 连接，无物理碰撞体定义。"
+    },
+    {
+      "id": "file:src/h1_2_description/meshes/pelvis.STL",
+      "type": "3d_mesh",
+      "name": "pelvis.STL",
+      "filePath": "src/h1_2_description/meshes/pelvis.STL",
+      "summary": "机器人骨盆/躯干基座（pelvis）的三角网格模型，是整个运动学树的根节点。包含 13456 个三角面，约 40K 顶点，文件大小 657 KB。连接双腿、躯干和头部所有子链接。",
+      "tags": ["STL", "三角网格", "机器人模型", "骨盆", "躯干", "基座", "根链接", "h1_2", "URDF"],
+      "complexity": "simple",
+      "languageNotes": "二进制 STL 格式，本批次中三角面数第二大的网格模型。作为 kinematic tree 的 base link，同时定义了 visual 和 collision 几何。"
+    },
+    {
+      "id": "file:src/h1_2_description/meshes/R_hand_base_link.STL",
+      "type": "3d_mesh",
+      "name": "R_hand_base_link.STL",
+      "filePath": "src/h1_2_description/meshes/R_hand_base_link.STL",
+      "summary": "右手掌基座（R_hand_base_link）的三角网格模型，是本批次中最大的网格文件。包含 29446 个三角面，约 88K 顶点，文件大小 1.4 MB。右手所有五根手指均从此链接分叉。",
+      "tags": ["STL", "三角网格", "机器人模型", "右手", "手掌", "基座", "h1_2", "URDF", "手指基座"],
+      "complexity": "simple",
+      "languageNotes": "二进制 STL 格式，本批次中三角面数最大、最复杂的网格模型。为右手五指的共同父链接，在 h1_2.urdf 和 h1_2.xml 中均有引用。"
+    },
+    {
+      "id": "file:src/h1_2_description/meshes/R_index_intermediate.STL",
+      "type": "3d_mesh",
+      "name": "R_index_intermediate.STL",
+      "filePath": "src/h1_2_description/meshes/R_index_intermediate.STL",
+      "summary": "右手食指中间指节的备用/独立三角网格模型，包含 6708 个三角面，约 20K 顶点，文件大小 328 KB。注意：主 URDF (h1_2.urdf) 中实际引用 link16_R.STL 作为 R_index_intermediate 的网格，此文件可能为旧版本或备用模型。",
+      "tags": ["STL", "三角网格", "机器人模型", "右手", "食指", "中间指节", "h1_2", "备用模型", "未直接引用"],
+      "complexity": "simple",
+      "languageNotes": "二进制 STL 格式。当前 h1_2.urdf 和 h1_2.xml 中均未直接引用此文件名，食指中间指节实际使用 link16_R.STL。可能为历史遗留或替代模型。"
+    },
+    {
+      "id": "file:src/h1_2_description/meshes/R_index_proximal.STL",
+      "type": "3d_mesh",
+      "name": "R_index_proximal.STL",
+      "filePath": "src/h1_2_description/meshes/R_index_proximal.STL",
+      "summary": "右手食指近端指节的备用/独立三角网格模型，包含 8236 个三角面，约 25K 顶点，文件大小 402 KB。注意：主 URDF (h1_2.urdf) 中实际引用 link15_R.STL 作为 R_index_proximal 的网格，此文件可能为旧版本或备用模型。",
+      "tags": ["STL", "三角网格", "机器人模型", "右手", "食指", "近端指节", "h1_2", "备用模型", "未直接引用"],
+      "complexity": "simple",
+      "languageNotes": "二进制 STL 格式。当前 h1_2.urdf 和 h1_2.xml 中均未直接引用此文件名，食指近端指节实际使用 link15_R.STL。"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:src/h1_2_description/meshes/link13_L.STL",
+      "target": "file:src/h1_2_description/meshes/link13_R.STL",
+      "type": "mirror_symmetry",
+      "label": "左右手镜像对称：拇指中间指节"
+    },
+    {
+      "source": "file:src/h1_2_description/meshes/link14_L.STL",
+      "target": "file:src/h1_2_description/meshes/link14_R.STL",
+      "type": "mirror_symmetry",
+      "label": "左右手镜像对称：拇指远端指节"
+    },
+    {
+      "source": "file:src/h1_2_description/meshes/link15_L.STL",
+      "target": "file:src/h1_2_description/meshes/link15_R.STL",
+      "type": "mirror_symmetry",
+      "label": "左右手镜像对称：食指近端指节"
+    },
+    {
+      "source": "file:src/h1_2_description/meshes/link16_L.STL",
+      "target": "file:src/h1_2_description/meshes/link16_R.STL",
+      "type": "mirror_symmetry",
+      "label": "左右手镜像对称：食指中间指节"
+    },
+    {
+      "source": "file:src/h1_2_description/meshes/link17_L.STL",
+      "target": "file:src/h1_2_description/meshes/link17_R.STL",
+      "type": "mirror_symmetry",
+      "label": "左右手镜像对称：中指近端指节"
+    },
+    {
+      "source": "file:src/h1_2_description/meshes/link18_L.STL",
+      "target": "file:src/h1_2_description/meshes/link18_R.STL",
+      "type": "mirror_symmetry",
+      "label": "左右手镜像对称：中指中间指节"
+    },
+    {
+      "source": "file:src/h1_2_description/meshes/link19_L.STL",
+      "target": "file:src/h1_2_description/meshes/link19_R.STL",
+      "type": "mirror_symmetry",
+      "label": "左右手镜像对称：无名指近端指节"
+    },
+    {
+      "source": "file:src/h1_2_description/meshes/link20_L.STL",
+      "target": "file:src/h1_2_description/meshes/link20_R.STL",
+      "type": "mirror_symmetry",
+      "label": "左右手镜像对称：无名指中间指节"
+    },
+    {
+      "source": "file:src/h1_2_description/meshes/link21_L.STL",
+      "target": "file:src/h1_2_description/meshes/link21_R.STL",
+      "type": "mirror_symmetry",
+      "label": "左右手镜像对称：小指近端指节"
+    },
+    {
+      "source": "file:src/h1_2_description/meshes/link22_L.STL",
+      "target": "file:src/h1_2_description/meshes/link22_R.STL",
+      "type": "mirror_symmetry",
+      "label": "左右手镜像对称：小指中间指节"
+    },
+    {
+      "source": "file:src/h1_2_description/meshes/link13_L.STL",
+      "target": "file:src/h1_2_description/meshes/link14_L.STL",
+      "type": "kinematic_chain",
+      "label": "运动链父子关系：拇指中间指节 → 拇指远端指节"
+    },
+    {
+      "source": "file:src/h1_2_description/meshes/link13_R.STL",
+      "target": "file:src/h1_2_description/meshes/link14_R.STL",
+      "type": "kinematic_chain",
+      "label": "运动链父子关系：拇指中间指节 → 拇指远端指节"
+    },
+    {
+      "source": "file:src/h1_2_description/meshes/link15_L.STL",
+      "target": "file:src/h1_2_description/meshes/link16_L.STL",
+      "type": "kinematic_chain",
+      "label": "运动链父子关系：食指近端指节 → 食指中间指节"
+    },
+    {
+      "source": "file:src/h1_2_description/meshes/link15_R.STL",
+      "target": "file:src/h1_2_description/meshes/link16_R.STL",
+      "type": "kinematic_chain",
+      "label": "运动链父子关系：食指近端指节 → 食指中间指节"
+    },
+    {
+      "source": "file:src/h1_2_description/meshes/link17_L.STL",
+      "target": "file:src/h1_2_description/meshes/link18_L.STL",
+      "type": "kinematic_chain",
+      "label": "运动链父子关系：中指近端指节 → 中指中间指节"
+    },
+    {
+      "source": "file:src/h1_2_description/meshes/link17_R.STL",
+      "target": "file:src/h1_2_description/meshes/link18_R.STL",
+      "type": "kinematic_chain",
+      "label": "运动链父子关系：中指近端指节 → 中指中间指节"
+    },
+    {
+      "source": "file:src/h1_2_description/meshes/link19_L.STL",
+      "target": "file:src/h1_2_description/meshes/link20_L.STL",
+      "type": "kinematic_chain",
+      "label": "运动链父子关系：无名指近端指节 → 无名指中间指节"
+    },
+    {
+      "source": "file:src/h1_2_description/meshes/link19_R.STL",
+      "target": "file:src/h1_2_description/meshes/link20_R.STL",
+      "type": "kinematic_chain",
+      "label": "运动链父子关系：无名指近端指节 → 无名指中间指节"
+    },
+    {
+      "source": "file:src/h1_2_description/meshes/link21_L.STL",
+      "target": "file:src/h1_2_description/meshes/link22_L.STL",
+      "type": "kinematic_chain",
+      "label": "运动链父子关系：小指近端指节 → 小指中间指节"
+    },
+    {
+      "source": "file:src/h1_2_description/meshes/link21_R.STL",
+      "target": "file:src/h1_2_description/meshes/link22_R.STL",
+      "type": "kinematic_chain",
+      "label": "运动链父子关系：小指近端指节 → 小指中间指节"
+    },
+    {
+      "source": "file:src/h1_2_description/meshes/link13_L.STL",
+      "target": "file:src/h1_2_description/meshes/link15_L.STL",
+      "type": "same_hand_finger_group",
+      "label": "同属左手手指组：拇指与食指"
+    },
+    {
+      "source": "file:src/h1_2_description/meshes/link15_L.STL",
+      "target": "file:src/h1_2_description/meshes/link17_L.STL",
+      "type": "same_hand_finger_group",
+      "label": "同属左手手指组：食指与中指"
+    },
+    {
+      "source": "file:src/h1_2_description/meshes/link17_L.STL",
+      "target": "file:src/h1_2_description/meshes/link19_L.STL",
+      "type": "same_hand_finger_group",
+      "label": "同属左手手指组：中指与无名指"
+    },
+    {
+      "source": "file:src/h1_2_description/meshes/link19_L.STL",
+      "target": "file:src/h1_2_description/meshes/link21_L.STL",
+      "type": "same_hand_finger_group",
+      "label": "同属左手手指组：无名指与小指"
+    },
+    {
+      "source": "file:src/h1_2_description/meshes/link13_R.STL",
+      "target": "file:src/h1_2_description/meshes/link15_R.STL",
+      "type": "same_hand_finger_group",
+      "label": "同属右手手指组：拇指与食指"
+    },
+    {
+      "source": "file:src/h1_2_description/meshes/link15_R.STL",
+      "target": "file:src/h1_2_description/meshes/link17_R.STL",
+      "type": "same_hand_finger_group",
+      "label": "同属右手手指组：食指与中指"
+    },
+    {
+      "source": "file:src/h1_2_description/meshes/link17_R.STL",
+      "target": "file:src/h1_2_description/meshes/link19_R.STL",
+      "type": "same_hand_finger_group",
+      "label": "同属右手手指组：中指与无名指"
+    },
+    {
+      "source": "file:src/h1_2_description/meshes/link19_R.STL",
+      "target": "file:src/h1_2_description/meshes/link21_R.STL",
+      "type": "same_hand_finger_group",
+      "label": "同属右手手指组：无名指与小指"
+    },
+    {
+      "source": "file:src/h1_2_description/meshes/R_hand_base_link.STL",
+      "target": "file:src/h1_2_description/meshes/link13_R.STL",
+      "type": "kinematic_parent_of_finger",
+      "label": "右手掌基座 → 拇指链（经 R_thumb_proximal_base 和 R_thumb_proximal 间接连接）"
+    },
+    {
+      "source": "file:src/h1_2_description/meshes/R_hand_base_link.STL",
+      "target": "file:src/h1_2_description/meshes/link15_R.STL",
+      "type": "kinematic_parent_of_finger",
+      "label": "右手掌基座 → 食指链（R_index_proximal 直接子链接）"
+    },
+    {
+      "source": "file:src/h1_2_description/meshes/R_hand_base_link.STL",
+      "target": "file:src/h1_2_description/meshes/link17_R.STL",
+      "type": "kinematic_parent_of_finger",
+      "label": "右手掌基座 → 中指链（R_middle_proximal 直接子链接）"
+    },
+    {
+      "source": "file:src/h1_2_description/meshes/R_hand_base_link.STL",
+      "target": "file:src/h1_2_description/meshes/link19_R.STL",
+      "type": "kinematic_parent_of_finger",
+      "label": "右手掌基座 → 无名指链（R_ring_proximal 直接子链接）"
+    },
+    {
+      "source": "file:src/h1_2_description/meshes/R_hand_base_link.STL",
+      "target": "file:src/h1_2_description/meshes/link21_R.STL",
+      "type": "kinematic_parent_of_finger",
+      "label": "右手掌基座 → 小指链（R_pinky_proximal 直接子链接）"
+    },
+    {
+      "source": "file:src/h1_2_description/meshes/pelvis.STL",
+      "target": "file:src/h1_2_description/meshes/logo_link.STL",
+      "type": "kinematic_chain",
+      "label": "骨盆基座 → LOGO 标志（fixed 关节附着）"
+    },
+    {
+      "source": "file:src/h1_2_description/meshes/pelvis.STL",
+      "target": "file:src/h1_2_description/meshes/R_hand_base_link.STL",
+      "type": "kinematic_descendant",
+      "label": "运动学链：骨盆 → ... → 右腕 → 右手掌基座（经多级关节传递）"
+    },
+    {
+      "source": "file:src/h1_2_description/meshes/R_index_proximal.STL",
+      "target": "file:src/h1_2_description/meshes/R_index_intermediate.STL",
+      "type": "kinematic_chain",
+      "label": "食指运动链：近端指节 → 中间指节（备用/独立模型对）"
+    },
+    {
+      "source": "file:src/h1_2_description/meshes/link15_R.STL",
+      "target": "file:src/h1_2_description/meshes/R_index_proximal.STL",
+      "type": "alternative_model",
+      "label": "同一关节的备用网格模型：link15_R.STL（当前使用）↔ R_index_proximal.STL（备用/历史）"
+    },
+    {
+      "source": "file:src/h1_2_description/meshes/link16_R.STL",
+      "target": "file:src/h1_2_description/meshes/R_index_intermediate.STL",
+      "type": "alternative_model",
+      "label": "同一关节的备用网格模型：link16_R.STL（当前使用）↔ R_index_intermediate.STL（备用/历史）"
+    }
+  ]
+}

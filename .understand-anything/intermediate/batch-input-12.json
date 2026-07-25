@@ -1,0 +1,43 @@
+{
+  "batchIndex": 12,
+  "files": [
+    {
+      "path": "src/h1_2_description/CMakeLists.txt",
+      "language": "txt",
+      "sizeLines": 21,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "src/h1_2_description/README.md",
+      "language": "markdown",
+      "sizeLines": 20,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "src/h1_2_description/h1_2.xml",
+      "language": "xml",
+      "sizeLines": 451,
+      "fileCategory": "config"
+    },
+    {
+      "path": "src/h1_2_description/h1_2_handless.xml",
+      "language": "xml",
+      "sizeLines": 253,
+      "fileCategory": "config"
+    },
+    {
+      "path": "src/h1_2_description/package.xml",
+      "language": "xml",
+      "sizeLines": 14,
+      "fileCategory": "config"
+    }
+  ],
+  "batchImportData": {
+    "src/h1_2_description/CMakeLists.txt": [],
+    "src/h1_2_description/README.md": [],
+    "src/h1_2_description/h1_2.xml": [],
+    "src/h1_2_description/h1_2_handless.xml": [],
+    "src/h1_2_description/package.xml": []
+  },
+  "neighborMap": {}
+}

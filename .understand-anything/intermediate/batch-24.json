@@ -1,0 +1,255 @@
+{
+  "nodes": [
+    {
+      "id": "src/h1_2_description/meshes/right_index_force_sensor_1.STL",
+      "type": "3D网格模型",
+      "name": "right_index_force_sensor_1",
+      "filePath": "src/h1_2_description/meshes/right_index_force_sensor_1.STL",
+      "summary": "右手食指力传感器第一段的三维网格模型，用于URDF机器人描述中的可视化和碰撞检测。该组件属于H1_2人形机器人右手食指力传感器的近端部分，为六维力/力矩传感器提供几何外形。",
+      "tags": ["STL", "3D网格", "机器人模型", "URDF", "右手", "食指", "力传感器", "h1_2_description"],
+      "complexity": "low",
+      "languageNotes": "二进制STL格式文件，存储三角面片几何数据，属于机器人描述包的静态网格资源，非可执行代码。"
+    },
+    {
+      "id": "src/h1_2_description/meshes/right_index_force_sensor_2.STL",
+      "type": "3D网格模型",
+      "name": "right_index_force_sensor_2",
+      "filePath": "src/h1_2_description/meshes/right_index_force_sensor_2.STL",
+      "summary": "右手食指力传感器第二段的三维网格模型，用于URDF机器人描述中的可视化和碰撞检测。该组件为食指力传感器中间段，与前段和后段共同构成完整的指端力感知单元。",
+      "tags": ["STL", "3D网格", "机器人模型", "URDF", "右手", "食指", "力传感器", "h1_2_description"],
+      "complexity": "low",
+      "languageNotes": "二进制STL格式文件，存储三角面片几何数据，属于机器人描述包的静态网格资源，非可执行代码。"
+    },
+    {
+      "id": "src/h1_2_description/meshes/right_index_force_sensor_3.STL",
+      "type": "3D网格模型",
+      "name": "right_index_force_sensor_3",
+      "filePath": "src/h1_2_description/meshes/right_index_force_sensor_3.STL",
+      "summary": "右手食指力传感器第三段的三维网格模型，用于URDF机器人描述中的可视化和碰撞检测。该组件为食指力传感器远段（尖端部分），尺寸较小，负责指尖接触力的几何建模。",
+      "tags": ["STL", "3D网格", "机器人模型", "URDF", "右手", "食指", "力传感器", "h1_2_description"],
+      "complexity": "low",
+      "languageNotes": "二进制STL格式文件，存储三角面片几何数据，属于机器人描述包的静态网格资源，非可执行代码。"
+    },
+    {
+      "id": "src/h1_2_description/meshes/right_knee_link.STL",
+      "type": "3D网格模型",
+      "name": "right_knee_link",
+      "filePath": "src/h1_2_description/meshes/right_knee_link.STL",
+      "summary": "右膝关节连杆的三维网格模型，用于URDF机器人描述中的可视化和碰撞检测。该组件为H1_2人形机器人右腿膝关节的几何外形，连接大腿和小腿连杆，承担下肢运动中的旋转关节功能。",
+      "tags": ["STL", "3D网格", "机器人模型", "URDF", "右腿", "膝关节", "连杆", "h1_2_description"],
+      "complexity": "low",
+      "languageNotes": "二进制STL格式文件，存储三角面片几何数据，属于机器人描述包的静态网格资源，非可执行代码。"
+    },
+    {
+      "id": "src/h1_2_description/meshes/right_little_1.STL",
+      "type": "3D网格模型",
+      "name": "right_little_1",
+      "filePath": "src/h1_2_description/meshes/right_little_1.STL",
+      "summary": "右手小指第一指节（近端指骨）的三维网格模型，用于URDF机器人描述中的可视化和碰撞检测。该组件为H1_2人形机器人右手小指的最靠近手掌的指节，是小指灵巧操作的基础结构。",
+      "tags": ["STL", "3D网格", "机器人模型", "URDF", "右手", "小指", "指节", "h1_2_description"],
+      "complexity": "low",
+      "languageNotes": "二进制STL格式文件，存储三角面片几何数据，属于机器人描述包的静态网格资源，非可执行代码。"
+    },
+    {
+      "id": "src/h1_2_description/meshes/right_little_2.STL",
+      "type": "3D网格模型",
+      "name": "right_little_2",
+      "filePath": "src/h1_2_description/meshes/right_little_2.STL",
+      "summary": "右手小指第二指节（中间指骨）的三维网格模型，用于URDF机器人描述中的可视化和碰撞检测。该组件为小指中间段，连接近端指节与远端力传感器组件。",
+      "tags": ["STL", "3D网格", "机器人模型", "URDF", "右手", "小指", "指节", "h1_2_description"],
+      "complexity": "low",
+      "languageNotes": "二进制STL格式文件，存储三角面片几何数据，属于机器人描述包的静态网格资源，非可执行代码。"
+    },
+    {
+      "id": "src/h1_2_description/meshes/right_little_force_sensor_1.STL",
+      "type": "3D网格模型",
+      "name": "right_little_force_sensor_1",
+      "filePath": "src/h1_2_description/meshes/right_little_force_sensor_1.STL",
+      "summary": "右手小指力传感器第一段的三维网格模型，用于URDF机器人描述中的可视化和碰撞检测。该组件为小指力传感器近端部分，提供指尖接触力感知的几何载体。",
+      "tags": ["STL", "3D网格", "机器人模型", "URDF", "右手", "小指", "力传感器", "h1_2_description"],
+      "complexity": "low",
+      "languageNotes": "二进制STL格式文件，存储三角面片几何数据，属于机器人描述包的静态网格资源，非可执行代码。"
+    },
+    {
+      "id": "src/h1_2_description/meshes/right_little_force_sensor_2.STL",
+      "type": "3D网格模型",
+      "name": "right_little_force_sensor_2",
+      "filePath": "src/h1_2_description/meshes/right_little_force_sensor_2.STL",
+      "summary": "右手小指力传感器第二段的三维网格模型，用于URDF机器人描述中的可视化和碰撞检测。该组件为小指力传感器中间段，与其他两段配合实现完整的小指尖力感知几何建模。",
+      "tags": ["STL", "3D网格", "机器人模型", "URDF", "右手", "小指", "力传感器", "h1_2_description"],
+      "complexity": "low",
+      "languageNotes": "二进制STL格式文件，存储三角面片几何数据，属于机器人描述包的静态网格资源，非可执行代码。"
+    },
+    {
+      "id": "src/h1_2_description/meshes/right_little_force_sensor_3.STL",
+      "type": "3D网格模型",
+      "name": "right_little_force_sensor_3",
+      "filePath": "src/h1_2_description/meshes/right_little_force_sensor_3.STL",
+      "summary": "右手小指力传感器第三段的三维网格模型，用于URDF机器人描述中的可视化和碰撞检测。该组件为小指力传感器远段（尖端），尺寸最小，建模小指尖端触觉感知区域。",
+      "tags": ["STL", "3D网格", "机器人模型", "URDF", "右手", "小指", "力传感器", "h1_2_description"],
+      "complexity": "low",
+      "languageNotes": "二进制STL格式文件，存储三角面片几何数据，属于机器人描述包的静态网格资源，非可执行代码。"
+    },
+    {
+      "id": "src/h1_2_description/meshes/right_middle_1.STL",
+      "type": "3D网格模型",
+      "name": "right_middle_1",
+      "filePath": "src/h1_2_description/meshes/right_middle_1.STL",
+      "summary": "右手中指第一指节（近端指骨）的三维网格模型，用于URDF机器人描述中的可视化和碰撞检测。该组件为H1_2人形机器人右手中指最靠近手掌的指节，是中指灵巧操作的基础结构。",
+      "tags": ["STL", "3D网格", "机器人模型", "URDF", "右手", "中指", "指节", "h1_2_description"],
+      "complexity": "low",
+      "languageNotes": "二进制STL格式文件，存储三角面片几何数据，属于机器人描述包的静态网格资源，非可执行代码。"
+    },
+    {
+      "id": "src/h1_2_description/meshes/right_middle_2.STL",
+      "type": "3D网格模型",
+      "name": "right_middle_2",
+      "filePath": "src/h1_2_description/meshes/right_middle_2.STL",
+      "summary": "右手中指第二指节（中间指骨）的三维网格模型，用于URDF机器人描述中的可视化和碰撞检测。该组件为中指中间段，连接近端指节与远端力传感器组件，面数较高，几何细节丰富。",
+      "tags": ["STL", "3D网格", "机器人模型", "URDF", "右手", "中指", "指节", "h1_2_description"],
+      "complexity": "low",
+      "languageNotes": "二进制STL格式文件，存储三角面片几何数据，属于机器人描述包的静态网格资源，非可执行代码。"
+    },
+    {
+      "id": "src/h1_2_description/meshes/right_middle_force_sensor_1.STL",
+      "type": "3D网格模型",
+      "name": "right_middle_force_sensor_1",
+      "filePath": "src/h1_2_description/meshes/right_middle_force_sensor_1.STL",
+      "summary": "右手中指力传感器第一段的三维网格模型，用于URDF机器人描述中的可视化和碰撞检测。该组件为中指力传感器近端部分，为中指尖端力感知提供几何载体。",
+      "tags": ["STL", "3D网格", "机器人模型", "URDF", "右手", "中指", "力传感器", "h1_2_description"],
+      "complexity": "low",
+      "languageNotes": "二进制STL格式文件，存储三角面片几何数据，属于机器人描述包的静态网格资源，非可执行代码。"
+    },
+    {
+      "id": "src/h1_2_description/meshes/right_middle_force_sensor_2.STL",
+      "type": "3D网格模型",
+      "name": "right_middle_force_sensor_2",
+      "filePath": "src/h1_2_description/meshes/right_middle_force_sensor_2.STL",
+      "summary": "右手中指力传感器第二段的三维网格模型，用于URDF机器人描述中的可视化和碰撞检测。该组件为中指力传感器中间段，与其他两段配合实现完整的中指尖力感知几何建模。",
+      "tags": ["STL", "3D网格", "机器人模型", "URDF", "右手", "中指", "力传感器", "h1_2_description"],
+      "complexity": "low",
+      "languageNotes": "二进制STL格式文件，存储三角面片几何数据，属于机器人描述包的静态网格资源，非可执行代码。"
+    },
+    {
+      "id": "src/h1_2_description/meshes/right_middle_force_sensor_3.STL",
+      "type": "3D网格模型",
+      "name": "right_middle_force_sensor_3",
+      "filePath": "src/h1_2_description/meshes/right_middle_force_sensor_3.STL",
+      "summary": "右手中指力传感器第三段的三维网格模型，用于URDF机器人描述中的可视化和碰撞检测。该组件为中指力传感器远段（尖端），面数最少，建模中指尖端触觉感知区域。",
+      "tags": ["STL", "3D网格", "机器人模型", "URDF", "右手", "中指", "力传感器", "h1_2_description"],
+      "complexity": "low",
+      "languageNotes": "二进制STL格式文件，存储三角面片几何数据，属于机器人描述包的静态网格资源，非可执行代码。"
+    },
+    {
+      "id": "src/h1_2_description/meshes/right_palm_force_sensor.STL",
+      "type": "3D网格模型",
+      "name": "right_palm_force_sensor",
+      "filePath": "src/h1_2_description/meshes/right_palm_force_sensor.STL",
+      "summary": "右手掌力传感器的三维网格模型，用于URDF机器人描述中的可视化和碰撞检测。该组件面数最大（约3947行），为H1_2人形机器人右手掌心的力/触觉传感器提供详细的几何外形，是手部力感知系统的核心组件。",
+      "tags": ["STL", "3D网格", "机器人模型", "URDF", "右手", "手掌", "力传感器", "h1_2_description"],
+      "complexity": "low",
+      "languageNotes": "二进制STL格式文件，存储三角面片几何数据，属于机器人描述包的静态网格资源，非可执行代码。"
+    },
+    {
+      "id": "src/h1_2_description/meshes/right_pitch_link.STL",
+      "type": "3D网格模型",
+      "name": "right_pitch_link",
+      "filePath": "src/h1_2_description/meshes/right_pitch_link.STL",
+      "summary": "右手腕俯仰关节连杆的三维网格模型，用于URDF机器人描述中的可视化和碰撞检测。该组件为H1_2人形机器人右手腕的俯仰（pitch）方向关节连杆，实现手掌相对于前臂的上下俯仰运动。",
+      "tags": ["STL", "3D网格", "机器人模型", "URDF", "右手", "手腕", "俯仰关节", "连杆", "h1_2_description"],
+      "complexity": "low",
+      "languageNotes": "二进制STL格式文件，存储三角面片几何数据，属于机器人描述包的静态网格资源，非可执行代码。"
+    },
+    {
+      "id": "src/h1_2_description/meshes/right_ring_1.STL",
+      "type": "3D网格模型",
+      "name": "right_ring_1",
+      "filePath": "src/h1_2_description/meshes/right_ring_1.STL",
+      "summary": "右手无名指第一指节（近端指骨）的三维网格模型，用于URDF机器人描述中的可视化和碰撞检测。该组件为H1_2人形机器人右手无名指最靠近手掌的指节，是无名指灵巧操作的基础结构。",
+      "tags": ["STL", "3D网格", "机器人模型", "URDF", "右手", "无名指", "指节", "h1_2_description"],
+      "complexity": "low",
+      "languageNotes": "二进制STL格式文件，存储三角面片几何数据，属于机器人描述包的静态网格资源，非可执行代码。"
+    },
+    {
+      "id": "src/h1_2_description/meshes/right_ring_2.STL",
+      "type": "3D网格模型",
+      "name": "right_ring_2",
+      "filePath": "src/h1_2_description/meshes/right_ring_2.STL",
+      "summary": "右手无名指第二指节（中间指骨）的三维网格模型，用于URDF机器人描述中的可视化和碰撞检测。该组件为无名指中间段，连接近端指节与远端力传感器组件。",
+      "tags": ["STL", "3D网格", "机器人模型", "URDF", "右手", "无名指", "指节", "h1_2_description"],
+      "complexity": "low",
+      "languageNotes": "二进制STL格式文件，存储三角面片几何数据，属于机器人描述包的静态网格资源，非可执行代码。"
+    },
+    {
+      "id": "src/h1_2_description/meshes/right_ring_force_sensor_1.STL",
+      "type": "3D网格模型",
+      "name": "right_ring_force_sensor_1",
+      "filePath": "src/h1_2_description/meshes/right_ring_force_sensor_1.STL",
+      "summary": "右手无名指力传感器第一段的三维网格模型，用于URDF机器人描述中的可视化和碰撞检测。该组件为无名指力传感器近端部分，为无名指尖端力感知提供几何载体。",
+      "tags": ["STL", "3D网格", "机器人模型", "URDF", "右手", "无名指", "力传感器", "h1_2_description"],
+      "complexity": "low",
+      "languageNotes": "二进制STL格式文件，存储三角面片几何数据，属于机器人描述包的静态网格资源，非可执行代码。"
+    },
+    {
+      "id": "src/h1_2_description/meshes/right_ring_force_sensor_2.STL",
+      "type": "3D网格模型",
+      "name": "right_ring_force_sensor_2",
+      "filePath": "src/h1_2_description/meshes/right_ring_force_sensor_2.STL",
+      "summary": "右手无名指力传感器第二段的三维网格模型，用于URDF机器人描述中的可视化和碰撞检测。该组件为无名指力传感器中间段，与其他两段配合实现完整的无名指尖力感知几何建模。",
+      "tags": ["STL", "3D网格", "机器人模型", "URDF", "右手", "无名指", "力传感器", "h1_2_description"],
+      "complexity": "low",
+      "languageNotes": "二进制STL格式文件，存储三角面片几何数据，属于机器人描述包的静态网格资源，非可执行代码。"
+    },
+    {
+      "id": "src/h1_2_description/meshes/right_ring_force_sensor_3.STL",
+      "type": "3D网格模型",
+      "name": "right_ring_force_sensor_3",
+      "filePath": "src/h1_2_description/meshes/right_ring_force_sensor_3.STL",
+      "summary": "右手无名指力传感器第三段的三维网格模型，用于URDF机器人描述中的可视化和碰撞检测。该组件为无名指力传感器远段（尖端），尺寸最小，建模无名指尖端触觉感知区域。",
+      "tags": ["STL", "3D网格", "机器人模型", "URDF", "右手", "无名指", "力传感器", "h1_2_description"],
+      "complexity": "low",
+      "languageNotes": "二进制STL格式文件，存储三角面片几何数据，属于机器人描述包的静态网格资源，非可执行代码。"
+    },
+    {
+      "id": "src/h1_2_description/meshes/right_shoulder_pitch_link.STL",
+      "type": "3D网格模型",
+      "name": "right_shoulder_pitch_link",
+      "filePath": "src/h1_2_description/meshes/right_shoulder_pitch_link.STL",
+      "summary": "右肩俯仰关节连杆的三维网格模型，用于URDF机器人描述中的可视化和碰撞检测。该组件为H1_2人形机器人右肩的俯仰方向关节连杆，面数较大（约7061行），负责大臂前后摆动运动的关节几何建模。",
+      "tags": ["STL", "3D网格", "机器人模型", "URDF", "右肩", "俯仰关节", "连杆", "h1_2_description"],
+      "complexity": "low",
+      "languageNotes": "二进制STL格式文件，存储三角面片几何数据，属于机器人描述包的静态网格资源，非可执行代码。"
+    },
+    {
+      "id": "src/h1_2_description/meshes/right_shoulder_roll_link.STL",
+      "type": "3D网格模型",
+      "name": "right_shoulder_roll_link",
+      "filePath": "src/h1_2_description/meshes/right_shoulder_roll_link.STL",
+      "summary": "右肩翻滚关节连杆的三维网格模型，用于URDF机器人描述中的可视化和碰撞检测。该组件为H1_2人形机器人右肩的翻滚方向关节连杆，面数较大（约6310行），负责大臂内旋/外旋运动的关节几何建模。",
+      "tags": ["STL", "3D网格", "机器人模型", "URDF", "右肩", "翻滚关节", "连杆", "h1_2_description"],
+      "complexity": "low",
+      "languageNotes": "二进制STL格式文件，存储三角面片几何数据，属于机器人描述包的静态网格资源，非可执行代码。"
+    },
+    {
+      "id": "src/h1_2_description/meshes/right_shoulder_yaw_link.STL",
+      "type": "3D网格模型",
+      "name": "right_shoulder_yaw_link",
+      "filePath": "src/h1_2_description/meshes/right_shoulder_yaw_link.STL",
+      "summary": "右肩偏航关节连杆的三维网格模型，用于URDF机器人描述中的可视化和碰撞检测。该组件为H1_2人形机器人右肩的偏航方向关节连杆，面数最大（约8390行），是肩部最复杂的关节几何体，负责大臂侧向展开/收拢运动。",
+      "tags": ["STL", "3D网格", "机器人模型", "URDF", "右肩", "偏航关节", "连杆", "h1_2_description"],
+      "complexity": "low",
+      "languageNotes": "二进制STL格式文件，存储三角面片几何数据，属于机器人描述包的静态网格资源，非可执行代码。"
+    },
+    {
+      "id": "src/h1_2_description/meshes/right_thumb_1.STL",
+      "type": "3D网格模型",
+      "name": "right_thumb_1",
+      "filePath": "src/h1_2_description/meshes/right_thumb_1.STL",
+      "summary": "右手拇指第一指节的三维网格模型，用于URDF机器人描述中的可视化和碰撞检测。该组件为H1_2人形机器人右手拇指的近端指节，面数最少（约186行），是拇指与手掌连接的基础结构，为拇指对掌运动提供几何定义。",
+      "tags": ["STL", "3D网格", "机器人模型", "URDF", "右手", "拇指", "指节", "h1_2_description"],
+      "complexity": "low",
+      "languageNotes": "二进制STL格式文件，存储三角面片几何数据，属于机器人描述包的静态网格资源，非可执行代码。"
+    }
+  ],
+  "edges": []
+}

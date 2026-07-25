@@ -1,0 +1,459 @@
+{
+  "nodes": [
+    {
+      "id": "cmd_vel_to_h1_2_loco.cpp",
+      "type": "file",
+      "name": "cmd_vel_to_h1_2_loco.cpp",
+      "filePath": "src/h1_2_loco_bridge/src/cmd_vel_to_h1_2_loco.cpp",
+      "summary": "ROS2 节点 CmdVelToH12Loco，订阅 geometry_msgs/Twist 速度指令，经限幅和超时检查后通过 UDP 协议发送 vel 命令至 H1-2 机器人 loco daemon，支持 enabled/auto_start/continuous_move 等参数配置。",
+      "tags": ["ROS2", "UDP", "速度控制", "H1-2", "Twist"],
+      "complexity": "medium",
+      "languageNotes": "使用 rclcpp 订阅者与 wall timer 驱动周期性发布；用 POSIX socket API 发送 UDP 数据报；析构时自动发送零速安全停止。"
+    },
+    {
+      "id": "gesture_to_h1_2_loco.cpp",
+      "type": "file",
+      "name": "gesture_to_h1_2_loco.cpp",
+      "filePath": "src/h1_2_loco_bridge/src/gesture_to_h1_2_loco.cpp",
+      "summary": "ROS2 服务节点 GestureToH12Loco，提供 ExecuteGesture 服务接口，将 gesture 名称（如 shake_hand、wave_hand）通过 UDP 转发给 H1-2 loco daemon，并阻塞等待 daemon 的响应后返回。",
+      "tags": ["ROS2", "UDP", "手势", "服务", "H1-2"],
+      "complexity": "medium",
+      "languageNotes": "使用 create_service 创建服务端点，通过 setsockopt SO_RCVTIMEO 设置 UDP 接收超时，支持 shake_hand 的特殊时长参数。"
+    },
+    {
+      "id": "h1_2_loco_udp_daemon.cpp",
+      "type": "file",
+      "name": "h1_2_loco_udp_daemon.cpp",
+      "filePath": "src/h1_2_loco_bridge/src/h1_2_loco_udp_daemon.cpp",
+      "summary": "H1-2 机器人底层运动控制守护进程，绑定本地 UDP 端口接收 start/vel/gesture 指令，调用 Unitree LocoClient SDK（SetVelocity、WaveHand、ShakeHand、HighStand、LowStand、SetTaskId 等）直接操控机器人硬件。",
+      "tags": ["UDP", "守护进程", "Unitree", "LocoClient", "运动控制", "H1-2"],
+      "complexity": "high",
+      "languageNotes": "集成 Unitree robot SDK 的 ChannelFactory 和 LocoClient；通过 Signal 处理 SIGINT/SIGTERM 实现优雅退出；支持命令行参数配置网络接口和 Domain ID；shake_hand 等待指定时长后调用 ShakeHand(1) 完成。"
+    },
+    {
+      "id": "h1_2_nav_msgs_CMakeLists.txt",
+      "type": "file",
+      "name": "CMakeLists.txt",
+      "filePath": "src/h1_2_nav_msgs/CMakeLists.txt",
+      "summary": "h1_2_nav_msgs 包的 CMake 构建文件，使用 rosidl_generate_interfaces 生成 7 个自定义服务接口（DeleteMemoryPoint、ExecuteGesture、ListMemoryPoints、RouteStatus、SaveMemoryPoint、StartRoute、StopRoute），依赖 geometry_msgs。",
+      "tags": ["CMake", "ROS2", "消息接口", "服务定义", "构建配置"],
+      "complexity": "low"
+    },
+    {
+      "id": "h1_2_nav_msgs_package.xml",
+      "type": "file",
+      "name": "package.xml",
+      "filePath": "src/h1_2_nav_msgs/package.xml",
+      "summary": "h1_2_nav_msgs 包的清单文件，声明为 rosidl_interface_packages 成员，构建和运行依赖 geometry_msgs 与 rosidl_default_generators/runtime。",
+      "tags": ["package.xml", "ROS2", "消息接口", "依赖声明"],
+      "complexity": "low"
+    },
+    {
+      "id": "DeleteMemoryPoint.srv",
+      "type": "file",
+      "name": "DeleteMemoryPoint.srv",
+      "filePath": "src/h1_2_nav_msgs/srv/DeleteMemoryPoint.srv",
+      "summary": "ROS2 服务定义：删除指定名称的记忆点，请求为 name(string)，响应返回 success(bool) 和 message(string)。",
+      "tags": ["ROS2", "服务定义", "记忆点", "删除"],
+      "complexity": "low"
+    },
+    {
+      "id": "ExecuteGesture.srv",
+      "type": "file",
+      "name": "ExecuteGesture.srv",
+      "filePath": "src/h1_2_nav_msgs/srv/ExecuteGesture.srv",
+      "summary": "ROS2 服务定义：执行指定名称的手势动作，请求为 name(string)，响应包含 success(bool)、sdk_ret(int32) 和 message(string)。",
+      "tags": ["ROS2", "服务定义", "手势", "执行"],
+      "complexity": "low"
+    },
+    {
+      "id": "ListMemoryPoints.srv",
+      "type": "file",
+      "name": "ListMemoryPoints.srv",
+      "filePath": "src/h1_2_nav_msgs/srv/ListMemoryPoints.srv",
+      "summary": "ROS2 服务定义：列出所有记忆点，无请求字段，响应包含 success、message、names(string[]) 和对应位姿 poses(geometry_msgs/PoseStamped[])。",
+      "tags": ["ROS2", "服务定义", "记忆点", "列表"],
+      "complexity": "low"
+    },
+    {
+      "id": "RouteStatus.srv",
+      "type": "file",
+      "name": "RouteStatus.srv",
+      "filePath": "src/h1_2_nav_msgs/srv/RouteStatus.srv",
+      "summary": "ROS2 服务定义：查询巡航路线运行状态，无请求字段，响应包含 success、state(string)、current_goal(string)、current_index(uint32) 和 message(string)。",
+      "tags": ["ROS2", "服务定义", "巡航", "状态"],
+      "complexity": "low"
+    },
+    {
+      "id": "SaveMemoryPoint.srv",
+      "type": "file",
+      "name": "SaveMemoryPoint.srv",
+      "filePath": "src/h1_2_nav_msgs/srv/SaveMemoryPoint.srv",
+      "summary": "ROS2 服务定义：保存机器人当前位姿为记忆点，请求为 name(string) 和 overwrite(bool)，响应包含 success、message 和实际保存的 pose(PoseStamped)。",
+      "tags": ["ROS2", "服务定义", "记忆点", "保存"],
+      "complexity": "low"
+    },
+    {
+      "id": "StartRoute.srv",
+      "type": "file",
+      "name": "StartRoute.srv",
+      "filePath": "src/h1_2_nav_msgs/srv/StartRoute.srv",
+      "summary": "ROS2 服务定义：启动记忆巡航路线，无请求字段，响应返回 success(bool) 和 message(string)。",
+      "tags": ["ROS2", "服务定义", "巡航", "启动"],
+      "complexity": "low"
+    },
+    {
+      "id": "StopRoute.srv",
+      "type": "file",
+      "name": "StopRoute.srv",
+      "filePath": "src/h1_2_nav_msgs/srv/StopRoute.srv",
+      "summary": "ROS2 服务定义：停止巡航路线，无请求字段，响应返回 success(bool) 和 message(string)。",
+      "tags": ["ROS2", "服务定义", "巡航", "停止"],
+      "complexity": "low"
+    },
+    {
+      "id": "h1_2_navigate_to_pose_no_spin_recovery.xml",
+      "type": "file",
+      "name": "h1_2_navigate_to_pose_no_spin_recovery.xml",
+      "filePath": "src/h1_2_nav_tools/behavior_trees/h1_2_navigate_to_pose_no_spin_recovery.xml",
+      "summary": "Nav2 行为树 XML，用于 H1 实机在线 lidar 导航。移除默认的 Spin/BackUp 恢复动作，采用 ComputePathToPose + FollowPath 的序列结构，恢复策略仅使用 ClearEntireCostmap（分别清除全局和局部代价地图），共重试 2 次。",
+      "tags": ["Nav2", "行为树", "导航", "代价地图清除", "避障恢复"],
+      "complexity": "medium"
+    },
+    {
+      "id": "h1_2_nav_tools___init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "src/h1_2_nav_tools/h1_2_nav_tools/__init__.py",
+      "summary": "h1_2_nav_tools Python 包的初始化文件（空文件），标记该目录为 Python package。",
+      "tags": ["Python", "包初始化"],
+      "complexity": "low"
+    },
+    {
+      "id": "auto_initial_pose.py",
+      "type": "file",
+      "name": "auto_initial_pose.py",
+      "filePath": "src/h1_2_nav_tools/h1_2_nav_tools/auto_initial_pose.py",
+      "summary": "ROS2 节点 AutoInitialPose，从 memory_points.json 加载 START 记忆点位姿，周期性发布 /initialpose 话题用于 AMCL 初始化；支持 ICP 重定位请求、定位质量检测（稳定样本数和 max_score 阈值）、TF 可用性检查，并可自动触发巡航路线启动。",
+      "tags": ["ROS2", "初始位姿", "ICP重定位", "定位质量", "巡航自动启动"],
+      "complexity": "high",
+      "languageNotes": "综合使用 TF Buffer/TransformListener、服务客户端（StartRoute、Relocalize）、订阅者（Odometry、LocalizationStatus）和定时器，实现了从初始位姿发布到定位确认再到自动启动巡航的完整状态机。"
+    },
+    {
+      "id": "camera_stream.py",
+      "type": "file",
+      "name": "camera_stream.py",
+      "filePath": "src/h1_2_nav_tools/h1_2_nav_tools/camera_stream.py",
+      "summary": "相机帧存储与 JPEG 编码工具模块。提供 CameraFrameStore 类（线程安全的帧存储，支持 RGB/Depth/Annotated 三路流，含超时检测与 FPS 统计）以及 encode_rgb_jpeg、encode_depth_jpeg 转换函数（支持多种编码格式到 Turbo 热力图彩色 JPEG）。",
+      "tags": ["相机", "JPEG编码", "OpenCV", "帧存储", "线程安全", "深度图"],
+      "complexity": "medium",
+      "languageNotes": "使用 OpenCV (cv2) 进行颜色空间转换和 JPEG 编码；深度图编码支持 16UC1 和 32FC1 格式，使用 COLORMAP_TURBO 伪彩色映射无效区域。"
+    },
+    {
+      "id": "cmd_vel_to_sport_mode.py",
+      "type": "file",
+      "name": "cmd_vel_to_sport_mode.py",
+      "filePath": "src/h1_2_nav_tools/h1_2_nav_tools/cmd_vel_to_sport_mode.py",
+      "summary": "ROS2 节点 CmdVelToSportMode，将 geometry_msgs/Twist 速度指令转换为 Unitree SportModeCmd 消息发布至 /ros_sport_mode_cmd 话题，支持速度限幅、超时归零和运动模式/步态/速度等级配置。",
+      "tags": ["ROS2", "Unitree", "SportMode", "速度转换", "Twist"],
+      "complexity": "medium"
+    },
+    {
+      "id": "costmap_clear_on_initialpose.py",
+      "type": "file",
+      "name": "costmap_clear_on_initialpose.py",
+      "filePath": "src/h1_2_nav_tools/h1_2_nav_tools/costmap_clear_on_initialpose.py",
+      "summary": "ROS2 节点 CostmapClearOnInitialPose，监听 /initialpose 话题，收到初始位姿时自动异步调用全局和局部代价地图的 ClearEntireCostmap 服务，确保重定位后代价地图清零。",
+      "tags": ["ROS2", "代价地图", "Nav2", "初始位姿", "清理"],
+      "complexity": "low"
+    },
+    {
+      "id": "fastlio_odom_adapter.py",
+      "type": "file",
+      "name": "fastlio_odom_adapter.py",
+      "filePath": "src/h1_2_nav_tools/h1_2_nav_tools/fastlio_odom_adapter.py",
+      "summary": "ROS2 节点 FastLioOdomAdapter，将 FastLIO 输出的 /slam_odom 里程计转换为 Nav2 兼容的 /odom 里程计，支持 yaw 偏移、平面化（z=0）和按需发布 odom->base_link 的 TF 变换。",
+      "tags": ["ROS2", "FastLIO", "里程计", "TF", "坐标系适配"],
+      "complexity": "medium",
+      "languageNotes": "自定义 yaw_from_quaternion / quaternion_from_yaw 工具函数处理四元数与欧拉角转换，使用 tf2_ros TransformBroadcaster 发布 TF。"
+    },
+    {
+      "id": "goal_pose_to_nav2.py",
+      "type": "file",
+      "name": "goal_pose_to_nav2.py",
+      "filePath": "src/h1_2_nav_tools/h1_2_nav_tools/goal_pose_to_nav2.py",
+      "summary": "ROS2 节点 GoalPoseToNav2，订阅 /goal_pose 话题，将收到的 PoseStamped 转发为 Nav2 NavigateToPose 动作目标，支持目标取消与替换，追踪目标完成状态。",
+      "tags": ["ROS2", "Nav2", "NavigateToPose", "动作客户端", "目标转发"],
+      "complexity": "medium"
+    },
+    {
+      "id": "h1_2_nav_gui.py",
+      "type": "file",
+      "name": "h1_2_nav_gui.py",
+      "filePath": "src/h1_2_nav_tools/h1_2_nav_tools/h1_2_nav_gui.py",
+      "summary": "基于 PyQt5 的 H1-2 离线导航桌面控制台。提供路线配置（记忆点选择/手势绑定）、地图与 PCD 路径设置、定位方式选择（global_gicp/icp）、流程管理（导航/RViz/语音控制的启停）、定位状态实时监控和命令行预览生成。使用 ROS 服务桥接层封装路由控制、手势执行和定位状态订阅。",
+      "tags": ["PyQt5", "GUI", "导航控制台", "巡航", "RViz", "流程管理", "H1-2"],
+      "complexity": "high",
+      "languageNotes": "使用 PyQt5 自定义 QSS 样式表（暗蓝色侧边栏 + 浅色内容区）；ROS 桥接通过独立线程的 MultiThreadedExecutor 运行；配置持久化到 ~/.ros/h1_2_nav_gui.json。"
+    },
+    {
+      "id": "h1_2_nav_web_gui.py",
+      "type": "file",
+      "name": "h1_2_nav_web_gui.py",
+      "filePath": "src/h1_2_nav_tools/h1_2_nav_tools/h1_2_nav_web_gui.py",
+      "summary": "基于 Python HTTP Server 的 H1-2 导航 Web 控制面板。提供完整的 REST API（导航/示教巡航/示教录制/语音控制/视觉检测/相机预览/RViz 远程嵌入的启停与状态查询），内嵌单页 HTML 前端（深色主题、CSS Grid 布局、机器人状态卡片、电池信息环、相机 MJPEG 预览流），支持远程 SSH 启动语音和视觉节点，管理多个子进程生命周期。",
+      "tags": ["Web GUI", "HTTP Server", "REST API", "导航", "示教", "相机", "RViz", "远程控制", "H1-2"],
+      "complexity": "high",
+      "languageNotes": "使用 Python 标准库 ThreadingHTTPServer + BaseHTTPRequestHandler 构建；内嵌 2600+ 行的完整 HTML/CSS/JS 前端；ProcessManager 封装 subprocess 进程管理与流式日志读取；RosServiceBridge 封装 ROS 服务调用与相机帧订阅；支持单实例守护与端口自适应探测。"
+    },
+    {
+      "id": "h1_2_voice_action_bridge.py",
+      "type": "file",
+      "name": "h1_2_voice_action_bridge.py",
+      "filePath": "src/h1_2_nav_tools/h1_2_nav_tools/h1_2_voice_action_bridge.py",
+      "summary": "ROS2 节点 H12VoiceActionBridge，将语音指令码（Int32）映射为具体动作：速度运动（前进/右转）、手势（低站/高站/伸手/缩手/挥手）、Nav2 导航点（A/B/C/START）。通过 ListMemoryPoints 服务查询导航点坐标，经 NavigateToPose 动作客户端执行导航，支持 zeno burst 机制实现非连续运动。",
+      "tags": ["ROS2", "语音控制", "手势", "导航", "动作映射", "H1-2"],
+      "complexity": "high",
+      "languageNotes": "从 h1_2_voice_control 包导入语音码常量映射；使用序列号机制避免过时的异步导航回调；支持连续运动模式与非连续运动的 zero_burst_count 机制。"
+    },
+    {
+      "id": "initialpose_time_adapter.py",
+      "type": "file",
+      "name": "initialpose_time_adapter.py",
+      "filePath": "src/h1_2_nav_tools/h1_2_nav_tools/initialpose_time_adapter.py",
+      "summary": "ROS2 节点 InitialPoseTimeAdapter，将 RViz 发布的 /rviz_initialpose（时间戳可能较旧）转发为 /initialpose，使用当前最新的 /slam_odom 里程计时间戳替换，确保 AMCL 能正确接收初始位姿。",
+      "tags": ["ROS2", "初始位姿", "时间戳适配", "AMCL", "RViz"],
+      "complexity": "low"
+    },
+    {
+      "id": "memory_point_cli.py",
+      "type": "file",
+      "name": "memory_point_cli.py",
+      "filePath": "src/h1_2_nav_tools/h1_2_nav_tools/memory_point_cli.py",
+      "summary": "命令行工具，通过 ROS2 服务调用管理导航记忆点，支持 save（保存当前位姿为记忆点）、delete（删除指定记忆点）和 list（列出所有记忆点及其坐标）三个子命令。",
+      "tags": ["ROS2", "CLI", "记忆点", "命令行工具"],
+      "complexity": "medium"
+    }
+  ],
+  "edges": [
+    {
+      "sourceId": "h1_2_nav_web_gui.py",
+      "targetId": "camera_stream.py",
+      "type": "imports",
+      "label": "导入 CameraFrameStore, encode_rgb_jpeg, encode_depth_jpeg",
+      "properties": {}
+    },
+    {
+      "sourceId": "h1_2_voice_action_bridge.py",
+      "targetId": "h1_2_voice_control.__init__",
+      "type": "imports",
+      "label": "导入语音码常量和 parse_code_list",
+      "properties": {
+        "targetBatchIndex": 28
+      }
+    },
+    {
+      "sourceId": "gesture_to_h1_2_loco.cpp",
+      "targetId": "ExecuteGesture.srv",
+      "type": "uses_interface",
+      "label": "使用 ExecuteGesture 服务定义作为服务端点",
+      "properties": {}
+    },
+    {
+      "sourceId": "cmd_vel_to_h1_2_loco.cpp",
+      "targetId": "h1_2_loco_udp_daemon.cpp",
+      "type": "communicates_with",
+      "label": "通过 UDP 发送 vel 命令至 loco daemon",
+      "properties": {}
+    },
+    {
+      "sourceId": "gesture_to_h1_2_loco.cpp",
+      "targetId": "h1_2_loco_udp_daemon.cpp",
+      "type": "communicates_with",
+      "label": "通过 UDP 发送 gesture 命令至 loco daemon 并等待响应",
+      "properties": {}
+    },
+    {
+      "sourceId": "h1_2_nav_gui.py",
+      "targetId": "StartRoute.srv",
+      "type": "uses_interface",
+      "label": "调用 start_memory_route 服务（StartRoute）",
+      "properties": {}
+    },
+    {
+      "sourceId": "h1_2_nav_gui.py",
+      "targetId": "StopRoute.srv",
+      "type": "uses_interface",
+      "label": "调用 stop_memory_route 服务（StopRoute）",
+      "properties": {}
+    },
+    {
+      "sourceId": "h1_2_nav_gui.py",
+      "targetId": "RouteStatus.srv",
+      "type": "uses_interface",
+      "label": "调用 memory_route_status 服务（RouteStatus）",
+      "properties": {}
+    },
+    {
+      "sourceId": "h1_2_nav_gui.py",
+      "targetId": "ExecuteGesture.srv",
+      "type": "uses_interface",
+      "label": "调用手势执行服务（wave_hand/shake_hand）",
+      "properties": {}
+    },
+    {
+      "sourceId": "h1_2_nav_web_gui.py",
+      "targetId": "StartRoute.srv",
+      "type": "uses_interface",
+      "label": "调用 start_memory_route / start_teaching_route 服务",
+      "properties": {}
+    },
+    {
+      "sourceId": "h1_2_nav_web_gui.py",
+      "targetId": "StopRoute.srv",
+      "type": "uses_interface",
+      "label": "调用 stop_memory_route / stop_teaching_route 服务",
+      "properties": {}
+    },
+    {
+      "sourceId": "h1_2_nav_web_gui.py",
+      "targetId": "RouteStatus.srv",
+      "type": "uses_interface",
+      "label": "调用 memory_route_status / teaching_route_status 服务",
+      "properties": {}
+    },
+    {
+      "sourceId": "h1_2_nav_web_gui.py",
+      "targetId": "ExecuteGesture.srv",
+      "type": "uses_interface",
+      "label": "调用 /h1_2_loco/execute_gesture 服务",
+      "properties": {}
+    },
+    {
+      "sourceId": "auto_initial_pose.py",
+      "targetId": "StartRoute.srv",
+      "type": "uses_interface",
+      "label": "调用 start_memory_route 服务自动启动巡航",
+      "properties": {}
+    },
+    {
+      "sourceId": "h1_2_voice_action_bridge.py",
+      "targetId": "ExecuteGesture.srv",
+      "type": "uses_interface",
+      "label": "调用 ExecuteGesture 服务执行手势（low_stand/high_stand/reach_hand/retract_hand/wave_hand）",
+      "properties": {}
+    },
+    {
+      "sourceId": "h1_2_voice_action_bridge.py",
+      "targetId": "ListMemoryPoints.srv",
+      "type": "uses_interface",
+      "label": "调用 ListMemoryPoints 服务查询导航点坐标",
+      "properties": {}
+    },
+    {
+      "sourceId": "memory_point_cli.py",
+      "targetId": "SaveMemoryPoint.srv",
+      "type": "uses_interface",
+      "label": "调用 SaveMemoryPoint 服务保存记忆点",
+      "properties": {}
+    },
+    {
+      "sourceId": "memory_point_cli.py",
+      "targetId": "DeleteMemoryPoint.srv",
+      "type": "uses_interface",
+      "label": "调用 DeleteMemoryPoint 服务删除记忆点",
+      "properties": {}
+    },
+    {
+      "sourceId": "memory_point_cli.py",
+      "targetId": "ListMemoryPoints.srv",
+      "type": "uses_interface",
+      "label": "调用 ListMemoryPoints 服务列出所有记忆点",
+      "properties": {}
+    },
+    {
+      "sourceId": "h1_2_nav_msgs_CMakeLists.txt",
+      "targetId": "DeleteMemoryPoint.srv",
+      "type": "builds",
+      "label": "生成 DeleteMemoryPoint 服务接口代码",
+      "properties": {}
+    },
+    {
+      "sourceId": "h1_2_nav_msgs_CMakeLists.txt",
+      "targetId": "ExecuteGesture.srv",
+      "type": "builds",
+      "label": "生成 ExecuteGesture 服务接口代码",
+      "properties": {}
+    },
+    {
+      "sourceId": "h1_2_nav_msgs_CMakeLists.txt",
+      "targetId": "ListMemoryPoints.srv",
+      "type": "builds",
+      "label": "生成 ListMemoryPoints 服务接口代码",
+      "properties": {}
+    },
+    {
+      "sourceId": "h1_2_nav_msgs_CMakeLists.txt",
+      "targetId": "RouteStatus.srv",
+      "type": "builds",
+      "label": "生成 RouteStatus 服务接口代码",
+      "properties": {}
+    },
+    {
+      "sourceId": "h1_2_nav_msgs_CMakeLists.txt",
+      "targetId": "SaveMemoryPoint.srv",
+      "type": "builds",
+      "label": "生成 SaveMemoryPoint 服务接口代码",
+      "properties": {}
+    },
+    {
+      "sourceId": "h1_2_nav_msgs_CMakeLists.txt",
+      "targetId": "StartRoute.srv",
+      "type": "builds",
+      "label": "生成 StartRoute 服务接口代码",
+      "properties": {}
+    },
+    {
+      "sourceId": "h1_2_nav_msgs_CMakeLists.txt",
+      "targetId": "StopRoute.srv",
+      "type": "builds",
+      "label": "生成 StopRoute 服务接口代码",
+      "properties": {}
+    },
+    {
+      "sourceId": "h1_2_nav_msgs_package.xml",
+      "targetId": "h1_2_nav_msgs_CMakeLists.txt",
+      "type": "co_configures",
+      "label": "package.xml 与 CMakeLists.txt 联合定义 h1_2_nav_msgs 包",
+      "properties": {}
+    },
+    {
+      "sourceId": "h1_2_nav_web_gui.py",
+      "targetId": "h1_2_nav_gui.py",
+      "type": "sibling",
+      "label": "Web GUI 是桌面 PyQt5 GUI 的 Web 替代方案，共享相同的定位评估逻辑和命名约定",
+      "properties": {}
+    },
+    {
+      "sourceId": "cmd_vel_to_sport_mode.py",
+      "targetId": "cmd_vel_to_h1_2_loco.cpp",
+      "type": "alternative",
+      "label": "Python 版 SportMode 与 C++ 版 UDP 桥接是两种不同的速度指令输出通道",
+      "properties": {}
+    },
+    {
+      "sourceId": "initialpose_time_adapter.py",
+      "targetId": "costmap_clear_on_initialpose.py",
+      "type": "related",
+      "label": "均监听并处理初始位姿事件（时间戳适配 vs 代价地图清理）",
+      "properties": {}
+    },
+    {
+      "sourceId": "fastlio_odom_adapter.py",
+      "targetId": "auto_initial_pose.py",
+      "type": "related",
+      "label": "均用于导航栈定位初始化（里程计坐标系适配 vs 初始位姿发布）",
+      "properties": {}
+    }
+  ]
+}

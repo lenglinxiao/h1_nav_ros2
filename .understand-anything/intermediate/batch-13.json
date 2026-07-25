@@ -1,0 +1,92 @@
+{
+  "nodes": [
+    {
+      "id": "node-batch13-001",
+      "type": "config",
+      "name": "nav2_h1_2.yaml",
+      "filePath": "src/h1_2_nav_tools/config/nav2_h1_2.yaml",
+      "summary": "H1_2 机器人的主 Nav2 导航栈配置文件。定义行为树导航器 (bt_navigator)、使用 DWB 局部规划器的控制器服务器、基于 LaserScan 的局部代价地图和全局代价地图、Navfn 全局规划器、恢复行为服务器（spin/backup/wait）以及航点跟随器。全局坐标系为 map，里程计话题为 /odom。",
+      "tags": ["Nav2", "配置", "导航栈", "DWB", "代价地图", "行为树", "Navfn"],
+      "complexity": "high",
+      "languageNotes": "ROS 2 Nav2 参数配置 (YAML)，包含 ~8 个顶层节点的完整参数定义。"
+    },
+    {
+      "id": "node-batch13-002",
+      "type": "config",
+      "name": "nav2_h1_2_camera_init.yaml",
+      "filePath": "src/h1_2_nav_tools/config/nav2_h1_2_camera_init.yaml",
+      "summary": "H1_2 机器人在 camera_init 坐标系下运行的 Nav2 导航栈变体配置。与主配置的关键区别：全局坐标系为 camera_init，里程计使用 /slam_odom，局部代价地图采用 PointCloud2 点云观测源替代 LaserScan 并设置障碍物高度过滤，降低了偏航角容忍度至 6.28（几乎忽略朝向），全局代价地图仅保留静态层和膨胀层（无动态障碍物层），全局路径规划不允许穿越未知区域。",
+      "tags": ["Nav2", "配置", "camera_init", "点云代价地图", "DWB", "SLAM里程计"],
+      "complexity": "high",
+      "languageNotes": "ROS 2 Nav2 参数配置变体 (YAML)，针对无可靠绝对定位场景优化的导航配置。"
+    },
+    {
+      "id": "node-batch13-003",
+      "type": "config",
+      "name": "nav2_h1_2_rpp.yaml",
+      "filePath": "src/h1_2_nav_tools/config/nav2_h1_2_rpp.yaml",
+      "summary": "H1_2 机器人使用 Regulated Pure Pursuit (RPP) 控制器的 Nav2 导航栈配置变体。以 RPP 替代 DWB 作为路径跟踪算法，配置了前视距离（0.15-0.35m）、速度缩放和受约束的线速度调节，线速度目标为 0.10 m/s。其他部分与主配置基本一致，恢复行为更多（movement_time_allowance 20s，required_movement_radius 0.1m）。",
+      "tags": ["Nav2", "配置", "RPP", "PurePursuit", "代价地图", "路径跟踪"],
+      "complexity": "high",
+      "languageNotes": "ROS 2 Nav2 参数配置变体 (YAML)，采用 Regulated Pure Pursuit 控制器替代 DWB 局部规划器。"
+    },
+    {
+      "id": "node-batch13-004",
+      "type": "config",
+      "name": "nav_tools.yaml",
+      "filePath": "src/h1_2_nav_tools/config/nav_tools.yaml",
+      "summary": "H1_2 导航工具集的 ROS 2 参数配置。定义了五个功能节点：(1) path_to_waypoint — 基于曲率的路点插值与路径跟踪，支持前视距离自适应和高曲率检测；(2) play_teaching_path — 示教路径回放；(3) record_teaching_path — 示教路径录制；(4) velocity_smoother_ema — 指数移动平均速度平滑器 (alpha=0.4)；(5) costmap_clear_on_initialpose — 初始位姿重设时自动清除代价地图的服务绑定。",
+      "tags": ["导航工具", "配置", "路径跟踪", "速度平滑", "示教路径", "代价地图清除", "EMA"],
+      "complexity": "medium",
+      "languageNotes": "ROS 2 自定义导航工具节点参数配置 (YAML)，共 5 个节点配置节。"
+    },
+    {
+      "id": "node-batch13-005",
+      "type": "config",
+      "name": "teaching_route_events.example.json",
+      "filePath": "src/h1_2_nav_tools/config/teaching_route_events.example.json",
+      "summary": "示教路径事件配置示例文件。定义在路径点上触发的事件：在路点 'A' 处，当机器人进入 0.45m 触发半径时，执行挥手手势 (wave_hand) 并播放语音代码 52。",
+      "tags": ["示教路径", "事件配置", "示例", "手势", "语音"],
+      "complexity": "low",
+      "languageNotes": "JSON 配置示例，包含单个事件对象的 events 数组。"
+    }
+  ],
+  "edges": [
+    {
+      "sourceId": "node-batch13-002",
+      "targetId": "node-batch13-001",
+      "type": "variant_of",
+      "label": "基于主配置的 camera_init 坐标系变体"
+    },
+    {
+      "sourceId": "node-batch13-003",
+      "targetId": "node-batch13-001",
+      "type": "variant_of",
+      "label": "基于主配置的 RPP 控制器变体"
+    },
+    {
+      "sourceId": "node-batch13-004",
+      "targetId": "node-batch13-001",
+      "type": "complements",
+      "label": "为 Nav2 核心导航栈提供辅助工具配置"
+    },
+    {
+      "sourceId": "node-batch13-004",
+      "targetId": "node-batch13-002",
+      "type": "complements",
+      "label": "为 camera_init 导航变体提供辅助工具配置"
+    },
+    {
+      "sourceId": "node-batch13-004",
+      "targetId": "node-batch13-003",
+      "type": "complements",
+      "label": "为 RPP 导航变体提供辅助工具配置"
+    },
+    {
+      "sourceId": "node-batch13-005",
+      "targetId": "node-batch13-004",
+      "type": "configures",
+      "label": "为 play_teaching_path / record_teaching_path 提供事件配置示例"
+    }
+  ]
+}

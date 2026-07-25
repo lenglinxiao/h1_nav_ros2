@@ -20,3 +20,7 @@ __pycache__/
 # Third-party sources are kept for offline builds; generated artifacts are not.
 third_party/**/build/
 third_party/**/build_*/
+
+# Large local datasets and generated benchmark reports.
+datasets/bags/
+datasets/results/

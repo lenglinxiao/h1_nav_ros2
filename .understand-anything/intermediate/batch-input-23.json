@@ -1,0 +1,183 @@
+{
+  "batchIndex": 23,
+  "files": [
+    {
+      "path": "src/h1_2_description/meshes/R_middle_intermediate.STL",
+      "language": "stl",
+      "sizeLines": 625,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/R_middle_proximal.STL",
+      "language": "stl",
+      "sizeLines": 1787,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/R_pinky_intermediate.STL",
+      "language": "stl",
+      "sizeLines": 1579,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/R_pinky_proximal.STL",
+      "language": "stl",
+      "sizeLines": 1788,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/R_ring_intermediate.STL",
+      "language": "stl",
+      "sizeLines": 1016,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/R_ring_proximal.STL",
+      "language": "stl",
+      "sizeLines": 1790,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/R_thumb_distal.STL",
+      "language": "stl",
+      "sizeLines": 574,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/R_thumb_intermediate.STL",
+      "language": "stl",
+      "sizeLines": 1512,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/R_thumb_proximal_base.STL",
+      "language": "stl",
+      "sizeLines": 77,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/R_thumb_proximal.STL",
+      "language": "stl",
+      "sizeLines": 2767,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_ankle_A_link.STL",
+      "language": "stl",
+      "sizeLines": 891,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_ankle_A_rod_link.STL",
+      "language": "stl",
+      "sizeLines": 111,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_ankle_B_link.STL",
+      "language": "stl",
+      "sizeLines": 940,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_ankle_B_rod_link.STL",
+      "language": "stl",
+      "sizeLines": 92,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_ankle_link.STL",
+      "language": "stl",
+      "sizeLines": 2279,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_ankle_pitch_link.STL",
+      "language": "stl",
+      "sizeLines": 84,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_ankle_roll_link.STL",
+      "language": "stl",
+      "sizeLines": 765,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_base_link.STL",
+      "language": "stl",
+      "sizeLines": 22325,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_elbow_link.STL",
+      "language": "stl",
+      "sizeLines": 2995,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_hand_link.STL",
+      "language": "stl",
+      "sizeLines": 269,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_hip_pitch_link.STL",
+      "language": "stl",
+      "sizeLines": 3828,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_hip_roll_link.STL",
+      "language": "stl",
+      "sizeLines": 1094,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_hip_yaw_link.STL",
+      "language": "stl",
+      "sizeLines": 4723,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_index_1.STL",
+      "language": "stl",
+      "sizeLines": 2277,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_index_2.STL",
+      "language": "stl",
+      "sizeLines": 925,
+      "fileCategory": "code"
+    }
+  ],
+  "batchImportData": {
+    "src/h1_2_description/meshes/R_middle_intermediate.STL": [],
+    "src/h1_2_description/meshes/R_middle_proximal.STL": [],
+    "src/h1_2_description/meshes/R_pinky_intermediate.STL": [],
+    "src/h1_2_description/meshes/R_pinky_proximal.STL": [],
+    "src/h1_2_description/meshes/R_ring_intermediate.STL": [],
+    "src/h1_2_description/meshes/R_ring_proximal.STL": [],
+    "src/h1_2_description/meshes/R_thumb_distal.STL": [],
+    "src/h1_2_description/meshes/R_thumb_intermediate.STL": [],
+    "src/h1_2_description/meshes/R_thumb_proximal_base.STL": [],
+    "src/h1_2_description/meshes/R_thumb_proximal.STL": [],
+    "src/h1_2_description/meshes/right_ankle_A_link.STL": [],
+    "src/h1_2_description/meshes/right_ankle_A_rod_link.STL": [],
+    "src/h1_2_description/meshes/right_ankle_B_link.STL": [],
+    "src/h1_2_description/meshes/right_ankle_B_rod_link.STL": [],
+    "src/h1_2_description/meshes/right_ankle_link.STL": [],
+    "src/h1_2_description/meshes/right_ankle_pitch_link.STL": [],
+    "src/h1_2_description/meshes/right_ankle_roll_link.STL": [],
+    "src/h1_2_description/meshes/right_base_link.STL": [],
+    "src/h1_2_description/meshes/right_elbow_link.STL": [],
+    "src/h1_2_description/meshes/right_hand_link.STL": [],
+    "src/h1_2_description/meshes/right_hip_pitch_link.STL": [],
+    "src/h1_2_description/meshes/right_hip_roll_link.STL": [],
+    "src/h1_2_description/meshes/right_hip_yaw_link.STL": [],
+    "src/h1_2_description/meshes/right_index_1.STL": [],
+    "src/h1_2_description/meshes/right_index_2.STL": []
+  },
+  "neighborMap": {}
+}

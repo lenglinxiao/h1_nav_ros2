@@ -1,0 +1,92 @@
+{
+  "nodes": [
+    {
+      "id": "node:fast_lio_config_avia",
+      "type": "config",
+      "name": "avia.yaml",
+      "filePath": "src/FAST_LIO_ROS2/config/avia.yaml",
+      "summary": "FAST-LIO 针对 Livox Avia 激光雷达的配置参数文件。设置 LiDAR 类型为 Livox（lidar_type=1），扫描线数 6 条，视场角 90°，检测距离 450 米。IMU-LiDAR 外参离线标定（extrinsic_est_en=false），外参平移向量为 [0.04165, 0.02326, -0.0284]。点云降采样滤波尺寸 surf/map 均为 0.5，IMU 加速度协方差 0.1、陀螺仪协方差 0.1。启用扫描发布和稠密发布，关闭路径发布，支持 PCD 保存。",
+      "tags": ["FAST-LIO", "Livox Avia", "LiDAR配置", "ROS2参数", "点云预处理", "IMU外参"],
+      "complexity": "low",
+      "languageNotes": "ROS2 YAML 参数文件，使用 `/**:` 根节点配合 `ros__parameters` 组织多层参数命名空间（common / preprocess / mapping / publish / pcd_save），遵循 ROS2 的参数文件规范。"
+    },
+    {
+      "id": "node:fast_lio_config_horizon",
+      "type": "config",
+      "name": "horizon.yaml",
+      "filePath": "src/FAST_LIO_ROS2/config/horizon.yaml",
+      "summary": "FAST-LIO 针对 Livox Horizon 激光雷达的配置参数文件。设置 LiDAR 类型为 Livox（lidar_type=1），扫描线数 6 条，视场角 100°，检测距离 260 米。启用 IMU-LiDAR 外参在线估计（extrinsic_est_en=true），外参平移向量初始值为 [0.05512, 0.02226, -0.0297]。点云降采样滤波尺寸 surf/map 均为 0.5，盲区距离 4.0 米。与 Avia 配置相比，FOV 更大、检测距离更短、且开启在线外参估计。",
+      "tags": ["FAST-LIO", "Livox Horizon", "LiDAR配置", "ROS2参数", "在线外参估计", "点云预处理"],
+      "complexity": "low",
+      "languageNotes": "ROS2 YAML 参数文件，结构同 avia.yaml。extrinsic_est_en=true 表示允许系统在线动态估计 IMU 与 LiDAR 之间的外参变换，适用于外参未精确标定的场景。"
+    },
+    {
+      "id": "node:fast_lio_config_mid360",
+      "type": "config",
+      "name": "mid360.yaml",
+      "filePath": "src/FAST_LIO_ROS2/config/mid360.yaml",
+      "summary": "FAST-LIO 针对 Livox Mid-360 激光雷达的配置参数文件。设置 LiDAR 类型为 Livox（lidar_type=1），扫描线数 4 条，视场角 360°，检测距离 100 米。新增 timestamp_unit=3（纳秒）、scan_rate=10（Hz）参数。支持重力对齐初始化（gravity_align_en=false 保持 FAST-LIO2 原始重力初始化），IMU 初始化帧数 30。外参平移向量为 [-0.011, -0.02329, 0.04412]。发布选项最为丰富：启用路径发布、地图点云发布、扫描发布（稠密发布关闭以减轻 RViz 负载）。",
+      "tags": ["FAST-LIO", "Livox Mid-360", "LiDAR配置", "ROS2参数", "360°FOV", "重力对齐", "地图发布"],
+      "complexity": "low",
+      "languageNotes": "ROS2 YAML 参数文件。Mid-360 是 360° 全向机械旋转式 Livox LiDAR，因此增加了 scan_rate 和 timestamp_unit 参数，且发布选项最完整（path/map/scan/bodyframe），适合全向建图场景。"
+    },
+    {
+      "id": "node:fast_lio_config_ouster64",
+      "type": "config",
+      "name": "ouster64.yaml",
+      "filePath": "src/FAST_LIO_ROS2/config/ouster64.yaml",
+      "summary": "FAST-LIO 针对 Ouster OS1-64 激光雷达的配置参数文件。设置 LiDAR 类型为 Ouster（lidar_type=3），扫描线数 64 条。LiDAR 话题为 /os_cloud_node/points，IMU 话题为 /os_cloud_node/imu。视场角 360°，检测距离 150 米。timestamp_unit=3（纳秒）。外参估计关闭，外参平移向量为零向量 [0.0, 0.0, 0.0]。盲区距离 4.0 米，点云滤波尺寸 0.5。这是本目录中唯一使用 Ouster 类型传感器的配置。",
+      "tags": ["FAST-LIO", "Ouster OS1-64", "LiDAR配置", "ROS2参数", "64线LiDAR", "360°FOV"],
+      "complexity": "low",
+      "languageNotes": "ROS2 YAML 参数文件。Ouster 传感器的话题命名空间为 /os_cloud_node/，IMU 内嵌于 LiDAR 设备中，因此共用同一命名空间前缀。64 线激光提供最高密度的点云数据。"
+    },
+    {
+      "id": "node:fast_lio_config_velodyne",
+      "type": "config",
+      "name": "velodyne.yaml",
+      "filePath": "src/FAST_LIO_ROS2/config/velodyne.yaml",
+      "summary": "FAST-LIO 针对 Velodyne（VLP-32C 或类似型号）激光雷达的配置参数文件。设置 LiDAR 类型为 Velodyne（lidar_type=2），扫描线数 32 条，扫描频率 10 Hz。LiDAR 话题为 /velodyne_points，IMU 话题为 /imu/data（外部独立 IMU）。timestamp_unit=2（微秒）。视场角 360°，检测距离 100 米。外参平移向量为 [0.0, 0.0, 0.28]（LiDAR 在 IMU 上方约 28cm）。盲区距离 2.0 米，点云滤波点数为 4（本目录最高）。",
+      "tags": ["FAST-LIO", "Velodyne VLP-32", "LiDAR配置", "ROS2参数", "32线LiDAR", "360°FOV", "外部IMU"],
+      "complexity": "low",
+      "languageNotes": "ROS2 YAML 参数文件。Velodyne 使用独立外部 IMU（/imu/data topic），与其他 Livox 传感器内置 IMU 不同。scan_rate 参数仅对 Velodyne 类型有意义，用于指定激光扫描频率。"
+    }
+  ],
+  "edges": [
+    {
+      "source": "node:fast_lio_config_avia",
+      "target": "node:fast_lio_config_horizon",
+      "type": "alternative_config",
+      "label": "同为 Livox LiDAR FAST-LIO 配置变体",
+      "properties": {
+        "relationship": "均为 lidar_type=1 (Livox) 的配置，avia 面向远距离小视场角场景，horizon 面向中距离大视场角场景并启用在线外参估计"
+      }
+    },
+    {
+      "source": "node:fast_lio_config_horizon",
+      "target": "node:fast_lio_config_mid360",
+      "type": "alternative_config",
+      "label": "同为 Livox LiDAR FAST-LIO 配置变体",
+      "properties": {
+        "relationship": "horizon (FOV 100°, 6线) 与 mid360 (FOV 360°, 4线) 均为 Livox 系列，但 mid360 为全向机械旋转式，发布选项更完整"
+      }
+    },
+    {
+      "source": "node:fast_lio_config_mid360",
+      "target": "node:fast_lio_config_ouster64",
+      "type": "alternative_config",
+      "label": "同为 360° 全向 LiDAR FAST-LIO 配置",
+      "properties": {
+        "relationship": "mid360 (4线, lidar_type=1 Livox) 与 ouster64 (64线, lidar_type=3 Ouster) 均为 360° 全向扫描，分别代表低成本和高线数两种全向 LiDAR 方案"
+      }
+    },
+    {
+      "source": "node:fast_lio_config_ouster64",
+      "target": "node:fast_lio_config_velodyne",
+      "type": "alternative_config",
+      "label": "同为机械旋转式多线 LiDAR FAST-LIO 配置",
+      "properties": {
+        "relationship": "ouster64 (64线, 内置IMU) 与 velodyne (32线, 外部IMU) 均为传统机械旋转式多线 LiDAR，分别代表高线数和常规线数方案"
+      }
+    }
+  ]
+}

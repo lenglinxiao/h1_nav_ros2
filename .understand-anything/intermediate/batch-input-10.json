@@ -1,0 +1,29 @@
+{
+  "batchIndex": 10,
+  "files": [
+    {
+      "path": "src/FAST_LIO_ROS2/CMakeLists.txt",
+      "language": "txt",
+      "sizeLines": 130,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/README.md",
+      "language": "markdown",
+      "sizeLines": 199,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/package.xml",
+      "language": "xml",
+      "sizeLines": 34,
+      "fileCategory": "config"
+    }
+  ],
+  "batchImportData": {
+    "src/FAST_LIO_ROS2/CMakeLists.txt": [],
+    "src/FAST_LIO_ROS2/README.md": [],
+    "src/FAST_LIO_ROS2/package.xml": []
+  },
+  "neighborMap": {}
+}

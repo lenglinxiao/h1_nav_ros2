@@ -15,10 +15,11 @@ def generate_launch_description():
             DeclareLaunchArgument("cloud_topic", default_value="/cloud_registered_body"),
             DeclareLaunchArgument("odom_topic", default_value="/slam_odom"),
             DeclareLaunchArgument("status_topic", default_value="/icp_localization/status"),
+            DeclareLaunchArgument("use_sim_time", default_value="false"),
             DeclareLaunchArgument("use_global_initialization", default_value="true"),
             DeclareLaunchArgument("use_global_recovery", default_value="true"),
             DeclareLaunchArgument("verify_global_with_gicp", default_value="true"),
-            DeclareLaunchArgument("use_kiss_matcher", default_value="false"),
+            DeclareLaunchArgument("use_kiss_matcher", default_value="true"),
             DeclareLaunchArgument("use_small_gicp", default_value="true"),
             DeclareLaunchArgument("global_voxel_resolution", default_value="0.35"),
             DeclareLaunchArgument("tracking_voxel_resolution", default_value="0.20"),
@@ -34,7 +35,7 @@ def generate_launch_description():
             DeclareLaunchArgument("recovery_cooldown_sec", default_value="2.0"),
             DeclareLaunchArgument("registration_rate_hz", default_value="2.0"),
             DeclareLaunchArgument("tf_rate_hz", default_value="20.0"),
-            DeclareLaunchArgument("transform_tolerance_sec", default_value="0.5"),
+            DeclareLaunchArgument("transform_tolerance_sec", default_value="0.1"),
             DeclareLaunchArgument("num_threads", default_value="4"),
             Node(
                 package="h1_2_icp_localization",
@@ -50,6 +51,9 @@ def generate_launch_description():
                         "cloud_topic": LaunchConfiguration("cloud_topic"),
                         "odom_topic": LaunchConfiguration("odom_topic"),
                         "status_topic": LaunchConfiguration("status_topic"),
+                        "use_sim_time": ParameterValue(
+                            LaunchConfiguration("use_sim_time"), value_type=bool
+                        ),
                         "publish_tf": True,
                         "use_global_initialization": ParameterValue(
                             LaunchConfiguration("use_global_initialization"), value_type=bool

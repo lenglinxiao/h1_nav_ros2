@@ -1,0 +1,252 @@
+{
+  "nodes": [
+    {
+      "id": "src/h1_2_description/meshes/right_thumb_2.STL",
+      "type": "3dMesh",
+      "name": "right_thumb_2.STL",
+      "filePath": "src/h1_2_description/meshes/right_thumb_2.STL",
+      "summary": "H1-2 人形机器人右手拇指第2节连杆的三维网格模型文件（STL 二进制格式，约580KB），属于 h1_2_description 包的机器人外观几何资源，用于 URDF 模型可视化与碰撞检测。",
+      "tags": ["STL", "网格", "右手", "拇指", "连杆", "URDF", "h1_2_description"],
+      "complexity": 1,
+      "languageNotes": "STL 为二进制三维网格格式，存储三角形面片的顶点坐标与法向量，广泛用于 3D 打印和机器人仿真模型。"
+    },
+    {
+      "id": "src/h1_2_description/meshes/right_thumb_3.STL",
+      "type": "3dMesh",
+      "name": "right_thumb_3.STL",
+      "filePath": "src/h1_2_description/meshes/right_thumb_3.STL",
+      "summary": "H1-2 人形机器人右手拇指第3节连杆的三维网格模型文件（STL 二进制格式，约425KB），属于 h1_2_description 包的机器人外观几何资源，用于 URDF 模型可视化与碰撞检测。",
+      "tags": ["STL", "网格", "右手", "拇指", "连杆", "URDF", "h1_2_description"],
+      "complexity": 1,
+      "languageNotes": "STL 为二进制三维网格格式，存储三角形面片的顶点坐标与法向量，广泛用于 3D 打印和机器人仿真模型。"
+    },
+    {
+      "id": "src/h1_2_description/meshes/right_thumb_4.STL",
+      "type": "3dMesh",
+      "name": "right_thumb_4.STL",
+      "filePath": "src/h1_2_description/meshes/right_thumb_4.STL",
+      "summary": "H1-2 人形机器人右手拇指第4节（指尖）连杆的三维网格模型文件（STL 二进制格式，约548KB），属于 h1_2_description 包的机器人外观几何资源，用于 URDF 模型可视化与碰撞检测。",
+      "tags": ["STL", "网格", "右手", "拇指", "指尖", "连杆", "URDF", "h1_2_description"],
+      "complexity": 1,
+      "languageNotes": "STL 为二进制三维网格格式，存储三角形面片的顶点坐标与法向量，广泛用于 3D 打印和机器人仿真模型。"
+    },
+    {
+      "id": "src/h1_2_description/meshes/right_thumb_force_sensor_1.STL",
+      "type": "3dMesh",
+      "name": "right_thumb_force_sensor_1.STL",
+      "filePath": "src/h1_2_description/meshes/right_thumb_force_sensor_1.STL",
+      "summary": "H1-2 人形机器人右手拇指力传感器组件第1部分的三维网格模型（STL 二进制格式，约360KB），属于 h1_2_description 包的力传感器外观几何资源。",
+      "tags": ["STL", "网格", "右手", "拇指", "力传感器", "URDF", "h1_2_description"],
+      "complexity": 1,
+      "languageNotes": "STL 为二进制三维网格格式，存储三角形面片的顶点坐标与法向量，广泛用于 3D 打印和机器人仿真模型。"
+    },
+    {
+      "id": "src/h1_2_description/meshes/right_thumb_force_sensor_2.STL",
+      "type": "3dMesh",
+      "name": "right_thumb_force_sensor_2.STL",
+      "filePath": "src/h1_2_description/meshes/right_thumb_force_sensor_2.STL",
+      "summary": "H1-2 人形机器人右手拇指力传感器组件第2部分的三维网格模型（STL 二进制格式，约127KB），属于 h1_2_description 包的力传感器外观几何资源。",
+      "tags": ["STL", "网格", "右手", "拇指", "力传感器", "URDF", "h1_2_description"],
+      "complexity": 1,
+      "languageNotes": "STL 为二进制三维网格格式，存储三角形面片的顶点坐标与法向量，广泛用于 3D 打印和机器人仿真模型。"
+    },
+    {
+      "id": "src/h1_2_description/meshes/right_thumb_force_sensor_3.STL",
+      "type": "3dMesh",
+      "name": "right_thumb_force_sensor_3.STL",
+      "filePath": "src/h1_2_description/meshes/right_thumb_force_sensor_3.STL",
+      "summary": "H1-2 人形机器人右手拇指力传感器组件第3部分的三维网格模型（STL 二进制格式，约294KB），属于 h1_2_description 包的力传感器外观几何资源。",
+      "tags": ["STL", "网格", "右手", "拇指", "力传感器", "URDF", "h1_2_description"],
+      "complexity": 1,
+      "languageNotes": "STL 为二进制三维网格格式，存储三角形面片的顶点坐标与法向量，广泛用于 3D 打印和机器人仿真模型。"
+    },
+    {
+      "id": "src/h1_2_description/meshes/right_thumb_force_sensor_4.STL",
+      "type": "3dMesh",
+      "name": "right_thumb_force_sensor_4.STL",
+      "filePath": "src/h1_2_description/meshes/right_thumb_force_sensor_4.STL",
+      "summary": "H1-2 人形机器人右手拇指力传感器组件第4部分的三维网格模型（STL 二进制格式，约65KB），属于 h1_2_description 包的力传感器外观几何资源。",
+      "tags": ["STL", "网格", "右手", "拇指", "力传感器", "URDF", "h1_2_description"],
+      "complexity": 1,
+      "languageNotes": "STL 为二进制三维网格格式，存储三角形面片的顶点坐标与法向量，广泛用于 3D 打印和机器人仿真模型。"
+    },
+    {
+      "id": "src/h1_2_description/meshes/right_wrist_pitch_link.STL",
+      "type": "3dMesh",
+      "name": "right_wrist_pitch_link.STL",
+      "filePath": "src/h1_2_description/meshes/right_wrist_pitch_link.STL",
+      "summary": "H1-2 人形机器人右手腕俯仰（pitch）关节连杆的三维网格模型文件（STL 二进制格式，约630KB），属于 h1_2_description 包的机器人手腕关节外观几何资源。",
+      "tags": ["STL", "网格", "右手腕", "俯仰", "连杆", "URDF", "h1_2_description"],
+      "complexity": 1,
+      "languageNotes": "STL 为二进制三维网格格式，存储三角形面片的顶点坐标与法向量，广泛用于 3D 打印和机器人仿真模型。"
+    },
+    {
+      "id": "src/h1_2_description/meshes/right_wrist_roll_link.STL",
+      "type": "3dMesh",
+      "name": "right_wrist_roll_link.STL",
+      "filePath": "src/h1_2_description/meshes/right_wrist_roll_link.STL",
+      "summary": "H1-2 人形机器人右手腕滚转（roll）关节连杆的三维网格模型文件（STL 二进制格式，约1.2MB），属于 h1_2_description 包的机器人手腕关节外观几何资源。",
+      "tags": ["STL", "网格", "右手腕", "滚转", "连杆", "URDF", "h1_2_description"],
+      "complexity": 1,
+      "languageNotes": "STL 为二进制三维网格格式，存储三角形面片的顶点坐标与法向量，广泛用于 3D 打印和机器人仿真模型。"
+    },
+    {
+      "id": "src/h1_2_description/meshes/torso_link.STL",
+      "type": "3dMesh",
+      "name": "torso_link.STL",
+      "filePath": "src/h1_2_description/meshes/torso_link.STL",
+      "summary": "H1-2 人形机器人躯干连杆的三维网格模型文件（STL 二进制格式，约2.1MB），是机器人描述包中体积最大、三角形面数最多的核心外观几何资源，用于 URDF 模型可视化与碰撞检测。",
+      "tags": ["STL", "网格", "躯干", "torso", "连杆", "URDF", "h1_2_description"],
+      "complexity": 1,
+      "languageNotes": "STL 为二进制三维网格格式，存储三角形面片的顶点坐标与法向量，广泛用于 3D 打印和机器人仿真模型。"
+    },
+    {
+      "id": "src/h1_2_description/meshes/wrist_yaw_link.STL",
+      "type": "3dMesh",
+      "name": "wrist_yaw_link.STL",
+      "filePath": "src/h1_2_description/meshes/wrist_yaw_link.STL",
+      "summary": "H1-2 人形机器人手腕偏航（yaw）关节连杆的三维网格模型文件（STL 二进制格式，约53KB），是所有网格文件中最小巧的部件，属于 h1_2_description 包的机器人手腕关节外观几何资源。",
+      "tags": ["STL", "网格", "手腕", "偏航", "连杆", "URDF", "h1_2_description"],
+      "complexity": 1,
+      "languageNotes": "STL 为二进制三维网格格式，存储三角形面片的顶点坐标与法向量，广泛用于 3D 打印和机器人仿真模型。"
+    },
+    {
+      "id": "src/h1_2_icp_localization/CMakeLists.txt",
+      "type": "buildConfig",
+      "name": "h1_2_icp_localization CMakeLists.txt",
+      "filePath": "src/h1_2_icp_localization/CMakeLists.txt",
+      "summary": "h1_2_icp_localization 包的 CMake 构建配置文件（179行）。编译 icp_localizer 共享库及 icp_localization_node、global_relocalization_node 两个可执行节点。支持 KISS-Matcher 和 small_gicp 两个可选 ICP 后端，通过 H1_HAVE_KISS_MATCHER/H1_HAVE_SMALL_GICP 宏条件编译。依赖 PCL、Eigen3、tf2、sensor_msgs 等 ROS 2 核心库，并生成 LocalizationStatus 消息和 Relocalize 服务的 ROS 2 接口。",
+      "tags": ["CMake", "构建配置", "ICP", "定位", "KISS-Matcher", "small_gicp", "PCL", "ROS2", "条件编译"],
+      "complexity": 4
+    },
+    {
+      "id": "src/h1_2_icp_localization/include/h1_2_icp_localization/cloud_accumulator.hpp",
+      "type": "headerFile",
+      "name": "cloud_accumulator.hpp",
+      "filePath": "src/h1_2_icp_localization/include/h1_2_icp_localization/cloud_accumulator.hpp",
+      "summary": "点云累积器工具头文件（29行），定义模板函数 keepNewestPoints，用于在点云累积过程中保持最新的 max_points 个点，当累积点数超过上限时丢弃最早的点。适用于全局重定位场景中持续累积 LiDAR 点云直至满足匹配所需最少点数。",
+      "tags": ["C++", "头文件", "模板", "点云", "累积", "PCL", "重定位"],
+      "complexity": 2,
+      "languageNotes": "使用 PCL 点云库的 erase 操作从头部删除旧点，并同步更新 width/height 元数据。模板参数 PointT 支持任意 PCL 点类型。"
+    },
+    {
+      "id": "src/h1_2_icp_localization/include/h1_2_icp_localization/icp_localizer.hpp",
+      "type": "headerFile",
+      "name": "icp_localizer.hpp",
+      "filePath": "src/h1_2_icp_localization/include/h1_2_icp_localization/icp_localizer.hpp",
+      "summary": "ICP 定位器类头文件（71行），定义 IcpResult 结果结构和 IcpLocalizer 类。IcpLocalizer 实现两级 ICP 配准策略：先使用粗糙分辨率体素滤波和粗 ICP 进行快速对齐，再使用精细分辨率进行精配准。支持 multiAlign 多候选搜索方法，在初始位姿周围进行 xy 网格搜索和 yaw 角度遍历，选取最优匹配结果。",
+      "tags": ["C++", "头文件", "ICP", "点云配准", "定位", "PCL", "IterativeClosestPointWithNormals", "多候选搜索"],
+      "complexity": 4,
+      "languageNotes": "使用 PCL 的 IterativeClosestPointWithNormals 进行带法向量的 ICP 配准。PointXYZI（含强度信息）和 PointXYZINormal（含法向量）作为主要点类型。"
+    },
+    {
+      "id": "src/h1_2_icp_localization/include/h1_2_icp_localization/relocalization_state.hpp",
+      "type": "headerFile",
+      "name": "relocalization_state.hpp",
+      "filePath": "src/h1_2_icp_localization/include/h1_2_icp_localization/relocalization_state.hpp",
+      "summary": "重定位状态机头文件（82行），定义 RelocalizationState 枚举（GLOBAL_INIT、TRACKING、GLOBAL_RECOVERY）和 RelocalizationStateMachine 类。状态机在连续跟踪失败达到阈值后自动切换到全局恢复模式，成功后返回跟踪模式。同时提供 computeMapToOdom 内联工具函数，通过 map->base 和 odom->base 变换计算 map->odom 变换。",
+      "tags": ["C++", "头文件", "状态机", "重定位", "跟踪", "全局恢复", "Eigen", "TF变换"],
+      "complexity": 3,
+      "languageNotes": "状态机采用简单的计数阈值机制：consecutiveFailures >= max_consecutive_failures 时触发 GLOBAL_RECOVERY。computeMapToOdom 使用 Eigen 矩阵逆运算实现坐标系间变换链。"
+    },
+    {
+      "id": "src/h1_2_icp_localization/msg/LocalizationStatus.msg",
+      "type": "rosMessage",
+      "name": "LocalizationStatus.msg",
+      "filePath": "src/h1_2_icp_localization/msg/LocalizationStatus.msg",
+      "summary": "ROS 2 自定义消息定义文件（7行），用于发布 ICP 定位状态。包含 Header 时间戳、map_loaded 地图加载标志、initialized 初始化标志、converged 收敛标志、degraded 退化标志、score 配准得分和 message 描述字符串。",
+      "tags": ["ROS2", "msg", "定位状态", "ICP", "自定义消息"],
+      "complexity": 1,
+      "languageNotes": "依赖 std_msgs/Header 提供时间戳和坐标系信息。degraded 字段指示定位质量是否下降但尚未完全失败。"
+    },
+    {
+      "id": "src/h1_2_icp_localization/package.xml",
+      "type": "packageManifest",
+      "name": "h1_2_icp_localization package.xml",
+      "filePath": "src/h1_2_icp_localization/package.xml",
+      "summary": "h1_2_icp_localization 包的 ROS 2 package.xml 清单文件（40行），声明包名为 h1_2_icp_localization，版本 0.1.0，描述为 H1-2 离线 Nav2 导航的 3D ICP 定位后端。依赖 geometry_msgs、nav_msgs、PCL、tf2、sensor_msgs 等，属于 rosidl_interface_packages 成员组（因为定义了自定义消息和服务）。",
+      "tags": ["ROS2", "package.xml", "ICP", "定位", "ament_cmake", "rosidl"],
+      "complexity": 1
+    },
+    {
+      "id": "src/h1_2_icp_localization/src/global_relocalization_node.cpp",
+      "type": "sourceFile",
+      "name": "global_relocalization_node.cpp",
+      "filePath": "src/h1_2_icp_localization/src/global_relocalization_node.cpp",
+      "summary": "全局重定位 ROS 2 节点（1018行），h1_2_icp_localization 包的核心节点。实现基于状态机的全局定位管道：GLOBAL_INIT 阶段使用 FPFH 特征 + SAC-Prerejective 或 KISS-Matcher 进行全局配准；TRACKING 阶段使用 GICP 或 small_gicp 进行持续跟踪；GLOBAL_RECOVERY 阶段在跟踪失败后重新执行全局对齐。支持 PCD 地图加载、LiDAR 点云累积、手动初始位姿设置、Relocalize 服务接口、TF 广播和 LocalizationStatus 状态发布。条件编译支持 KISS-Matcher 和 small_gicp 可选后端。",
+      "tags": ["C++", "ROS2", "定位", "全局重定位", "ICP", "GICP", "KISS-Matcher", "small_gicp", "FPFH", "SAC-Prerejective", "状态机", "TF"],
+      "complexity": 8,
+      "languageNotes": "条件编译块（#ifdef H1_HAVE_KISS_MATCHER / H1_HAVE_SMALL_GICP）实现后端可插拔设计。MapSnapshot 结构体封装多分辨率地图快照。点云累积使用 cloud_accumulator.hpp 的 keepNewestPoints。约40个可配置参数覆盖体素分辨率、特征半径、GICP 阈值、SAC 参数等。"
+    },
+    {
+      "id": "src/h1_2_icp_localization/src/icp_localization_node.cpp",
+      "type": "sourceFile",
+      "name": "icp_localization_node.cpp",
+      "filePath": "src/h1_2_icp_localization/src/icp_localization_node.cpp",
+      "summary": "ICP 定位 ROS 2 节点（284行），基于 IcpLocalizer 的轻量级 ICP 跟踪定位节点。订阅点云和里程计话题，使用 IcpLocalizer.align() 进行单帧 ICP 配准得到 map->odom 变换，并通过 TF 广播 map->odom 坐标变换。同时提供 icp_relocalize 服务接口支持手动重定位，以及 LocalizationStatus 状态发布。相比 global_relocalization_node，该节点更轻量，不包含全局初始化能力。",
+      "tags": ["C++", "ROS2", "ICP", "定位", "TF", "轻量级", "IcpLocalizer", "点云配准"],
+      "complexity": 5,
+      "languageNotes": "与 global_relocalization_node 共享同一套消息和服务接口（LocalizationStatus、Relocalize）。使用 IcpLocalizer 的两级 ICP 策略，不依赖 FPFH 特征或外部位姿图匹配后端。"
+    },
+    {
+      "id": "src/h1_2_icp_localization/src/icp_localizer.cpp",
+      "type": "sourceFile",
+      "name": "icp_localizer.cpp",
+      "filePath": "src/h1_2_icp_localization/src/icp_localizer.cpp",
+      "summary": "IcpLocalizer 类实现文件（252行），实现两级 ICP 点云配准定位器。loadMap 加载 PCD 地图并预构建粗糙/精细两级目标点云（含法向量估计）。align 方法执行粗 ICP 后接精 ICP 的流水线配准。multiAlign 方法在初始位姿周围进行 xy 网格搜索（xy_steps * xy_steps * (2*yaw_offset+1) 个候选位姿），对每个候选执行粗 ICP 并选取最优得分结果，再执行精 ICP 得到最终变换。",
+      "tags": ["C++", "ICP", "点云配准", "两级配准", "多候选搜索", "PCL", "法向量估计", "体素滤波"],
+      "complexity": 6,
+      "languageNotes": "addNormals 使用 PCL NormalEstimation + KdTree 进行 15 近邻法向量估计，并通过 concatenateFields 将法向量附加到点云。multiAlign 中粗 ICP 得分阈值设为 score_threshold_ * 2.0（更宽松），实现对初始姿态不确定性的鲁棒性。"
+    },
+    {
+      "id": "src/h1_2_icp_localization/srv/Relocalize.srv",
+      "type": "rosService",
+      "name": "Relocalize.srv",
+      "filePath": "src/h1_2_icp_localization/srv/Relocalize.srv",
+      "summary": "ROS 2 重定位服务定义文件（8行）。请求包含 pcd_path 目标地图路径、initial_pose 初始位姿和 use_multi_align 是否使用多候选对齐标志。响应返回 success 成功标志、score 配准得分、aligned_pose 对齐后位姿和 message 描述信息。",
+      "tags": ["ROS2", "srv", "重定位", "服务定义", "ICP"],
+      "complexity": 1,
+      "languageNotes": "依赖 geometry_msgs/Pose 表示三维位姿。use_multi_align 启用时使用 IcpLocalizer.multiAlign 进行多候选搜索。"
+    },
+    {
+      "id": "src/h1_2_icp_localization/test/test_relocalization_state.cpp",
+      "type": "testFile",
+      "name": "test_relocalization_state.cpp",
+      "filePath": "src/h1_2_icp_localization/test/test_relocalization_state.cpp",
+      "summary": "重定位状态机和点云累积器的 GTest 单元测试文件（100行）。包含 6 个测试用例：状态机初始状态验证、全局初始化成功后进入跟踪状态、连续跟踪失败触发恢复、恢复成功后返回跟踪、computeMapToOdom 位姿数学正确性验证（通过重建 map_to_base 对比）、keepNewestPoints 保留最新点功能验证。",
+      "tags": ["C++", "GTest", "单元测试", "状态机", "重定位", "点云累积", "位姿数学"],
+      "complexity": 2,
+      "languageNotes": "使用匿名命名空间封装辅助函数 makeTransform。测试覆盖状态机的完整生命周期转换（GLOBAL_INIT -> TRACKING -> GLOBAL_RECOVERY -> TRACKING）。位姿测试通过 isApprox(1e-9) 进行高精度矩阵比较。"
+    },
+    {
+      "id": "src/h1_2_loco_bridge/CMakeLists.txt",
+      "type": "buildConfig",
+      "name": "h1_2_loco_bridge CMakeLists.txt",
+      "filePath": "src/h1_2_loco_bridge/CMakeLists.txt",
+      "summary": "h1_2_loco_bridge 包的 CMake 构建配置文件（67行）。编译三个可执行节点：cmd_vel_to_h1_2_loco（ROS 2 Twist 到 Unitree 运动指令转换）、h1_2_loco_udp_daemon（UDP 守护进程，直接调用 Unitree SDK2 底层接口）、gesture_to_h1_2_loco（手势指令转发）。其中 UDP 守护进程链接 Unitree SDK2 动态库（unitree_sdk2、ddscxx、ddsc）并配置 RPATH 指向 SDK 第三方库目录。",
+      "tags": ["CMake", "构建配置", "Unitree", "SDK2", "运动控制", "UDP", "ROS2"],
+      "complexity": 3,
+      "languageNotes": "使用 C++20 标准。通过 find_library 在硬编码路径 /home/llx/unitree_sdk2 下查找 Unitree SDK2 库文件，并设置了 BUILD_RPATH 和 INSTALL_RPATH 确保运行时能找到第三方 DDS 库。"
+    },
+    {
+      "id": "src/h1_2_loco_bridge/launch/h1_2_loco_bridge.launch.py",
+      "type": "launchFile",
+      "name": "h1_2_loco_bridge.launch.py",
+      "filePath": "src/h1_2_loco_bridge/launch/h1_2_loco_bridge.launch.py",
+      "summary": "H1-2 运动桥接启动文件（105行），使用 ROS 2 Python Launch API 编排三个组件的启动。h1_2_loco_udp_daemon 作为独立进程运行（ExecuteProcess），接收 UDP 指令控制机器人运动；cmd_vel_to_h1_2_loco 节点将 /cmd_vel_nav 的 Twist 指令转换为 UDP 指令发送给守护进程；gesture_to_h1_2_loco 节点提供手势执行服务。支持 18 个启动参数配置网络接口、DDS 域 ID、限速参数（max_x/max_y/max_yaw）、超时和握手持续时间等。",
+      "tags": ["Python", "ROS2", "Launch", "Unitree", "运动控制", "UDP", "桥接", "手势"],
+      "complexity": 4,
+      "languageNotes": "使用 ament_index_python 获取包安装路径定位守护进程可执行文件。通过 additional_env 设置 LD_LIBRARY_PATH 包含 Unitree SDK 第三方库路径。使用 IfCondition 实现条件启动，各节点可独立开关。"
+    },
+    {
+      "id": "src/h1_2_loco_bridge/package.xml",
+      "type": "packageManifest",
+      "name": "h1_2_loco_bridge package.xml",
+      "filePath": "src/h1_2_loco_bridge/package.xml",
+      "summary": "h1_2_loco_bridge 包的 ROS 2 package.xml 清单文件（18行），声明包名 h1_2_loco_bridge，版本 0.0.1，描述为将 geometry_msgs/Twist 指令桥接到 Unitree H1-2 LocoClient 速度指令。依赖 geometry_msgs、h1_2_nav_msgs（自定义导航消息）和 rclcpp。",
+      "tags": ["ROS2", "package.xml", "Unitree", "运动桥接", "ament_cmake"],
+      "complexity": 1
+    }
+  ],
+  "edges": []
+}

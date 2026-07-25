@@ -1,0 +1,258 @@
+{
+  "nodes": [
+    {
+      "id": "src/livox_ros_driver2/src/call_back/lidar_common_callback.cpp",
+      "type": "file",
+      "name": "lidar_common_callback.cpp",
+      "filePath": "src/livox_ros_driver2/src/call_back/lidar_common_callback.cpp",
+      "summary": "实现 LidarCommonCallback 类的两个静态回调函数：OnLidarPointClounCb 用于接收激光雷达点云数据帧并委托给 LdsLidar::StoragePointData 存储，LidarImuDataCallback 用于接收 IMU 数据并委托给 LdsLidar::StorageImuData 存储。两者均通过 client_data 指针获取 LdsLidar 实例，并包含空指针安全检查。",
+      "tags": ["激光雷达", "回调", "点云", "IMU", "Livox", "ROS2"],
+      "complexity": "low",
+      "languageNotes": "位于 livox_ros 命名空间，使用 static_cast 进行类型转换，直接调用 printf 输出调试信息而非 ROS 日志系统。"
+    },
+    {
+      "id": "src/livox_ros_driver2/src/call_back/lidar_common_callback.h",
+      "type": "file",
+      "name": "lidar_common_callback.h",
+      "filePath": "src/livox_ros_driver2/src/call_back/lidar_common_callback.h",
+      "summary": "声明 LidarCommonCallback 类，包含两个静态方法：OnLidarPointClounCb 用于点云数据回调（接收 PointFrame 指针和 client_data），LidarImuDataCallback 用于 IMU 数据回调（接收 ImuData 指针和 client_data）。依赖 comm/comm.h 中的数据结构定义。",
+      "tags": ["激光雷达", "回调", "头文件", "接口声明", "Livox"],
+      "complexity": "low",
+      "languageNotes": "使用经典的头文件保护宏 LIVOX_ROS_DRIVER_LIDAR_COMMON_CALLBACK_H_，命名空间 livox_ros，纯静态方法类设计（无实例化需求）。"
+    },
+    {
+      "id": "src/livox_ros_driver2/src/call_back/livox_lidar_callback.cpp",
+      "type": "file",
+      "name": "livox_lidar_callback.cpp",
+      "filePath": "src/livox_ros_driver2/src/call_back/livox_lidar_callback.cpp",
+      "summary": "实现 LivoxLidarCallback 类的全部静态回调函数，包括：LidarInfoChangeCallback（激光雷达信息变更时触发，负责设置点云数据类型、扫描模式、盲区、双发射模式及外参安装姿态，并通过 SDK API 下发配置）、WorkModeChangedCallback（工作模式切换回调，失败时自动重试）、SetDataTypeCallback/SetPatternModeCallback/SetBlindSpotCallback/SetDualEmitCallback（各项配置设置的回调，成功时清除 set_bits 标志位并更新连接状态为采样中，超时时自动重试）、SetAttitudeCallback（外参安装姿态设置回调）、EnableLivoxLidarImuDataCallback（IMU 数据使能回调）。私有辅助函数 GetLidarDevice 通过 cache_index_ 查找对应的 LidarDevice。",
+      "tags": ["激光雷达", "回调", "SDK配置", "点云数据类型", "扫描模式", "盲区设置", "双发射", "外参标定", "IMU使能", "Livox"],
+      "complexity": "medium",
+      "languageNotes": "使用 std::lock_guard<std::mutex> 保护 config_mutex_ 互斥访问，采用 set_bits 位掩码机制追踪配置完成状态，超时后自动重试 SDK API 调用。所有回调函数均为静态方法，通过 client_data 传递 LdsLidar 上下文。"
+    },
+    {
+      "id": "src/livox_ros_driver2/src/call_back/livox_lidar_callback.h",
+      "type": "file",
+      "name": "livox_lidar_callback.h",
+      "filePath": "src/livox_ros_driver2/src/call_back/livox_lidar_callback.h",
+      "summary": "声明 LivoxLidarCallback 类，包含 8 个公开静态回调方法（LidarInfoChangeCallback、WorkModeChangedCallback、SetDataTypeCallback、SetPatternModeCallback、SetBlindSpotCallback、SetDualEmitCallback、SetAttitudeCallback、EnableLivoxLidarImuDataCallback）和 1 个私有静态辅助方法 GetLidarDevice。依赖 lds.h、lds_lidar.h、comm/comm.h 以及 Livox SDK 头文件 livox_lidar_api.h 和 livox_lidar_def.h。",
+      "tags": ["激光雷达", "回调", "头文件", "接口声明", "SDK配置", "Livox"],
+      "complexity": "low",
+      "languageNotes": "头文件保护宏 LIVOX_ROS_DRIVER_LIVOX_LIDAR_CALLBACK_H_，所有方法均为静态成员函数，形成纯函数式的回调接口设计。"
+    },
+    {
+      "id": "src/livox_ros_driver2/src/comm/pub_handler.cpp",
+      "type": "file",
+      "name": "pub_handler.cpp",
+      "filePath": "src/livox_ros_driver2/src/comm/pub_handler.cpp",
+      "summary": "实现 PubHandler（数据发布处理器）和 LidarPubHandler（单激光雷达点云处理器）两个核心类。PubHandler 负责：通过 OnLivoxLidarPointCloudCallback 静态回调接收 Livox SDK 的以太网原始数据包，区分 IMU 数据和点云数据并分发；RawDataProcess 线程从 raw_packet_queue_ 中取出原始数据包交由 LidarPubHandler 处理；CheckTimer 根据是否启用时间同步选择不同的发布策略（时间戳对齐或固定频率），构建 PointFrame 后调用 PublishPointCloud 触发上层回调。LidarPubHandler 负责：将原始数据包按数据类型（笛卡尔高精度、笛卡尔低精度、球坐标）转换为标准 PointXyzlt 格式；SetLidarsExtParam 将外参（roll/pitch/yaw/x/y/z）转换为旋转矩阵和平移向量；在点云处理时若未启用外参则由软件完成外参补偿变换。全局函数 pub_handler() 返回 PubHandler 的单例。",
+      "tags": ["数据发布", "点云处理", "IMU数据处理", "外参标定", "时间同步", "多线程", "生产者消费者", "坐标变换", "Livox SDK"],
+      "complexity": "high",
+      "languageNotes": "使用 std::condition_variable 实现生产者-消费者模型，std::atomic<bool> 控制线程退出和时间同步状态。外参旋转矩阵采用 RPY 欧拉角手动计算（非 Eigen 库），精度为 double。支持 CartesianHigh（mm精度）、CartesianLow（cm精度）、Spherical（球坐标）三种点云数据格式。"
+    },
+    {
+      "id": "src/livox_ros_driver2/src/comm/pub_handler.h",
+      "type": "file",
+      "name": "pub_handler.h",
+      "filePath": "src/livox_ros_driver2/src/comm/pub_handler.h",
+      "summary": "声明 LidarPubHandler 和 PubHandler 两个类。LidarPubHandler 负责单激光雷达的点云数据缓存与外参标定，包含 points_clouds_ 缓存、外参旋转矩阵和平移向量，提供 PointCloudProcess、GetLidarPointClouds、GetRecentTimeStamp 等方法。PubHandler 是顶层数据发布管理器，包含：RawDataProcess 点云处理线程、raw_packet_queue_ 原始数据队列、lidar_process_handlers_ 多激光雷达处理器映射表、IMU 和点云的回调函数指针、发布频率配置（publish_interval_ 等）、时间同步标志 is_timestamp_sync_。提供全局函数 pub_handler() 返回 PubHandler 单例引用。",
+      "tags": ["数据发布", "头文件", "类声明", "点云处理", "外参标定", "多线程", "Livox"],
+      "complexity": "medium",
+      "languageNotes": "使用 std::function 存储回调函数（PointCloudsCallback、ImuDataCallback），std::unique_ptr 管理 LidarPubHandler 生命周期，std::deque 作为原始数据包队列，std::condition_variable 配合 std::mutex 实现线程安全的生产者-消费者模式。"
+    },
+    {
+      "id": "src/livox_ros_driver2/src/lds_lidar.cpp",
+      "type": "file",
+      "name": "lds_lidar.cpp",
+      "filePath": "src/livox_ros_driver2/src/lds_lidar.cpp",
+      "summary": "实现 LdsLidar 类，作为 Livox 激光雷达数据源的主控模块。InitLdsLidar 方法完成完整初始化流程：调用 InitLidars 解析配置文件并初始化各类型激光雷达（InitLivoxLidar 负责 Livox 激光雷达的 SDK 初始化、用户配置解析、设备注册和外参设置），然后调用 SetLidarPubHandle 将 LidarCommonCallback 的回调注册到 PubHandler 并配置发布频率，最后调用 Start 启动。InitLivoxLidar 中禁用 SDK 控制台日志（ROS2 构建），解析用户配置，初始化 SDK，为每个配置的激光雷达分配索引并设置外参，注册 LivoxLidarCallback::LidarInfoChangeCallback 回调。DeInitLdsLidar 负责 SDK 反初始化。全局变量 g_lds_ldiar 保存 LdsLidar 实例指针供回调使用。",
+      "tags": ["激光雷达", "初始化", "SDK集成", "配置解析", "外参设置", "数据源", "Livox", "ROS2"],
+      "complexity": "medium",
+      "languageNotes": "使用静态局部变量实现单例模式（GetInstance），继承自 Lds 基类。通过全局指针 g_lds_ldiar 在 C 风格回调中传递上下文。根据 pcl_data_type 判断是否需要对外参平移量进行 1/10 缩放（低精度模式）。"
+    },
+    {
+      "id": "src/livox_ros_driver2/src/lds_lidar.h",
+      "type": "file",
+      "name": "lds_lidar.h",
+      "filePath": "src/livox_ros_driver2/src/lds_lidar.h",
+      "summary": "声明 LdsLidar 类，继承自 Lds 基类，作为 Livox 激光雷达数据源的最终实现。提供 GetInstance 静态工厂方法（Meyer's Singleton 模式），公开 InitLdsLidar/Start/DeInitLdsLidar 生命周期管理接口和 config_mutex_ 互斥锁。私有成员包括：InitLidars/InitLivoxLidar 初始化方法、ParseSummaryConfig 配置解析、SetLidarPubHandle 发布处理器注册、LivoxLidarStart 启动方法、ResetLdsLidar 重置方法、PrepareExit 虚函数重写。成员变量包括 path_ 配置路径、lidar_summary_info_ 激光雷达摘要信息、auto_connect_mode_ 自动连接模式、whitelist_count_ 白名单计数、broadcast_code_whitelist_ 广播码白名单。",
+      "tags": ["激光雷达", "头文件", "单例模式", "数据源", "类继承", "Livox"],
+      "complexity": "medium",
+      "languageNotes": "使用 C++11 final 关键字禁止进一步继承，删除拷贝构造和拷贝赋值运算符。虚函数 PrepareExit 重写基类方法。config_mutex_ 为公开成员，供回调类直接访问以同步配置状态。"
+    },
+    {
+      "id": "src/livox_ros_driver2/src/parse_cfg_file/parse_cfg_file.cpp",
+      "type": "file",
+      "name": "parse_cfg_file.cpp",
+      "filePath": "src/livox_ros_driver2/src/parse_cfg_file/parse_cfg_file.cpp",
+      "summary": "实现 ParseCfgFile 类的 ParseSummaryInfo 方法，使用 RapidJSON 库读取并解析激光雷达配置文件中的 lidar_summary_info 段，提取 lidar_type 字段并写入 LidarSummaryInfo 结构体。文件读取采用 C 标准库 fopen/fclose，JSON 解析使用 RapidJSON 的 FileReadStream 流式读取，包含完整的错误处理（文件打开失败、JSON 解析错误、缺少必要字段等）。",
+      "tags": ["配置解析", "JSON解析", "RapidJSON", "文件读取", "Livox"],
+      "complexity": "low",
+      "languageNotes": "使用 C 风格 FILE* 和 fopen/fclose 进行文件操作，通过 do-while(false) 模式实现单出口错误处理。使用 RapidJSON 的 FileReadStream 而非将整个文件读入内存，节省内存。"
+    },
+    {
+      "id": "src/livox_ros_driver2/src/parse_cfg_file/parse_cfg_file.h",
+      "type": "file",
+      "name": "parse_cfg_file.h",
+      "filePath": "src/livox_ros_driver2/src/parse_cfg_file/parse_cfg_file.h",
+      "summary": "声明 ParseCfgFile 类，提供激光雷达配置文件的摘要信息解析能力。构造函数接收配置文件路径，ParseSummaryInfo 方法将解析结果写入 LidarSummaryInfo 引用参数。依赖 comm/comm.h 中的 LidarSummaryInfo 定义和 RapidJSON 库进行 JSON 解析。",
+      "tags": ["配置解析", "头文件", "类声明", "JSON", "RapidJSON", "Livox"],
+      "complexity": "low",
+      "languageNotes": "使用 explicit 关键字防止隐式类型转换，path_ 成员为 const std::string 确保路径不可变。"
+    },
+    {
+      "id": "src/livox_ros_driver2/src/parse_cfg_file/parse_livox_lidar_cfg.cpp",
+      "type": "file",
+      "name": "parse_livox_lidar_cfg.cpp",
+      "filePath": "src/livox_ros_driver2/src/parse_cfg_file/parse_livox_lidar_cfg.cpp",
+      "summary": "实现 LivoxLidarConfigParser 类，负责解析 Livox 激光雷达的用户配置 JSON 文件。Parse 主方法打开文件并解析根级 JSON，查找 lidar_configs 数组后委托 ParseUserConfigs 逐项解析。ParseUserConfigs 遍历配置数组，对每项提取 ip（转换为 handle）、pcl_data_type（点云数据类型）、pattern_mode（扫描模式）、blind_spot_set（盲区距离）、dual_emit_en（双发射使能）、extrinsic_parameter（外参 roll/pitch/yaw/x/y/z）等字段，缺失字段使用默认值 -1。ParseExtrinsics 解析外参子对象，各字段均有默认值回退。使用 IpStringToNum 将 IP 字符串转换为数字 handle。",
+      "tags": ["配置解析", "JSON解析", "RapidJSON", "Livox激光雷达", "外参配置", "扫描模式", "点云类型"],
+      "complexity": "medium",
+      "languageNotes": "使用 RapidJSON 进行配置文件解析，通过 do-while(false) 模式实现单出口错误处理。采用 C 风格 FILE* 操作文件。对缺失配置字段采用 -1 默认值表示未设置，由上层逻辑判断是否下发配置。"
+    },
+    {
+      "id": "src/livox_ros_driver2/src/parse_cfg_file/parse_livox_lidar_cfg.h",
+      "type": "file",
+      "name": "parse_livox_lidar_cfg.h",
+      "filePath": "src/livox_ros_driver2/src/parse_cfg_file/parse_livox_lidar_cfg.h",
+      "summary": "声明 LivoxLidarConfigParser 类，提供 Livox 激光雷达用户配置文件的完整解析能力。Parse 公开方法将解析结果填充到 UserLivoxLidarConfig 向量中，私有辅助方法 ParseUserConfigs 解析配置数组，ParseExtrinsics 解析外参子对象。依赖 comm/comm.h 中的数据结构、livox_lidar_def.h 中的类型定义以及 RapidJSON 库。",
+      "tags": ["配置解析", "头文件", "类声明", "JSON", "RapidJSON", "Livox激光雷达"],
+      "complexity": "low",
+      "languageNotes": "使用 explicit 关键字，path_ 为 const std::string。构造函数和析构函数均为内联实现，轻量级设计。"
+    }
+  ],
+  "edges": [
+    {
+      "source": "src/livox_ros_driver2/src/call_back/lidar_common_callback.cpp",
+      "target": "src/livox_ros_driver2/src/call_back/lidar_common_callback.h",
+      "type": "imports",
+      "label": "包含自身头文件"
+    },
+    {
+      "source": "src/livox_ros_driver2/src/call_back/lidar_common_callback.cpp",
+      "target": "src/livox_ros_driver2/src/lds_lidar.h",
+      "type": "imports",
+      "label": "依赖LdsLidar类定义，调用StoragePointData/StorageImuData"
+    },
+    {
+      "source": "src/livox_ros_driver2/src/call_back/livox_lidar_callback.cpp",
+      "target": "src/livox_ros_driver2/src/call_back/livox_lidar_callback.h",
+      "type": "imports",
+      "label": "包含自身头文件"
+    },
+    {
+      "source": "src/livox_ros_driver2/src/comm/pub_handler.cpp",
+      "target": "src/livox_ros_driver2/src/comm/pub_handler.h",
+      "type": "imports",
+      "label": "包含自身头文件"
+    },
+    {
+      "source": "src/livox_ros_driver2/src/lds_lidar.cpp",
+      "target": "src/livox_ros_driver2/src/call_back/lidar_common_callback.h",
+      "type": "imports",
+      "label": "注册LidarCommonCallback回调函数到PubHandler"
+    },
+    {
+      "source": "src/livox_ros_driver2/src/lds_lidar.cpp",
+      "target": "src/livox_ros_driver2/src/call_back/livox_lidar_callback.h",
+      "type": "imports",
+      "label": "注册LivoxLidarCallback::LidarInfoChangeCallback到SDK"
+    },
+    {
+      "source": "src/livox_ros_driver2/src/lds_lidar.cpp",
+      "target": "src/livox_ros_driver2/src/comm/pub_handler.h",
+      "type": "imports",
+      "label": "通过pub_handler()单例配置发布回调与频率"
+    },
+    {
+      "source": "src/livox_ros_driver2/src/lds_lidar.cpp",
+      "target": "src/livox_ros_driver2/src/lds_lidar.h",
+      "type": "imports",
+      "label": "包含自身头文件"
+    },
+    {
+      "source": "src/livox_ros_driver2/src/lds_lidar.cpp",
+      "target": "src/livox_ros_driver2/src/parse_cfg_file/parse_cfg_file.h",
+      "type": "imports",
+      "label": "调用ParseCfgFile解析配置文件摘要信息"
+    },
+    {
+      "source": "src/livox_ros_driver2/src/lds_lidar.cpp",
+      "target": "src/livox_ros_driver2/src/parse_cfg_file/parse_livox_lidar_cfg.h",
+      "type": "imports",
+      "label": "调用LivoxLidarConfigParser解析用户激光雷达配置"
+    },
+    {
+      "source": "src/livox_ros_driver2/src/lds_lidar.cpp",
+      "target": "src/livox_ros_driver2/src/comm/comm.h",
+      "type": "imports",
+      "label": "依赖公共数据结构定义（LidarDevice, LidarSummaryInfo等）"
+    },
+    {
+      "source": "src/livox_ros_driver2/src/parse_cfg_file/parse_cfg_file.cpp",
+      "target": "src/livox_ros_driver2/src/parse_cfg_file/parse_cfg_file.h",
+      "type": "imports",
+      "label": "包含自身头文件"
+    },
+    {
+      "source": "src/livox_ros_driver2/src/parse_cfg_file/parse_livox_lidar_cfg.cpp",
+      "target": "src/livox_ros_driver2/src/parse_cfg_file/parse_livox_lidar_cfg.h",
+      "type": "imports",
+      "label": "包含自身头文件"
+    },
+    {
+      "source": "src/livox_ros_driver2/src/call_back/lidar_common_callback.h",
+      "target": "src/livox_ros_driver2/src/comm/comm.h",
+      "type": "imports",
+      "label": "依赖PointFrame和ImuData数据结构"
+    },
+    {
+      "source": "src/livox_ros_driver2/src/call_back/livox_lidar_callback.h",
+      "target": "src/livox_ros_driver2/src/lds_lidar.h",
+      "type": "imports",
+      "label": "依赖LdsLidar类型作为回调client_data"
+    },
+    {
+      "source": "src/livox_ros_driver2/src/call_back/livox_lidar_callback.h",
+      "target": "src/livox_ros_driver2/src/comm/comm.h",
+      "type": "imports",
+      "label": "依赖LidarDevice和公共类型定义"
+    },
+    {
+      "source": "src/livox_ros_driver2/src/comm/pub_handler.h",
+      "target": "src/livox_ros_driver2/src/comm/comm.h",
+      "type": "imports",
+      "label": "依赖PointFrame, ImuData, RawPacket等公共数据结构"
+    },
+    {
+      "source": "src/livox_ros_driver2/src/lds_lidar.h",
+      "target": "src/livox_ros_driver2/src/comm/comm.h",
+      "type": "imports",
+      "label": "依赖LidarSummaryInfo, LidarDevice等公共数据结构"
+    },
+    {
+      "source": "src/livox_ros_driver2/src/parse_cfg_file/parse_cfg_file.h",
+      "target": "src/livox_ros_driver2/src/comm/comm.h",
+      "type": "imports",
+      "label": "依赖LidarSummaryInfo数据结构"
+    },
+    {
+      "source": "src/livox_ros_driver2/src/parse_cfg_file/parse_livox_lidar_cfg.h",
+      "target": "src/livox_ros_driver2/src/comm/comm.h",
+      "type": "imports",
+      "label": "依赖ExtParameter和UserLivoxLidarConfig数据结构"
+    },
+    {
+      "source": "src/livox_ros_driver2/src/lds_lidar.h",
+      "target": "src/livox_ros_driver2/src/lddc.cpp",
+      "type": "references",
+      "label": "LdsLidar继承自Lds，Lds基类方法在lddc.cpp中实现（RegisterLds, DistributePointCloudData, DistributeImuData, PollingLidarPointCloudData, PollingLidarImuData, PrepareExit, PublishPointcloud2, PublishCustomPointcloud, PublishPclMsg等）"
+    },
+    {
+      "source": "src/livox_ros_driver2/src/lds_lidar.h",
+      "target": "src/livox_ros_driver2/src/livox_ros_driver2.cpp",
+      "type": "references",
+      "label": "LdsLidar实例由livox_ros_driver2.cpp中的PointCloudDataPollThread和ImuDataPollThread线程驱动"
+    }
+  ]
+}

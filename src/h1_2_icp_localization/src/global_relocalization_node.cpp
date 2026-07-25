@@ -215,9 +215,12 @@ public:
 
     const auto tf_period =
       std::chrono::duration<double>(1.0 / std::max(tf_rate_hz_, 1.0));
+    tf_callback_group_ =
+      create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
     tf_timer_ = create_wall_timer(
       std::chrono::duration_cast<std::chrono::nanoseconds>(tf_period),
-      std::bind(&GlobalRelocalizationNode::onTfTimer, this));
+      std::bind(&GlobalRelocalizationNode::onTfTimer, this),
+      tf_callback_group_);
   }
 
 private:
@@ -268,7 +271,7 @@ private:
     recovery_cooldown_sec_ = declare_parameter<double>("recovery_cooldown_sec", 2.0);
     registration_rate_hz_ = declare_parameter<double>("registration_rate_hz", 2.0);
     tf_rate_hz_ = declare_parameter<double>("tf_rate_hz", 20.0);
-    transform_tolerance_sec_ = declare_parameter<double>("transform_tolerance_sec", 0.5);
+    transform_tolerance_sec_ = declare_parameter<double>("transform_tolerance_sec", 0.1);
     num_threads_ = declare_parameter<int>("num_threads", 4);
     num_neighbors_ = declare_parameter<int>("num_neighbors", 20);
     sac_max_iterations_ = declare_parameter<int>("sac_max_iterations", 50000);
@@ -956,7 +959,7 @@ private:
   double recovery_cooldown_sec_ = 2.0;
   double registration_rate_hz_ = 2.0;
   double tf_rate_hz_ = 20.0;
-  double transform_tolerance_sec_ = 0.5;
+  double transform_tolerance_sec_ = 0.1;
   double sac_similarity_threshold_ = 0.75;
   double sac_max_correspondence_distance_ = 1.5;
   double sac_inlier_fraction_ = 0.25;
@@ -1003,6 +1006,7 @@ private:
   rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr initial_pose_sub_;
   rclcpp::Service<h1_2_icp_localization::srv::Relocalize>::SharedPtr relocalize_service_;
   rclcpp::Publisher<msg::LocalizationStatus>::SharedPtr status_pub_;
+  rclcpp::CallbackGroup::SharedPtr tf_callback_group_;
   rclcpp::TimerBase::SharedPtr registration_timer_;
   rclcpp::TimerBase::SharedPtr tf_timer_;
 };
@@ -1012,7 +1016,10 @@ private:
 int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
-  rclcpp::spin(std::make_shared<h1_2_icp_localization::GlobalRelocalizationNode>());
+  auto node = std::make_shared<h1_2_icp_localization::GlobalRelocalizationNode>();
+  rclcpp::executors::MultiThreadedExecutor executor(rclcpp::ExecutorOptions(), 2);
+  executor.add_node(node);
+  executor.spin();
   rclcpp::shutdown();
   return 0;
 }

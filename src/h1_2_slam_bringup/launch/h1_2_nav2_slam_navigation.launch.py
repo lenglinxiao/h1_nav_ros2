@@ -151,17 +151,17 @@ def generate_launch_description():
                     {
                         "raw_cmd_topic": "/cmd_vel",
                         "priority_cmd_topic": "/cmd_vel_voice",
-                        "cmd_topic": "/cmd_vel_nav",
+                        "cmd_topic": "/cmd_vel_final",
                         "cmd_rate": 20.0,
-                        "alpha_v": 0.45,
-                        "alpha_w": 0.45,
+                        "alpha_v": 1.0,
+                        "alpha_w": 1.0,
                     }
                 ],
             ),
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource(loco_bridge_launch),
                 launch_arguments={
-                    "cmd_topic": "/cmd_vel_nav",
+                    "cmd_topic": "/cmd_vel_final",
                     "enabled": LaunchConfiguration("enable_sport_bridge"),
                     "start_ros_shim": "true",
                     "auto_start": LaunchConfiguration("auto_start_loco"),

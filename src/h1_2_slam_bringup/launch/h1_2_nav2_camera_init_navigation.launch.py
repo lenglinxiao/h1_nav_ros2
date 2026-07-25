@@ -8,6 +8,7 @@ from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
+from nav2_common.launch import RewrittenYaml
 
 
 def generate_launch_description():
@@ -21,6 +22,19 @@ def generate_launch_description():
     loco_bridge_launch = os.path.join(loco_share, "launch", "h1_2_loco_bridge.launch.py")
     nav2_navigation_launch = os.path.join(nav2_share, "launch", "navigation_launch.py")
     default_nav2_params = os.path.join(nav_tools_share, "config", "nav2_h1_2_camera_init.yaml")
+    default_nav2_bt = os.path.join(
+        nav_tools_share,
+        "behavior_trees",
+        "h1_2_navigate_to_pose_no_spin_recovery.xml",
+    )
+    configured_nav2_params = RewrittenYaml(
+        source_file=LaunchConfiguration("params_file"),
+        param_rewrites={
+            "bt_navigator.ros__parameters.default_nav_to_pose_bt_xml": default_nav2_bt,
+            "bt_navigator.ros__parameters.default_bt_xml_filename": default_nav2_bt,
+        },
+        convert_types=True,
+    )
     robot_urdf = os.path.join(description_share, "h1_2_handless.urdf")
     with open(robot_urdf, "r", encoding="utf-8") as stream:
         robot_description = stream.read().replace(
@@ -51,6 +65,10 @@ def generate_launch_description():
             DeclareLaunchArgument("global_frame", default_value="camera_init"),
             DeclareLaunchArgument("goal_topic", default_value="/goal_pose"),
             DeclareLaunchArgument("map_z", default_value="-1.20"),
+            DeclareLaunchArgument("grid_width_m", default_value="80.0"),
+            DeclareLaunchArgument("grid_height_m", default_value="80.0"),
+            DeclareLaunchArgument("grid_origin_x", default_value="-40.0"),
+            DeclareLaunchArgument("grid_origin_y", default_value="-40.0"),
             DeclareLaunchArgument("min_z", default_value="-0.35"),
             DeclareLaunchArgument("max_z", default_value="1.50"),
             DeclareLaunchArgument("filter_floating_points", default_value="false"),
@@ -60,6 +78,8 @@ def generate_launch_description():
             DeclareLaunchArgument("occupancy_miss_decrement", default_value="1"),
             DeclareLaunchArgument("occupancy_threshold", default_value="3"),
             DeclareLaunchArgument("occupancy_max_score", default_value="20"),
+            DeclareLaunchArgument("occupied_decay_after_misses", default_value="30"),
+            DeclareLaunchArgument("occupied_decay_decrement", default_value="1"),
             DeclareLaunchArgument("enable_sport_bridge", default_value="true"),
             DeclareLaunchArgument("auto_start_loco", default_value="true"),
             DeclareLaunchArgument("network_interface", default_value="enp45s0"),
@@ -117,29 +137,45 @@ def generate_launch_description():
                         "cloud_topic": LaunchConfiguration("cloud_topic"),
                         "map_topic": LaunchConfiguration("map_topic"),
                         "frame_id": LaunchConfiguration("global_frame"),
-                        "resolution": "0.05",
-                        "width_m": "40.0",
-                        "height_m": "40.0",
-                        "origin_x": "-20.0",
-                        "origin_y": "-20.0",
-                        "map_z": LaunchConfiguration("map_z"),
-                        "min_z": LaunchConfiguration("min_z"),
-                        "max_z": LaunchConfiguration("max_z"),
-                        "filter_floating_points": LaunchConfiguration("filter_floating_points"),
-                        "support_min_z": LaunchConfiguration("support_min_z"),
-                        "support_max_z": LaunchConfiguration("support_max_z"),
-                        "occupancy_hit_increment": LaunchConfiguration("occupancy_hit_increment"),
-                        "occupancy_miss_decrement": LaunchConfiguration("occupancy_miss_decrement"),
-                        "occupancy_threshold": LaunchConfiguration("occupancy_threshold"),
-                        "occupancy_max_score": LaunchConfiguration("occupancy_max_score"),
-                        "publish_hz": "3.0",
-                        "inflation_radius": "0.10",
-                        "clear_robot_radius": "0.45",
-                        "accumulate_map": "true",
-                        "unknown_value": "-1",
-                        "raytrace_free": "false",
-                        "raytrace_clears_occupied": "false",
-                        "sensor_origin_from_odom": "true",
+                        "resolution": 0.05,
+                        "width_m": ParameterValue(LaunchConfiguration("grid_width_m"), value_type=float),
+                        "height_m": ParameterValue(LaunchConfiguration("grid_height_m"), value_type=float),
+                        "origin_x": ParameterValue(LaunchConfiguration("grid_origin_x"), value_type=float),
+                        "origin_y": ParameterValue(LaunchConfiguration("grid_origin_y"), value_type=float),
+                        "map_z": ParameterValue(LaunchConfiguration("map_z"), value_type=float),
+                        "min_z": ParameterValue(LaunchConfiguration("min_z"), value_type=float),
+                        "max_z": ParameterValue(LaunchConfiguration("max_z"), value_type=float),
+                        "filter_floating_points": ParameterValue(
+                            LaunchConfiguration("filter_floating_points"), value_type=bool
+                        ),
+                        "support_min_z": ParameterValue(LaunchConfiguration("support_min_z"), value_type=float),
+                        "support_max_z": ParameterValue(LaunchConfiguration("support_max_z"), value_type=float),
+                        "occupancy_hit_increment": ParameterValue(
+                            LaunchConfiguration("occupancy_hit_increment"), value_type=int
+                        ),
+                        "occupancy_miss_decrement": ParameterValue(
+                            LaunchConfiguration("occupancy_miss_decrement"), value_type=int
+                        ),
+                        "occupancy_threshold": ParameterValue(
+                            LaunchConfiguration("occupancy_threshold"), value_type=int
+                        ),
+                        "occupancy_max_score": ParameterValue(
+                            LaunchConfiguration("occupancy_max_score"), value_type=int
+                        ),
+                        "occupied_decay_after_misses": ParameterValue(
+                            LaunchConfiguration("occupied_decay_after_misses"), value_type=int
+                        ),
+                        "occupied_decay_decrement": ParameterValue(
+                            LaunchConfiguration("occupied_decay_decrement"), value_type=int
+                        ),
+                        "publish_hz": 3.0,
+                        "inflation_radius": 0.10,
+                        "clear_robot_radius": 0.45,
+                        "accumulate_map": True,
+                        "unknown_value": -1,
+                        "raytrace_free": True,
+                        "raytrace_clears_occupied": False,
+                        "sensor_origin_from_odom": True,
                         "odom_topic": LaunchConfiguration("odom_topic"),
                     }
                 ],
@@ -148,7 +184,7 @@ def generate_launch_description():
                 PythonLaunchDescriptionSource(nav2_navigation_launch),
                 launch_arguments={
                     "use_sim_time": LaunchConfiguration("use_sim_time"),
-                    "params_file": LaunchConfiguration("params_file"),
+                    "params_file": configured_nav2_params,
                     "autostart": LaunchConfiguration("autostart"),
                     "map_subscribe_transient_local": "true",
                 }.items(),
@@ -174,7 +210,7 @@ def generate_launch_description():
                     {
                         "points_file": LaunchConfiguration("memory_points_file"),
                         "odom_topic": LaunchConfiguration("odom_topic"),
-                        "target_frame": LaunchConfiguration("global_frame"),
+                        "target_frame": "map",
                     }
                 ],
             ),
@@ -187,9 +223,15 @@ def generate_launch_description():
                     {
                         "points_file": LaunchConfiguration("memory_points_file"),
                         "route_names": LaunchConfiguration("memory_route"),
-                        "arrival_wait_sec": LaunchConfiguration("arrival_wait_sec"),
-                        "blocked_retry_wait_sec": LaunchConfiguration("blocked_retry_wait_sec"),
-                        "max_retries_per_goal": LaunchConfiguration("max_retries_per_goal"),
+                        "arrival_wait_sec": ParameterValue(
+                            LaunchConfiguration("arrival_wait_sec"), value_type=float
+                        ),
+                        "blocked_retry_wait_sec": ParameterValue(
+                            LaunchConfiguration("blocked_retry_wait_sec"), value_type=float
+                        ),
+                        "max_retries_per_goal": ParameterValue(
+                            LaunchConfiguration("max_retries_per_goal"), value_type=int
+                        ),
                         "action_name": "navigate_to_pose",
                     }
                 ],
@@ -203,17 +245,17 @@ def generate_launch_description():
                     {
                         "raw_cmd_topic": "/cmd_vel",
                         "priority_cmd_topic": "/cmd_vel_voice",
-                        "cmd_topic": "/cmd_vel_nav",
+                        "cmd_topic": "/cmd_vel_final",
                         "cmd_rate": 20.0,
-                        "alpha_v": 0.45,
-                        "alpha_w": 0.45,
+                        "alpha_v": 1.0,
+                        "alpha_w": 1.0,
                     }
                 ],
             ),
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource(loco_bridge_launch),
                 launch_arguments={
-                    "cmd_topic": "/cmd_vel_nav",
+                    "cmd_topic": "/cmd_vel_final",
                     "enabled": LaunchConfiguration("enable_sport_bridge"),
                     "start_ros_shim": "true",
                     "auto_start": LaunchConfiguration("auto_start_loco"),

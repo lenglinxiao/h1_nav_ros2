@@ -1,0 +1,33 @@
+{
+  "batchIndex": 7,
+  "files": [
+    {
+      "path": "src/h1_2_nav_tools/h1_2_nav_tools/memory_route_runner.py",
+      "language": "python",
+      "sizeLines": 438,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_tools/h1_2_nav_tools/route_activity_guard.py",
+      "language": "python",
+      "sizeLines": 44,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_tools/h1_2_nav_tools/teaching_route_runner.py",
+      "language": "python",
+      "sizeLines": 789,
+      "fileCategory": "code"
+    }
+  ],
+  "batchImportData": {
+    "src/h1_2_nav_tools/h1_2_nav_tools/memory_route_runner.py": [
+      "src/h1_2_nav_tools/h1_2_nav_tools/route_activity_guard.py"
+    ],
+    "src/h1_2_nav_tools/h1_2_nav_tools/route_activity_guard.py": [],
+    "src/h1_2_nav_tools/h1_2_nav_tools/teaching_route_runner.py": [
+      "src/h1_2_nav_tools/h1_2_nav_tools/route_activity_guard.py"
+    ]
+  },
+  "neighborMap": {}
+}

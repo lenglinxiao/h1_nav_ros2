@@ -1,0 +1,45 @@
+{
+  "nodes": [
+    {
+      "id": "cfg:pointcloud_to_laserscan",
+      "type": "config",
+      "name": "pointcloud_to_laserscan (base_link)",
+      "filePath": "src/h1_2_slam_bringup/config/pointcloud_to_laserscan.yaml",
+      "summary": "ROS 2 pointcloud_to_laserscan 节点配置，将 3D 点云转换为 2D 激光扫描消息。目标坐标系为 base_link，高度滤波范围为 -0.90m 至 0.80m，扫描角度覆盖全周 360°（-π 至 π），角度分辨率为 0.0087 rad，扫描时间 0.1s，测距范围 0.2m 至 30.0m，开启无限距离处理（inf_epsilon=1.0）。",
+      "tags": ["ROS2", "pointcloud", "laserscan", "配置", "传感器处理", "base_link"],
+      "complexity": "low",
+      "languageNotes": "标准 ROS 2 YAML 参数文件，使用 pointcloud_to_laserscan 包的 ros__parameters 命名空间。"
+    },
+    {
+      "id": "cfg:pointcloud_to_laserscan_body",
+      "type": "config",
+      "name": "pointcloud_to_laserscan (body)",
+      "filePath": "src/h1_2_slam_bringup/config/pointcloud_to_laserscan_body.yaml",
+      "summary": "ROS 2 pointcloud_to_laserscan 节点配置，将 3D 点云转换为 2D 激光扫描消息。目标坐标系为 body 坐标系（机身坐标系），高度滤波范围为 -0.90m 至 0.80m，扫描角度覆盖全周 360°，角度分辨率为 0.0087 rad。相比 base_link 版本，额外启用了当前时间戳标记（stamp_with_current_time: true）和 1.0s 的过期戳警告阈值（stale_stamp_warn_sec）。",
+      "tags": ["ROS2", "pointcloud", "laserscan", "配置", "传感器处理", "body坐标系"],
+      "complexity": "low",
+      "languageNotes": "标准 ROS 2 YAML 参数文件，使用 pointcloud_to_laserscan 包的 ros__parameters 命名空间。与 base_link 版本仅坐标系和时间戳参数不同。"
+    },
+    {
+      "id": "cfg:slam_toolbox_localization",
+      "type": "config",
+      "name": "slam_toolbox_localization",
+      "filePath": "src/h1_2_slam_bringup/config/slam_toolbox_localization.yaml",
+      "summary": "SLAM Toolbox 定位模式参数配置。使用 localization 模式，坐标系链为 odom → map → base_link。订阅 /scan 话题，地图分辨率为 0.05m，最大激光测距 25m，TF 变换发布周期 0.02s（50Hz），地图更新间隔 2.0s，TF 缓冲区持续 30s，扫描节流为 1（不跳过任何扫描）。transform_timeout 为 0.2s，用于快速匹配已有地图。",
+      "tags": ["ROS2", "SLAM", "定位", "lidar", "配置", "slam_toolbox", "localization"],
+      "complexity": "low",
+      "languageNotes": "标准 ROS 2 YAML 参数文件，使用 slam_toolbox 包的 ros__parameters 命名空间。localization 模式仅用于在已有地图中定位，不更新地图。"
+    },
+    {
+      "id": "cfg:slam_toolbox_mapping",
+      "type": "config",
+      "name": "slam_toolbox_mapping",
+      "filePath": "src/h1_2_slam_bringup/config/slam_toolbox_mapping.yaml",
+      "summary": "SLAM Toolbox 建图模式完整参数配置。使用 mapping 模式，坐标系为 odom → map → base_link。基础参数：分辨率 0.05m，最大激光测距 25m，TF 变换发布周期 0.02s。建图约束：最小行进距离 0.2m、最小航向变化 0.2 rad 触发新关键帧。扫描缓冲区大小 10，最大扫描距离 10m。回环检测开启：搜索最大距离 3m，匹配链最小尺寸 10，粗匹配方差阈值 3.0、响应阈值 0.35，精匹配响应阈值 0.45。相关性搜索空间：维度 0.5、分辨率 0.01、平滑偏差 0.1；回环搜索空间：维度 8.0、分辨率 0.05、平滑偏差 0.03。",
+      "tags": ["ROS2", "SLAM", "建图", "lidar", "配置", "slam_toolbox", "mapping", "回环检测", "关键帧"],
+      "complexity": "medium",
+      "languageNotes": "标准 ROS 2 YAML 参数文件，使用 slam_toolbox 包的 ros__parameters 命名空间。mapping 模式会同时定位和更新地图，包含回环检测和扫描匹配优化参数。"
+    }
+  ],
+  "edges": []
+}

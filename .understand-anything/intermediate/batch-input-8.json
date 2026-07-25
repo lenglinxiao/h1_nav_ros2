@@ -1,0 +1,50 @@
+{
+  "batchIndex": 8,
+  "files": [
+    {
+      "path": "AGENTS.md",
+      "language": "markdown",
+      "sizeLines": 3,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "README.md",
+      "language": "markdown",
+      "sizeLines": 409,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "check_remote_livox.sh",
+      "language": "shell",
+      "sizeLines": 38,
+      "fileCategory": "script"
+    },
+    {
+      "path": "cyclonedds_upper.xml",
+      "language": "xml",
+      "sizeLines": 13,
+      "fileCategory": "config"
+    },
+    {
+      "path": "run_ai_slam_nav.sh",
+      "language": "shell",
+      "sizeLines": 300,
+      "fileCategory": "script"
+    },
+    {
+      "path": "stop_ai_slam_nav.sh",
+      "language": "shell",
+      "sizeLines": 55,
+      "fileCategory": "script"
+    }
+  ],
+  "batchImportData": {
+    "AGENTS.md": [],
+    "README.md": [],
+    "check_remote_livox.sh": [],
+    "cyclonedds_upper.xml": [],
+    "run_ai_slam_nav.sh": [],
+    "stop_ai_slam_nav.sh": []
+  },
+  "neighborMap": {}
+}

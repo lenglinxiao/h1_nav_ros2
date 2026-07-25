@@ -1,0 +1,36 @@
+{
+  "batchIndex": 14,
+  "files": [
+    {
+      "path": "src/h1_2_slam_bringup/config/pointcloud_to_laserscan.yaml",
+      "language": "yaml",
+      "sizeLines": 14,
+      "fileCategory": "config"
+    },
+    {
+      "path": "src/h1_2_slam_bringup/config/pointcloud_to_laserscan_body.yaml",
+      "language": "yaml",
+      "sizeLines": 16,
+      "fileCategory": "config"
+    },
+    {
+      "path": "src/h1_2_slam_bringup/config/slam_toolbox_localization.yaml",
+      "language": "yaml",
+      "sizeLines": 16,
+      "fileCategory": "config"
+    },
+    {
+      "path": "src/h1_2_slam_bringup/config/slam_toolbox_mapping.yaml",
+      "language": "yaml",
+      "sizeLines": 34,
+      "fileCategory": "config"
+    }
+  ],
+  "batchImportData": {
+    "src/h1_2_slam_bringup/config/pointcloud_to_laserscan.yaml": [],
+    "src/h1_2_slam_bringup/config/pointcloud_to_laserscan_body.yaml": [],
+    "src/h1_2_slam_bringup/config/slam_toolbox_localization.yaml": [],
+    "src/h1_2_slam_bringup/config/slam_toolbox_mapping.yaml": []
+  },
+  "neighborMap": {}
+}

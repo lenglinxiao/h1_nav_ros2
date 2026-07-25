@@ -1,0 +1,212 @@
+{
+  "nodes": [
+    {
+      "id": "src/livox_ros_driver2/src/comm/comm.h",
+      "type": "header",
+      "name": "comm.h",
+      "filePath": "src/livox_ros_driver2/src/comm/comm.h",
+      "summary": "Livox ROS2 驱动的通信协议头文件，定义了激光雷达数据包结构、点云数据类型（LivoxPointXyzrtlt、PointXyzlt）、配置结构体（UserConfig、UserLivoxLidarConfig）、外参参数（ExtParameter）、设备抽象（LidarDevice）、数据队列（LidarDataQueue），以及激光雷达类型枚举、时间戳同步模式、连接状态等核心常量与类型。同时声明了 IP 地址转换、路径校验等全局工具函数。",
+      "tags": ["通信协议", "数据结构", "点云", "激光雷达", "外参", "配置", "枚举定义", "Livox SDK"],
+      "complexity": "high",
+      "languageNotes": "使用 #pragma pack(1) 控制结构体内存对齐；通过 union LdsStamp 实现 8 字节时间戳与 uint64_t 的互转；大量使用 const/constexpr 定义编译期常量；namespace livox_ros 封装所有定义。"
+    },
+    {
+      "id": "src/livox_ros_driver2/src/driver_node.cpp",
+      "type": "implementation",
+      "name": "driver_node.cpp",
+      "filePath": "src/livox_ros_driver2/src/driver_node.cpp",
+      "summary": "DriverNode 类的实现文件，包含 GetNode() 单例访问器和析构函数。析构时依次请求退出信号、设置 exit_signal_ promise、join 点云轮询线程和 IMU 轮询线程，确保资源安全释放。",
+      "tags": ["ROS节点", "驱动节点", "资源清理", "线程管理", "单例模式"],
+      "complexity": "low",
+      "languageNotes": "析构函数中通过 exit_signal_.set_value() 通知 future 解除阻塞，再 join 线程实现优雅退出；noexcept 修饰 GetNode() 表明不抛异常。"
+    },
+    {
+      "id": "src/livox_ros_driver2/src/driver_node.h",
+      "type": "header",
+      "name": "driver_node.h",
+      "filePath": "src/livox_ros_driver2/src/driver_node.h",
+      "summary": "DriverNode 类头文件，通过条件编译同时支持 ROS1（继承 ros::NodeHandle）和 ROS2（继承 rclcpp::Node）。持有 Lddc 实例（unique_ptr）、点云和 IMU 数据轮询线程（shared_ptr<thread>）、退出信号（promise/future）等核心成员。声明 PointCloudDataPollThread 和 ImuDataPollThread 轮询方法。",
+      "tags": ["ROS节点", "条件编译", "ROS1/ROS2兼容", "线程管理", "驱动架构", "单例模式"],
+      "complexity": "medium",
+      "languageNotes": "使用 #ifdef BUILDING_ROS1 / #elif defined BUILDING_ROS2 条件编译实现 ROS1/ROS2 双版本支持；ROS2 版本将轮询方法声明为 private，ROS1 为 public；禁止拷贝构造和拷贝赋值（= delete）；前置声明 Lddc 类避免循环依赖。"
+    },
+    {
+      "id": "src/livox_ros_driver2/src/include/livox_ros_driver2.h",
+      "type": "header",
+      "name": "livox_ros_driver2.h",
+      "filePath": "src/livox_ros_driver2/src/include/livox_ros_driver2.h",
+      "summary": "Livox ROS2 驱动的版本定义头文件，通过宏定义声明主版本号（1）、次版本号（2）、补丁号（4），并提供 LIVOX_ROS_DRIVER2_VERSION_STRING 宏将版本号拼接为字符串形式，供日志输出和版本标识使用。",
+      "tags": ["版本定义", "宏定义", "驱动元信息"],
+      "complexity": "low",
+      "languageNotes": "使用 GET_STRING(n) 和 GET_STRING_DIRECT(n) 两层宏实现版本号到字符串的转换（# 字符串化操作符）；头文件保护宏名有拼写变体（INClUDE）。"
+    },
+    {
+      "id": "src/livox_ros_driver2/src/include/ros_headers.h",
+      "type": "header",
+      "name": "ros_headers.h",
+      "filePath": "src/livox_ros_driver2/src/include/ros_headers.h",
+      "summary": "ROS 版本适配头文件，根据 BUILDING_ROS1 或 BUILDING_ROS2 编译宏条件性地包含对应的 ROS 头文件（ros1_headers.h 或 ros2_headers.h），为整个驱动提供统一的 ROS API 抽象层入口。",
+      "tags": ["ROS适配层", "条件编译", "ROS1/ROS2兼容", "头文件封装"],
+      "complexity": "low",
+      "languageNotes": "仅做条件转发包含，自身无任何类型或函数定义；是驱动中 ROS 版本无关代码的核心依赖枢纽。"
+    },
+    {
+      "id": "src/livox_ros_driver2/src/lddc.cpp",
+      "type": "implementation",
+      "name": "lddc.cpp",
+      "filePath": "src/livox_ros_driver2/src/lddc.cpp",
+      "summary": "Lddc（Lidar Data Distribute Control）类的完整实现，是驱动的核心数据分发模块。负责：注册 Lds 数据源、从 LidarDevice 队列中轮询点云和 IMU 数据、将 StoragePacket 转换为 PointCloud2/CustomMsg/PCL 三种 ROS 消息格式、通过 Publisher 发布到 ROS Topic 或写入 rosbag 文件。同时兼容 ROS1（ros::Publisher）和 ROS2（rclcpp::Publisher）的发布机制，支持多 Topic 和单 Topic 模式。",
+      "tags": ["数据分发", "点云发布", "IMU发布", "ROS消息转换", "PointCloud2", "CustomMsg", "PCL", "多Topic", "rosbag", "ROS1/ROS2兼容"],
+      "complexity": "high",
+      "languageNotes": "核心函数 PollingLidarPointCloudData 基于无锁队列循环弹出 StoragePacket 并分发；PublishPointcloud2Data 中使用 std::dynamic_pointer_cast 进行 ROS2 Publisher 类型转换；PCL 格式在 ROS2 下不支持，通过静态变量 first_log 仅警告一次；ROS1 路径支持 rosbag 录制功能；大量使用条件编译分段处理 ROS1/ROS2 差异。"
+    },
+    {
+      "id": "src/livox_ros_driver2/src/lddc.h",
+      "type": "header",
+      "name": "lddc.h",
+      "filePath": "src/livox_ros_driver2/src/lddc.h",
+      "summary": "Lddc 类头文件，定义激光雷达数据分发控制器。声明了点云分发（DistributePointCloudData）、IMU 数据分发（DistributeImuData）、Publisher 管理（GetCurrentPublisher/GetCurrentImuPublisher）、消息初始化与发布（PointCloud2/CustomMsg/PCL/IMU）等公共和私有接口。通过 DestinationOfMessageOutput 和 TransferType 枚举定义输出目标（ROS/Bag）和传输格式。同时兼容 ROS1/ROS2 的类型别名（Publisher、PointCloud2 等）。",
+      "tags": ["数据分发", "消息发布", "类型别名", "枚举定义", "ROS1/ROS2兼容", "Publisher管理"],
+      "complexity": "medium",
+      "languageNotes": "使用 using 别名统一 ROS1/ROS2 的类型差异（如 PointCloud2 在 ROS1 为 sensor_msgs::PointCloud2，在 ROS2 为 sensor_msgs::msg::PointCloud2）；private_pub_ 和 private_imu_pub_ 数组大小为 kMaxSourceLidar(32)，支持最多 32 路激光雷达；声明了 FillPointsToCustomMsg 和 FillPointsToPclMsg 的重载版本。"
+    },
+    {
+      "id": "src/livox_ros_driver2/src/livox_ros_driver2.cpp",
+      "type": "implementation",
+      "name": "livox_ros_driver2.cpp",
+      "filePath": "src/livox_ros_driver2/src/livox_ros_driver2.cpp",
+      "summary": "驱动主入口文件，通过条件编译提供 ROS1 的 main() 函数和 ROS2 的 DriverNode 构造函数。负责：解析 ROS 参数（传输格式、多 Topic、数据源、发布频率、frame_id 等）、创建 Lddc 实例并注册 ROS 节点、初始化 LdsLidar 数据源（加载用户配置 JSON）、启动点云和 IMU 数据轮询线程。同时实现 PointCloudDataPollThread 和 ImuDataPollThread 轮询函数，通过 std::future 检测退出信号实现优雅停止。",
+      "tags": ["驱动入口", "ROS参数解析", "LdsLidar初始化", "线程启动", "主循环", "ROS1/ROS2兼容", "优雅退出"],
+      "complexity": "high",
+      "languageNotes": "ROS1 路径使用 ros::NodeHandle::getParam() 获取参数；ROS2 路径使用 declare_parameter/get_parameter 模式；ROS2 路径末尾通过 RCLCPP_COMPONENTS_REGISTER_NODE 宏将 DriverNode 注册为 ROS2 component 节点；轮询线程使用 std::future::wait_for 实现非阻塞退出检测；发布频率被限制在 [0.5, 100.0] Hz 范围内。"
+    }
+  ],
+  "edges": [
+    {
+      "source": "src/livox_ros_driver2/src/driver_node.cpp",
+      "target": "src/livox_ros_driver2/src/driver_node.h",
+      "type": "imports",
+      "label": "#include 自身头文件"
+    },
+    {
+      "source": "src/livox_ros_driver2/src/driver_node.cpp",
+      "target": "src/livox_ros_driver2/src/lddc.h",
+      "type": "imports",
+      "label": "#include Lddc 头文件，析构时通过 lddc_ptr_ 请求退出"
+    },
+    {
+      "source": "src/livox_ros_driver2/src/driver_node.h",
+      "target": "src/livox_ros_driver2/src/include/ros_headers.h",
+      "type": "imports",
+      "label": "#include ROS 版本适配头文件，支持 ROS1/ROS2 双版本"
+    },
+    {
+      "source": "src/livox_ros_driver2/src/lddc.cpp",
+      "target": "src/livox_ros_driver2/src/lddc.h",
+      "type": "imports",
+      "label": "#include 自身头文件"
+    },
+    {
+      "source": "src/livox_ros_driver2/src/lddc.cpp",
+      "target": "src/livox_ros_driver2/src/comm/comm.h",
+      "type": "imports",
+      "label": "#include 通信协议头文件，使用 LidarDevice、StoragePacket 等数据结构"
+    },
+    {
+      "source": "src/livox_ros_driver2/src/lddc.cpp",
+      "target": "src/livox_ros_driver2/src/driver_node.h",
+      "type": "imports",
+      "label": "#include DriverNode 头文件，使用 cur_node_ 指针获取 ROS 节点句柄"
+    },
+    {
+      "source": "src/livox_ros_driver2/src/lddc.cpp",
+      "target": "src/livox_ros_driver2/src/include/ros_headers.h",
+      "type": "imports",
+      "label": "#include ROS 版本适配头文件，使用 rclcpp::Publisher 等 ROS2 API"
+    },
+    {
+      "source": "src/livox_ros_driver2/src/lddc.cpp",
+      "target": "src/livox_ros_driver2/src/comm/ldq.h",
+      "type": "imports",
+      "label": "#include 无锁队列头文件，使用 QueuePop/QueueIsEmpty 等队列操作"
+    },
+    {
+      "source": "src/livox_ros_driver2/src/lddc.cpp",
+      "target": "src/livox_ros_driver2/src/lds_lidar.h",
+      "type": "imports",
+      "label": "#include LdsLidar 头文件，访问 lds_->lidars_ 设备数组"
+    },
+    {
+      "source": "src/livox_ros_driver2/src/lddc.h",
+      "target": "src/livox_ros_driver2/src/include/livox_ros_driver2.h",
+      "type": "imports",
+      "label": "#include 版本定义头文件"
+    },
+    {
+      "source": "src/livox_ros_driver2/src/lddc.h",
+      "target": "src/livox_ros_driver2/src/driver_node.h",
+      "type": "imports",
+      "label": "#include DriverNode 头文件，前置声明并持有 DriverNode 指针"
+    },
+    {
+      "source": "src/livox_ros_driver2/src/lddc.h",
+      "target": "src/livox_ros_driver2/src/lds.h",
+      "type": "imports",
+      "label": "#include Lds 基类头文件，持有 lds_ 指针并通过 RegisterLds 注册数据源"
+    },
+    {
+      "source": "src/livox_ros_driver2/src/livox_ros_driver2.cpp",
+      "target": "src/livox_ros_driver2/src/include/livox_ros_driver2.h",
+      "type": "imports",
+      "label": "#include 版本定义头文件，日志中输出 LIVOX_ROS_DRIVER2_VERSION_STRING"
+    },
+    {
+      "source": "src/livox_ros_driver2/src/livox_ros_driver2.cpp",
+      "target": "src/livox_ros_driver2/src/include/ros_headers.h",
+      "type": "imports",
+      "label": "#include ROS 版本适配头文件"
+    },
+    {
+      "source": "src/livox_ros_driver2/src/livox_ros_driver2.cpp",
+      "target": "src/livox_ros_driver2/src/driver_node.h",
+      "type": "imports",
+      "label": "#include DriverNode 头文件，ROS1 路径实例化 livox_node 对象"
+    },
+    {
+      "source": "src/livox_ros_driver2/src/livox_ros_driver2.cpp",
+      "target": "src/livox_ros_driver2/src/lddc.h",
+      "type": "imports",
+      "label": "#include Lddc 头文件，创建 Lddc 实例并配置数据分发"
+    },
+    {
+      "source": "src/livox_ros_driver2/src/livox_ros_driver2.cpp",
+      "target": "src/livox_ros_driver2/src/lds_lidar.h",
+      "type": "imports",
+      "label": "#include LdsLidar 头文件，初始化激光雷达设备并注册到 Lddc"
+    },
+    {
+      "source": "src/livox_ros_driver2/src/comm/comm.h",
+      "target": "src/livox_ros_driver2/src/lds_lidar.cpp",
+      "type": "referenced_by",
+      "label": "被 LdsLidar 类引用，使用 LidarDevice、UserConfig 等通信数据结构"
+    },
+    {
+      "source": "src/livox_ros_driver2/src/lddc.cpp",
+      "target": "src/livox_ros_driver2/src/comm/ldq.h",
+      "type": "depends_on",
+      "label": "依赖无锁队列（LidarDataQueue）实现点云数据的高效出队与分发"
+    },
+    {
+      "source": "src/livox_ros_driver2/src/lddc.cpp",
+      "target": "src/livox_ros_driver2/src/lds_lidar.h",
+      "type": "depends_on",
+      "label": "依赖 LdsLidar 提供的 lidars_ 设备数组和 pcd_semaphore_/imu_semaphore_ 信号量"
+    },
+    {
+      "source": "src/livox_ros_driver2/src/livox_ros_driver2.cpp",
+      "target": "src/livox_ros_driver2/src/lds_lidar.h",
+      "type": "depends_on",
+      "label": "依赖 LdsLidar::GetInstance 获取单例，调用 InitLdsLidar 初始化设备"
+    }
+  ]
+}

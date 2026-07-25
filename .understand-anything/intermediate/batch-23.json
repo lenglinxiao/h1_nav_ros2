@@ -1,0 +1,461 @@
+{
+  "nodes": [
+    {
+      "id": "n-23-001",
+      "type": "stl_mesh",
+      "name": "R_middle_intermediate",
+      "filePath": "src/h1_2_description/meshes/R_middle_intermediate.STL",
+      "summary": "H1-2 机器人右手（RH8D灵巧手）中指中节指骨的三维网格模型。该网格用于 URDF 机器人描述中的视觉渲染和碰撞检测，对应 R_middle_intermediate 连杆，通过 R_middle_intermediate_joint 转动关节与 R_middle_proximal 相连，运动范围 0~1.7 rad，由 mimic 关节跟随 R_middle_proximal_joint。",
+      "tags": ["STL", "3D网格", "机器人模型", "H1-2", "右侧", "RH8D灵巧手", "中指", "中节指骨", "视觉渲染", "碰撞检测"],
+      "complexity": 2,
+      "languageNotes": "二进制 STL 格式，约 183 KB，625 个三角面（ASCII 行数估算）。网格描述单节手指骨骼的几何外形，无材质纹理信息。"
+    },
+    {
+      "id": "n-23-002",
+      "type": "stl_mesh",
+      "name": "R_middle_proximal",
+      "filePath": "src/h1_2_description/meshes/R_middle_proximal.STL",
+      "summary": "H1-2 机器人右手（RH8D灵巧手）中指近节指骨的三维网格模型。对应 R_middle_proximal 连杆，作为中指运动链的根部，通过 R_middle_proximal_joint 转动关节连接到 R_hand_base_link（手掌底座），运动范围 0~1.7 rad。",
+      "tags": ["STL", "3D网格", "机器人模型", "H1-2", "右侧", "RH8D灵巧手", "中指", "近节指骨", "视觉渲染", "碰撞检测"],
+      "complexity": 3,
+      "languageNotes": "二进制 STL 格式，约 412 KB，1787 个三角面（ASCII 行数估算）。作为中指的基节骨骼，是手指与手掌之间的运动传递枢纽。"
+    },
+    {
+      "id": "n-23-003",
+      "type": "stl_mesh",
+      "name": "R_pinky_intermediate",
+      "filePath": "src/h1_2_description/meshes/R_pinky_intermediate.STL",
+      "summary": "H1-2 机器人右手（RH8D灵巧手）小指中节指骨的三维网格模型。对应 R_pinky_intermediate 连杆，通过 R_pinky_intermediate_joint 转动关节与 R_pinky_proximal 相连，运动范围 0~1.7 rad，由 mimic 关节跟随 R_pinky_proximal_joint。",
+      "tags": ["STL", "3D网格", "机器人模型", "H1-2", "右侧", "RH8D灵巧手", "小指", "中节指骨", "视觉渲染", "碰撞检测"],
+      "complexity": 3,
+      "languageNotes": "二进制 STL 格式，约 416 KB，1579 个三角面（ASCII 行数估算）。小指（pinky）是五指中最外侧的手指，与手掌最边缘位置相连。"
+    },
+    {
+      "id": "n-23-004",
+      "type": "stl_mesh",
+      "name": "R_pinky_proximal",
+      "filePath": "src/h1_2_description/meshes/R_pinky_proximal.STL",
+      "summary": "H1-2 机器人右手（RH8D灵巧手）小指近节指骨的三维网格模型。对应 R_pinky_proximal 连杆，通过 R_pinky_proximal_joint 转动关节连接到 R_hand_base_link，位于手掌最外侧，运动范围 0~1.7 rad。",
+      "tags": ["STL", "3D网格", "机器人模型", "H1-2", "右侧", "RH8D灵巧手", "小指", "近节指骨", "视觉渲染", "碰撞检测"],
+      "complexity": 3,
+      "languageNotes": "二进制 STL 格式，约 412 KB，1788 个三角面（ASCII 行数估算）。与 R_middle_proximal、R_ring_proximal 在结构上高度对称。"
+    },
+    {
+      "id": "n-23-005",
+      "type": "stl_mesh",
+      "name": "R_ring_intermediate",
+      "filePath": "src/h1_2_description/meshes/R_ring_intermediate.STL",
+      "summary": "H1-2 机器人右手（RH8D灵巧手）无名指中节指骨的三维网格模型。对应 R_ring_intermediate 连杆，通过 R_ring_intermediate_joint 转动关节与 R_ring_proximal 相连，运动范围 0~1.7 rad，由 mimic 关节跟随 R_ring_proximal_joint。",
+      "tags": ["STL", "3D网格", "机器人模型", "H1-2", "右侧", "RH8D灵巧手", "无名指", "中节指骨", "视觉渲染", "碰撞检测"],
+      "complexity": 2,
+      "languageNotes": "二进制 STL 格式，约 335 KB，1016 个三角面（ASCII 行数估算）。相比其他手指的中节指骨略小。"
+    },
+    {
+      "id": "n-23-006",
+      "type": "stl_mesh",
+      "name": "R_ring_proximal",
+      "filePath": "src/h1_2_description/meshes/R_ring_proximal.STL",
+      "summary": "H1-2 机器人右手（RH8D灵巧手）无名指近节指骨的三维网格模型。对应 R_ring_proximal 连杆，通过 R_ring_proximal_joint 转动关节连接到 R_hand_base_link，运动范围 0~1.7 rad。",
+      "tags": ["STL", "3D网格", "机器人模型", "H1-2", "右侧", "RH8D灵巧手", "无名指", "近节指骨", "视觉渲染", "碰撞检测"],
+      "complexity": 3,
+      "languageNotes": "二进制 STL 格式，约 412 KB，1790 个三角面（ASCII 行数估算）。无名指位于中指和小指之间。"
+    },
+    {
+      "id": "n-23-007",
+      "type": "stl_mesh",
+      "name": "R_thumb_distal",
+      "filePath": "src/h1_2_description/meshes/R_thumb_distal.STL",
+      "summary": "H1-2 机器人右手（RH8D灵巧手）拇指远节指骨的三维网格模型。对应 R_thumb_distal 连杆，通过 R_thumb_distal_joint 转动关节与 R_thumb_intermediate 相连，运动范围 0~1.2 rad，由 mimic 关节跟随 R_thumb_proximal_pitch_joint（倍率 2.4）。",
+      "tags": ["STL", "3D网格", "机器人模型", "H1-2", "右侧", "RH8D灵巧手", "拇指", "远节指骨", "视觉渲染", "碰撞检测"],
+      "complexity": 2,
+      "languageNotes": "二进制 STL 格式，约 156 KB，574 个三角面（ASCII 行数估算）。拇指远节是最小的手指骨节之一，拇指的mimic传动比为2.4，提供最大弯曲角度。"
+    },
+    {
+      "id": "n-23-008",
+      "type": "stl_mesh",
+      "name": "R_thumb_intermediate",
+      "filePath": "src/h1_2_description/meshes/R_thumb_intermediate.STL",
+      "summary": "H1-2 机器人右手（RH8D灵巧手）拇指中节指骨的三维网格模型。对应 R_thumb_intermediate 连杆，通过 R_thumb_intermediate_joint 转动关节与 R_thumb_proximal 相连，运动范围 0~0.8 rad，由 mimic 关节跟随 R_thumb_proximal_pitch_joint（倍率 1.6）。",
+      "tags": ["STL", "3D网格", "机器人模型", "H1-2", "右侧", "RH8D灵巧手", "拇指", "中节指骨", "视觉渲染", "碰撞检测"],
+      "complexity": 3,
+      "languageNotes": "二进制 STL 格式，约 483 KB，1512 个三角面（ASCII 行数估算）。拇指具有独特的运动结构，包含yaw（偏航）和pitch（俯仰）两个自由度。"
+    },
+    {
+      "id": "n-23-009",
+      "type": "stl_mesh",
+      "name": "R_thumb_proximal_base",
+      "filePath": "src/h1_2_description/meshes/R_thumb_proximal_base.STL",
+      "summary": "H1-2 机器人右手（RH8D灵巧手）拇指近节基座的三维网格模型。对应 R_thumb_proximal_base 连杆，是拇指运动链中最靠近手掌的基座部分，通过 R_thumb_proximal_yaw_joint 转动关节连接到 R_hand_base_link，为拇指提供偏航自由度（范围 -0.1~1.3 rad）。",
+      "tags": ["STL", "3D网格", "机器人模型", "H1-2", "右侧", "RH8D灵巧手", "拇指", "近节基座", "视觉渲染", "碰撞检测"],
+      "complexity": 1,
+      "languageNotes": "二进制 STL 格式，约 47 KB，仅 77 个三角面（ASCII 行数估算）。体积非常小，是一个简化的基座连接件。"
+    },
+    {
+      "id": "n-23-010",
+      "type": "stl_mesh",
+      "name": "R_thumb_proximal",
+      "filePath": "src/h1_2_description/meshes/R_thumb_proximal.STL",
+      "summary": "H1-2 机器人右手（RH8D灵巧手）拇指近节指骨的三维网格模型。对应 R_thumb_proximal 连杆，通过 R_thumb_proximal_pitch_joint 转动关节连接到 R_thumb_proximal_base，为拇指提供俯仰自由度（范围 -0.1~0.6 rad）。拇指中间、远节均通过 mimic 关节跟随此关节运动。",
+      "tags": ["STL", "3D网格", "机器人模型", "H1-2", "右侧", "RH8D灵巧手", "拇指", "近节指骨", "视觉渲染", "碰撞检测"],
+      "complexity": 3,
+      "languageNotes": "二进制 STL 格式，约 922 KB，2767 个三角面（ASCII 行数估算）。拇指近节是拇指最大的骨骼段，作为拇指俯仰运动的主驱动关节。"
+    },
+    {
+      "id": "n-23-011",
+      "type": "stl_mesh",
+      "name": "right_ankle_A_link",
+      "filePath": "src/h1_2_description/meshes/right_ankle_A_link.STL",
+      "summary": "H1-2 机器人右脚踝 A 连杆的三维网格模型（历史遗留/备用网格）。约 142 KB，当前工作空间内未被任何 URDF 或 XML 文件引用，可能为旧版本脚踝机构组件或未启用的备选设计。",
+      "tags": ["STL", "3D网格", "机器人模型", "H1-2", "右侧", "脚踝", "未引用", "历史遗留", "视觉渲染"],
+      "complexity": 2,
+      "languageNotes": "二进制 STL 格式，约 142 KB，891 个三角面（ASCII 行数估算）。该文件在 h1_2_description 的任何 URDF/XML 中均未被引用，属于孤立网格资源。"
+    },
+    {
+      "id": "n-23-012",
+      "type": "stl_mesh",
+      "name": "right_ankle_A_rod_link",
+      "filePath": "src/h1_2_description/meshes/right_ankle_A_rod_link.STL",
+      "summary": "H1-2 机器人右脚踝 A 连杆组件的连接杆三维网格模型（历史遗留/备用网格）。约 44 KB，体积很小，当前未被任何 URDF 引用，可能为并联脚踝机构的拉杆零件。",
+      "tags": ["STL", "3D网格", "机器人模型", "H1-2", "右侧", "脚踝", "连杆", "未引用", "历史遗留"],
+      "complexity": 1,
+      "languageNotes": "二进制 STL 格式，约 44 KB，仅 111 个三角面（ASCII 行数估算）。最简单的网格之一，可能为细长圆柱形连杆。"
+    },
+    {
+      "id": "n-23-013",
+      "type": "stl_mesh",
+      "name": "right_ankle_B_link",
+      "filePath": "src/h1_2_description/meshes/right_ankle_B_link.STL",
+      "summary": "H1-2 机器人右脚踝 B 连杆的三维网格模型（历史遗留/备用网格）。约 142 KB，当前未被任何 URDF 引用，与 right_ankle_A_link 对称，可能为并联脚踝机构的另一侧组件。",
+      "tags": ["STL", "3D网格", "机器人模型", "H1-2", "右侧", "脚踝", "未引用", "历史遗留", "视觉渲染"],
+      "complexity": 2,
+      "languageNotes": "二进制 STL 格式，约 142 KB，940 个三角面（ASCII 行数估算）。与 right_ankle_A_link 大小相近，可能为对称设计的 A/B 对。"
+    },
+    {
+      "id": "n-23-014",
+      "type": "stl_mesh",
+      "name": "right_ankle_B_rod_link",
+      "filePath": "src/h1_2_description/meshes/right_ankle_B_rod_link.STL",
+      "summary": "H1-2 机器人右脚踝 B 连杆组件的连接杆三维网格模型（历史遗留/备用网格）。约 38 KB，当前未被任何 URDF 引用，与 right_ankle_A_rod_link 对称。",
+      "tags": ["STL", "3D网格", "机器人模型", "H1-2", "右侧", "脚踝", "连杆", "未引用", "历史遗留"],
+      "complexity": 1,
+      "languageNotes": "二进制 STL 格式，约 38 KB，仅 92 个三角面（ASCII 行数估算）。与 A_rod 类似，为细长杆状零件。"
+    },
+    {
+      "id": "n-23-015",
+      "type": "stl_mesh",
+      "name": "right_ankle_link",
+      "filePath": "src/h1_2_description/meshes/right_ankle_link.STL",
+      "summary": "H1-2 机器人右脚踝整体连杆的三维网格模型（历史遗留/备用网格）。约 439 KB，2279 个三角面。当前未被任何 URDF 引用，可能为旧版整体式脚踝设计的网格，已被当前使用的 right_ankle_pitch_link + right_ankle_roll_link 组合方案取代。",
+      "tags": ["STL", "3D网格", "机器人模型", "H1-2", "右侧", "脚踝", "未引用", "历史遗留", "视觉渲染"],
+      "complexity": 3,
+      "languageNotes": "二进制 STL 格式，约 439 KB，2279 个三角面（ASCII 行数估算）。比当前使用的 pitch/roll 分体设计更为整体化。"
+    },
+    {
+      "id": "n-23-016",
+      "type": "stl_mesh",
+      "name": "right_ankle_pitch_link",
+      "filePath": "src/h1_2_description/meshes/right_ankle_pitch_link.STL",
+      "summary": "H1-2 机器人右脚踝俯仰（pitch）连杆的三维网格模型。对应 URDF 中 right_ankle_pitch_link，是脚踝运动链的父连杆，提供脚踝的前后俯仰自由度。用于 h1_2.urdf 和 h1_2_with_FTP_hand.urdf 的视觉与碰撞模型。",
+      "tags": ["STL", "3D网格", "机器人模型", "H1-2", "右侧", "脚踝", "俯仰关节", "视觉渲染", "碰撞检测"],
+      "complexity": 1,
+      "languageNotes": "二进制 STL 格式，约 34 KB，仅 84 个三角面（ASCII 行数估算）。非常简单的网格，可能为近似圆柱或方块形状的连接件。"
+    },
+    {
+      "id": "n-23-017",
+      "type": "stl_mesh",
+      "name": "right_ankle_roll_link",
+      "filePath": "src/h1_2_description/meshes/right_ankle_roll_link.STL",
+      "summary": "H1-2 机器人右脚踝翻滚（roll）连杆的三维网格模型。对应 URDF 中 right_ankle_roll_link，是脚踝运动链的子连杆，提供脚踝的内外翻滚自由度。在 h1_2.urdf 和 h1_2_with_FTP_hand.urdf 中同时用于 visual 和 collision 几何。",
+      "tags": ["STL", "3D网格", "机器人模型", "H1-2", "右侧", "脚踝", "翻滚关节", "视觉渲染", "碰撞检测"],
+      "complexity": 2,
+      "languageNotes": "二进制 STL 格式，约 200 KB，765 个三角面（ASCII 行数估算）。脚踝 roll 关节使机器人能够适应不平坦地面。"
+    },
+    {
+      "id": "n-23-018",
+      "type": "stl_mesh",
+      "name": "right_base_link",
+      "filePath": "src/h1_2_description/meshes/right_base_link.STL",
+      "summary": "H1-2 机器人右侧躯干基座（base link）的三维网格模型，是整个批次中最大的网格文件（约 4.5 MB，22325 个三角面）。在 h1_2_with_FTP_hand.urdf 中作为 right_base_link 同时用于视觉和碰撞几何，是躯干的核心结构件，承载双臂和头部的连接。",
+      "tags": ["STL", "3D网格", "机器人模型", "H1-2", "右侧", "躯干", "基座连杆", "视觉渲染", "碰撞检测", "核心结构"],
+      "complexity": 5,
+      "languageNotes": "二进制 STL 格式，约 4.5 MB，22325 个三角面（ASCII 行数估算）。本批次最大、最复杂的网格，对应机器人上半身主结构体。"
+    },
+    {
+      "id": "n-23-019",
+      "type": "stl_mesh",
+      "name": "right_elbow_link",
+      "filePath": "src/h1_2_description/meshes/right_elbow_link.STL",
+      "summary": "H1-2 机器人右肘关节连杆的三维网格模型。对应 URDF 中 right_elbow_link，是手臂运动链中的肘部结构件，连接上臂和前臂。在 h1_2.urdf 和 h1_2_with_FTP_hand.urdf 中用于视觉和碰撞几何。",
+      "tags": ["STL", "3D网格", "机器人模型", "H1-2", "右侧", "肘关节", "手臂", "视觉渲染", "碰撞检测"],
+      "complexity": 3,
+      "languageNotes": "二进制 STL 格式，约 1.3 MB，2995 个三角面（ASCII 行数估算）。肘关节是臂部运动链的关键节点，结构相对复杂。"
+    },
+    {
+      "id": "n-23-020",
+      "type": "stl_mesh",
+      "name": "right_hand_link",
+      "filePath": "src/h1_2_description/meshes/right_hand_link.STL",
+      "summary": "H1-2 机器人右手手掌的三维网格模型（历史遗留/备用网格）。约 148 KB，269 个三角面。当前未被任何 URDF 引用——RH8D 手使用 R_hand_base_link，FTP 手的手指直接连接到 right_base_link。可能为旧版手掌设计。",
+      "tags": ["STL", "3D网格", "机器人模型", "H1-2", "右侧", "手掌", "未引用", "历史遗留", "视觉渲染"],
+      "complexity": 2,
+      "languageNotes": "二进制 STL 格式，约 148 KB，269 个三角面（ASCII 行数估算）。当前设计中已被 R_hand_base_link 替代。"
+    },
+    {
+      "id": "n-23-021",
+      "type": "stl_mesh",
+      "name": "right_hip_pitch_link",
+      "filePath": "src/h1_2_description/meshes/right_hip_pitch_link.STL",
+      "summary": "H1-2 机器人右髋俯仰（pitch）连杆的三维网格模型。对应 URDF 中 right_hip_pitch_link，是髋关节运动链的俯仰组件，提供腿部前后摆动自由度。在 h1_2.urdf 和 h1_2_with_FTP_hand.urdf 中同时用于视觉和碰撞几何。",
+      "tags": ["STL", "3D网格", "机器人模型", "H1-2", "右侧", "髋关节", "俯仰关节", "腿部", "视觉渲染", "碰撞检测"],
+      "complexity": 4,
+      "languageNotes": "二进制 STL 格式，约 1.3 MB，3828 个三角面（ASCII 行数估算）。髋部俯仰是下肢运动的核心自由度。"
+    },
+    {
+      "id": "n-23-022",
+      "type": "stl_mesh",
+      "name": "right_hip_roll_link",
+      "filePath": "src/h1_2_description/meshes/right_hip_roll_link.STL",
+      "summary": "H1-2 机器人右髋翻滚（roll）连杆的三维网格模型。对应 URDF 中 right_hip_roll_link，是髋关节运动链的翻滚组件，提供腿部内外旋转自由度。在 h1_2.urdf 和 h1_2_with_FTP_hand.urdf 中同时用于视觉和碰撞几何。",
+      "tags": ["STL", "3D网格", "机器人模型", "H1-2", "右侧", "髋关节", "翻滚关节", "腿部", "视觉渲染", "碰撞检测"],
+      "complexity": 3,
+      "languageNotes": "二进制 STL 格式，约 386 KB，1094 个三角面（ASCII 行数估算）。由 right_hip_yaw_link 的子关节连接。"
+    },
+    {
+      "id": "n-23-023",
+      "type": "stl_mesh",
+      "name": "right_hip_yaw_link",
+      "filePath": "src/h1_2_description/meshes/right_hip_yaw_link.STL",
+      "summary": "H1-2 机器人右髋偏航（yaw）连杆的三维网格模型。对应 URDF 中 right_hip_yaw_link，是髋关节运动链中最靠近躯干的组件，提供腿部水平旋转自由度。在 h1_2.urdf 和 h1_2_with_FTP_hand.urdf 中用于视觉渲染。",
+      "tags": ["STL", "3D网格", "机器人模型", "H1-2", "右侧", "髋关节", "偏航关节", "腿部", "视觉渲染"],
+      "complexity": 3,
+      "languageNotes": "二进制 STL 格式，约 840 KB，4723 个三角面（ASCII 行数估算）。作为髋部第一个自由度，直接连接到 torso 躯干。"
+    },
+    {
+      "id": "n-23-024",
+      "type": "stl_mesh",
+      "name": "right_index_1",
+      "filePath": "src/h1_2_description/meshes/right_index_1.STL",
+      "summary": "H1-2 机器人右手（FTP 手）食指近节指骨的三维网格模型。在 h1_2_with_FTP_hand.urdf 中对应 right_index_1 连杆，通过 right_index_1_joint 转动关节连接到 right_base_link。FTP 手是与 RH8D 手不同的另一种手部设计方案。",
+      "tags": ["STL", "3D网格", "机器人模型", "H1-2", "右侧", "FTP灵巧手", "食指", "近节指骨", "视觉渲染", "碰撞检测"],
+      "complexity": 3,
+      "languageNotes": "二进制 STL 格式，约 773 KB，2277 个三角面（ASCII 行数估算）。FTP 手的手指命名方式为 right_index_1/2，与 RH8D 的 R_index_proximal/intermediate 命名不同。"
+    },
+    {
+      "id": "n-23-025",
+      "type": "stl_mesh",
+      "name": "right_index_2",
+      "filePath": "src/h1_2_description/meshes/right_index_2.STL",
+      "summary": "H1-2 机器人右手（FTP 手）食指远节指骨的三维网格模型。在 h1_2_with_FTP_hand.urdf 中对应 right_index_2 连杆，通过 right_index_2_joint 转动关节连接到 right_index_1。该关节为 mimic 关节，跟随 right_index_1_joint（倍率 1.0843）。",
+      "tags": ["STL", "3D网格", "机器人模型", "H1-2", "右侧", "FTP灵巧手", "食指", "远节指骨", "视觉渲染", "碰撞检测"],
+      "complexity": 2,
+      "languageNotes": "二进制 STL 格式，约 372 KB，925 个三角面（ASCII 行数估算）。FTP 手指的 mimic 倍率约为 1.08，与 RH8D 的 1.0 倍率略有不同。"
+    }
+  ],
+  "edges": [
+    {
+      "source": "n-23-002",
+      "target": "n-23-001",
+      "type": "kinematic_chain",
+      "label": "中指近节 → 中节指骨运动链",
+      "properties": {
+        "joint": "R_middle_intermediate_joint",
+        "jointType": "revolute",
+        "range": "0~1.7 rad",
+        "mimicMultiplier": 1.0
+      }
+    },
+    {
+      "source": "n-23-004",
+      "target": "n-23-003",
+      "type": "kinematic_chain",
+      "label": "小指近节 → 中节指骨运动链",
+      "properties": {
+        "joint": "R_pinky_intermediate_joint",
+        "jointType": "revolute",
+        "range": "0~1.7 rad",
+        "mimicMultiplier": 1.0
+      }
+    },
+    {
+      "source": "n-23-006",
+      "target": "n-23-005",
+      "type": "kinematic_chain",
+      "label": "无名指近节 → 中节指骨运动链",
+      "properties": {
+        "joint": "R_ring_intermediate_joint",
+        "jointType": "revolute",
+        "range": "0~1.7 rad",
+        "mimicMultiplier": 1.0
+      }
+    },
+    {
+      "source": "n-23-010",
+      "target": "n-23-008",
+      "type": "kinematic_chain",
+      "label": "拇指近节 → 中节指骨运动链",
+      "properties": {
+        "joint": "R_thumb_intermediate_joint",
+        "jointType": "revolute",
+        "range": "0~0.8 rad",
+        "mimicMultiplier": 1.6
+      }
+    },
+    {
+      "source": "n-23-008",
+      "target": "n-23-007",
+      "type": "kinematic_chain",
+      "label": "拇指中节 → 远节指骨运动链",
+      "properties": {
+        "joint": "R_thumb_distal_joint",
+        "jointType": "revolute",
+        "range": "0~1.2 rad",
+        "mimicMultiplier": 2.4
+      }
+    },
+    {
+      "source": "n-23-009",
+      "target": "n-23-010",
+      "type": "kinematic_chain",
+      "label": "拇指基座 → 近节指骨运动链",
+      "properties": {
+        "joint": "R_thumb_proximal_pitch_joint",
+        "jointType": "revolute",
+        "range": "-0.1~0.6 rad",
+        "mimicMultiplier": null
+      }
+    },
+    {
+      "source": "n-23-016",
+      "target": "n-23-017",
+      "type": "kinematic_chain",
+      "label": "脚踝俯仰 → 翻滚关节运动链",
+      "properties": {
+        "parentLink": "right_ankle_pitch_link",
+        "childLink": "right_ankle_roll_link",
+        "jointType": "脚踝俯仰-翻滚串联"
+      }
+    },
+    {
+      "source": "n-23-023",
+      "target": "n-23-022",
+      "type": "kinematic_chain",
+      "label": "髋偏航 → 髋翻滚关节运动链",
+      "properties": {
+        "parentLink": "right_hip_yaw_link",
+        "childLink": "right_hip_roll_link",
+        "jointType": "髋关节偏航-翻滚串联"
+      }
+    },
+    {
+      "source": "n-23-024",
+      "target": "n-23-025",
+      "type": "kinematic_chain",
+      "label": "FTP食指近节 → 远节指骨运动链",
+      "properties": {
+        "joint": "right_index_2_joint",
+        "jointType": "revolute",
+        "mimic": "right_index_1_joint",
+        "mimicMultiplier": 1.0843
+      }
+    },
+    {
+      "source": "n-23-001",
+      "target": "n-23-005",
+      "type": "structural_symmetry",
+      "label": "中指 ↔ 无名指中节指骨结构对称",
+      "properties": {
+        "relationship": "相邻手指对应骨骼段"
+      }
+    },
+    {
+      "source": "n-23-005",
+      "target": "n-23-003",
+      "type": "structural_symmetry",
+      "label": "无名指 ↔ 小指中节指骨结构对称",
+      "properties": {
+        "relationship": "相邻手指对应骨骼段"
+      }
+    },
+    {
+      "source": "n-23-002",
+      "target": "n-23-006",
+      "type": "structural_symmetry",
+      "label": "中指 ↔ 无名指近节指骨结构对称",
+      "properties": {
+        "relationship": "相邻手指对应骨骼段，文件大小几乎相同（~412 KB）"
+      }
+    },
+    {
+      "source": "n-23-006",
+      "target": "n-23-004",
+      "type": "structural_symmetry",
+      "label": "无名指 ↔ 小指近节指骨结构对称",
+      "properties": {
+        "relationship": "相邻手指对应骨骼段，文件大小几乎相同（~412 KB）"
+      }
+    },
+    {
+      "source": "n-23-011",
+      "target": "n-23-012",
+      "type": "structural_pair",
+      "label": "脚踝 A 连杆与 A 连接杆",
+      "properties": {
+        "relationship": "A组件的连杆与连接杆配对"
+      }
+    },
+    {
+      "source": "n-23-013",
+      "target": "n-23-014",
+      "type": "structural_pair",
+      "label": "脚踝 B 连杆与 B 连接杆",
+      "properties": {
+        "relationship": "B组件的连杆与连接杆配对"
+      }
+    },
+    {
+      "source": "n-23-011",
+      "target": "n-23-013",
+      "type": "structural_symmetry",
+      "label": "脚踝 A ↔ B 连杆对称",
+      "properties": {
+        "relationship": "并联机构的对称A/B组件对"
+      }
+    },
+    {
+      "source": "n-23-012",
+      "target": "n-23-014",
+      "type": "structural_symmetry",
+      "label": "脚踝 A ↔ B 连接杆对称",
+      "properties": {
+        "relationship": "A/B连接杆的对称配对"
+      }
+    },
+    {
+      "source": "n-23-015",
+      "target": "n-23-016",
+      "type": "design_evolution",
+      "label": "整体式脚踝被 pitch/roll 分体式取代",
+      "properties": {
+        "relationship": "right_ankle_link 为旧版整体设计，已被 right_ankle_pitch_link + right_ankle_roll_link 替代"
+      }
+    },
+    {
+      "source": "n-23-018",
+      "target": "n-23-019",
+      "type": "kinematic_chain",
+      "label": "躯干基座 → 肘关节间接运动链",
+      "properties": {
+        "relationship": "right_base_link 是通过肩部关节链间接连接到 right_elbow_link 的父级结构"
+      }
+    },
+    {
+      "source": "n-23-018",
+      "target": "n-23-023",
+      "type": "kinematic_chain",
+      "label": "躯干基座 → 髋关节运动链",
+      "properties": {
+        "relationship": "right_base_link 是 right_hip_yaw_link 的上级躯干结构"
+      }
+    }
+  ]
+}

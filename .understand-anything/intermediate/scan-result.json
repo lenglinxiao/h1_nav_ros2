@@ -1,0 +1,3314 @@
+{
+  "name": "h1_2_nav2_ros2_ws",
+  "description": "这是一个 ROS2 (Humble) 工作空间，将 H1-2Nav2D 项目中与 Livox MID360 雷达驱动、FAST-LIO2 激光惯性里程计与建图、Nav2 导航栈及路径示教（录制/回放/跟踪）直接相关的功能模块进行了系统化整合。同时包含 CPU YOLO 视觉目标检测、语音控制指令发布、基于 ICP 的重定位、以及 Unitree H1-2 机器人运动桥接等辅助功能。 注意：该项目包含超过 100 个源文件，建议限定到子目录进行分析以获得更快的处理速度。",
+  "languages": [
+    "C",
+    "C++",
+    "CMake",
+    "Config",
+    "JSON",
+    "Launch",
+    "MSG",
+    "Markdown",
+    "Python",
+    "RViz",
+    "SRV",
+    "STL",
+    "Shell",
+    "TXT",
+    "URDF",
+    "XML",
+    "YAML"
+  ],
+  "frameworks": [
+    "ROS2 Humble",
+    "Nav2",
+    "FAST-LIO2",
+    "slam_toolbox",
+    "Livox SDK2",
+    "PyQt5",
+    "OpenCV",
+    "PCL",
+    "YOLO",
+    "TF2",
+    "Unitree SDK"
+  ],
+  "files": [
+    {
+      "path": ".understand-anything/.understandignore",
+      "language": "unknown",
+      "sizeLines": 45,
+      "fileCategory": "code"
+    },
+    {
+      "path": ".understand-anything/config.json",
+      "language": "json",
+      "sizeLines": 1,
+      "fileCategory": "config"
+    },
+    {
+      "path": "AGENTS.md",
+      "language": "markdown",
+      "sizeLines": 3,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "check_remote_livox.sh",
+      "language": "shell",
+      "sizeLines": 38,
+      "fileCategory": "script"
+    },
+    {
+      "path": "config/cyclonedds_enp45s0.xml",
+      "language": "xml",
+      "sizeLines": 13,
+      "fileCategory": "config"
+    },
+    {
+      "path": "config/cyclonedds_localhost.xml",
+      "language": "xml",
+      "sizeLines": 13,
+      "fileCategory": "config"
+    },
+    {
+      "path": "config/fastdds_enp45s0_robot.xml",
+      "language": "xml",
+      "sizeLines": 33,
+      "fileCategory": "config"
+    },
+    {
+      "path": "cyclonedds_upper.xml",
+      "language": "xml",
+      "sizeLines": 13,
+      "fileCategory": "config"
+    },
+    {
+      "path": "docs/architecture/2026-06-11-offline-3d-icp-localization.md",
+      "language": "markdown",
+      "sizeLines": 234,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/architecture/2026-06-15-current-icp-vs-global-relocalization.md",
+      "language": "markdown",
+      "sizeLines": 169,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-06-11-offline-3d-icp-localization.md",
+      "language": "markdown",
+      "sizeLines": 201,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "README.md",
+      "language": "markdown",
+      "sizeLines": 409,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "run_ai_slam_nav.sh",
+      "language": "shell",
+      "sizeLines": 300,
+      "fileCategory": "script"
+    },
+    {
+      "path": "scripts/install_relocalization_deps.sh",
+      "language": "shell",
+      "sizeLines": 214,
+      "fileCategory": "script"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/.github/stale.yml",
+      "language": "yaml",
+      "sizeLines": 17,
+      "fileCategory": "config"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/.gitmodules",
+      "language": "unknown",
+      "sizeLines": 4,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/CMakeLists.txt",
+      "language": "txt",
+      "sizeLines": 130,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/config/avia.yaml",
+      "language": "yaml",
+      "sizeLines": 46,
+      "fileCategory": "config"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/config/horizon.yaml",
+      "language": "yaml",
+      "sizeLines": 46,
+      "fileCategory": "config"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/config/mid360.yaml",
+      "language": "yaml",
+      "sizeLines": 52,
+      "fileCategory": "config"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/config/ouster64.yaml",
+      "language": "yaml",
+      "sizeLines": 47,
+      "fileCategory": "config"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/config/velodyne.yaml",
+      "language": "yaml",
+      "sizeLines": 48,
+      "fileCategory": "config"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/include/common_lib.h",
+      "language": "c",
+      "sizeLines": 270,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/include/Exp_mat.h",
+      "language": "c",
+      "sizeLines": 103,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/include/ikd-Tree/ikd_Tree.cpp",
+      "language": "cpp",
+      "sizeLines": 1728,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/include/ikd-Tree/ikd_Tree.h",
+      "language": "c",
+      "sizeLines": 344,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/include/ikd-Tree/README.md",
+      "language": "markdown",
+      "sizeLines": 2,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/esekfom/esekfom.hpp",
+      "language": "cpp",
+      "sizeLines": 2008,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/esekfom/util.hpp",
+      "language": "cpp",
+      "sizeLines": 82,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/build_manifold.hpp",
+      "language": "cpp",
+      "sizeLines": 229,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/src/mtkmath.hpp",
+      "language": "cpp",
+      "sizeLines": 294,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/src/SubManifold.hpp",
+      "language": "cpp",
+      "sizeLines": 123,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/src/vectview.hpp",
+      "language": "cpp",
+      "sizeLines": 168,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/startIdx.hpp",
+      "language": "cpp",
+      "sizeLines": 328,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/types/S2.hpp",
+      "language": "cpp",
+      "sizeLines": 316,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/types/SOn.hpp",
+      "language": "cpp",
+      "sizeLines": 317,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/types/vect.hpp",
+      "language": "cpp",
+      "sizeLines": 461,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/types/wrapped_cv_mat.hpp",
+      "language": "cpp",
+      "sizeLines": 113,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/include/matplotlibcpp.h",
+      "language": "c",
+      "sizeLines": 2499,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/include/so3_math.h",
+      "language": "c",
+      "sizeLines": 111,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/include/use-ikfom.hpp",
+      "language": "cpp",
+      "sizeLines": 125,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/launch/gdb_debug_example.launch",
+      "language": "launch",
+      "sizeLines": 22,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/launch/mapping.launch.py",
+      "language": "python",
+      "sizeLines": 71,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/msg/Pose6D.msg",
+      "language": "msg",
+      "sizeLines": 6,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/package.xml",
+      "language": "xml",
+      "sizeLines": 34,
+      "fileCategory": "config"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/PCD/1",
+      "language": "unknown",
+      "sizeLines": 1,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/README.md",
+      "language": "markdown",
+      "sizeLines": 199,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/rviz_cfg/loam_livox.rviz",
+      "language": "rviz",
+      "sizeLines": 358,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/rviz/fastlio.rviz",
+      "language": "rviz",
+      "sizeLines": 304,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/src/IMU_Processing.hpp",
+      "language": "cpp",
+      "sizeLines": 408,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/src/laserMapping.cpp",
+      "language": "cpp",
+      "sizeLines": 1215,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/src/preprocess.cpp",
+      "language": "cpp",
+      "sizeLines": 1069,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/FAST_LIO_ROS2/src/preprocess.h",
+      "language": "c",
+      "sizeLines": 196,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/CMakeLists.txt",
+      "language": "txt",
+      "sizeLines": 21,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "src/h1_2_description/h1_2_handless.urdf",
+      "language": "urdf",
+      "sizeLines": 846,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/h1_2_handless.xml",
+      "language": "xml",
+      "sizeLines": 253,
+      "fileCategory": "config"
+    },
+    {
+      "path": "src/h1_2_description/h1_2_with_FTP_hand.urdf",
+      "language": "urdf",
+      "sizeLines": 2564,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/h1_2.urdf",
+      "language": "urdf",
+      "sizeLines": 1612,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/h1_2.xml",
+      "language": "xml",
+      "sizeLines": 451,
+      "fileCategory": "config"
+    },
+    {
+      "path": "src/h1_2_description/meshes/L_hand_base_link.STL",
+      "language": "stl",
+      "sizeLines": 10010,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/L_index_intermediate.STL",
+      "language": "stl",
+      "sizeLines": 995,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/L_index_proximal.STL",
+      "language": "stl",
+      "sizeLines": 1797,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/L_middle_intermediate.STL",
+      "language": "stl",
+      "sizeLines": 585,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/L_middle_proximal.STL",
+      "language": "stl",
+      "sizeLines": 1795,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/L_pinky_intermediate.STL",
+      "language": "stl",
+      "sizeLines": 1533,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/L_pinky_proximal.STL",
+      "language": "stl",
+      "sizeLines": 1790,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/L_ring_intermediate.STL",
+      "language": "stl",
+      "sizeLines": 1150,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/L_ring_proximal.STL",
+      "language": "stl",
+      "sizeLines": 1981,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/L_thumb_distal.STL",
+      "language": "stl",
+      "sizeLines": 566,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/L_thumb_intermediate.STL",
+      "language": "stl",
+      "sizeLines": 1508,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/L_thumb_proximal_base.STL",
+      "language": "stl",
+      "sizeLines": 75,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/L_thumb_proximal.STL",
+      "language": "stl",
+      "sizeLines": 2750,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_ankle_A_link.STL",
+      "language": "stl",
+      "sizeLines": 880,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_ankle_A_rod_link.STL",
+      "language": "stl",
+      "sizeLines": 108,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_ankle_B_link.STL",
+      "language": "stl",
+      "sizeLines": 938,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_ankle_B_rod_link.STL",
+      "language": "stl",
+      "sizeLines": 92,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_ankle_pitch_link.STL",
+      "language": "stl",
+      "sizeLines": 84,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_ankle_roll_link.STL",
+      "language": "stl",
+      "sizeLines": 765,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_base_link.STL",
+      "language": "stl",
+      "sizeLines": 16032,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_elbow_link.STL",
+      "language": "stl",
+      "sizeLines": 2991,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_hand_link.STL",
+      "language": "stl",
+      "sizeLines": 269,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_hip_pitch_link.STL",
+      "language": "stl",
+      "sizeLines": 4192,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_hip_roll_link.STL",
+      "language": "stl",
+      "sizeLines": 1057,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_hip_yaw_link.STL",
+      "language": "stl",
+      "sizeLines": 4746,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_index_1.STL",
+      "language": "stl",
+      "sizeLines": 2442,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_index_2.STL",
+      "language": "stl",
+      "sizeLines": 1042,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_index_force_sensor_1.STL",
+      "language": "stl",
+      "sizeLines": 979,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_index_force_sensor_2.STL",
+      "language": "stl",
+      "sizeLines": 1010,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_index_force_sensor_3.STL",
+      "language": "stl",
+      "sizeLines": 286,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_knee_link.STL",
+      "language": "stl",
+      "sizeLines": 682,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_little_1.STL",
+      "language": "stl",
+      "sizeLines": 2442,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_little_2.STL",
+      "language": "stl",
+      "sizeLines": 1128,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_little_force_sensor_1.STL",
+      "language": "stl",
+      "sizeLines": 1102,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_little_force_sensor_2.STL",
+      "language": "stl",
+      "sizeLines": 1197,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_little_force_sensor_3.STL",
+      "language": "stl",
+      "sizeLines": 280,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_middle_1.STL",
+      "language": "stl",
+      "sizeLines": 2442,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_middle_2.STL",
+      "language": "stl",
+      "sizeLines": 1503,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_middle_force_sensor_1.STL",
+      "language": "stl",
+      "sizeLines": 926,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_middle_force_sensor_2.STL",
+      "language": "stl",
+      "sizeLines": 833,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_middle_force_sensor_3.STL",
+      "language": "stl",
+      "sizeLines": 242,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_palm_force_sensor.STL",
+      "language": "stl",
+      "sizeLines": 3675,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_ring_1.STL",
+      "language": "stl",
+      "sizeLines": 2442,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_ring_2.STL",
+      "language": "stl",
+      "sizeLines": 1042,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_ring_force_sensor_1.STL",
+      "language": "stl",
+      "sizeLines": 1028,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_ring_force_sensor_2.STL",
+      "language": "stl",
+      "sizeLines": 968,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_ring_force_sensor_3.STL",
+      "language": "stl",
+      "sizeLines": 302,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_shoulder_pitch_link.STL",
+      "language": "stl",
+      "sizeLines": 7090,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_shoulder_roll_link.STL",
+      "language": "stl",
+      "sizeLines": 6117,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_shoulder_yaw_link.STL",
+      "language": "stl",
+      "sizeLines": 8390,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_thumb_1.STL",
+      "language": "stl",
+      "sizeLines": 190,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_thumb_2.STL",
+      "language": "stl",
+      "sizeLines": 1526,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_thumb_3.STL",
+      "language": "stl",
+      "sizeLines": 1203,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_thumb_4.STL",
+      "language": "stl",
+      "sizeLines": 1385,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_thumb_force_sensor_1.STL",
+      "language": "stl",
+      "sizeLines": 1100,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_thumb_force_sensor_2.STL",
+      "language": "stl",
+      "sizeLines": 459,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_thumb_force_sensor_3.STL",
+      "language": "stl",
+      "sizeLines": 876,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_thumb_force_sensor_4.STL",
+      "language": "stl",
+      "sizeLines": 188,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_wrist_pitch_link.STL",
+      "language": "stl",
+      "sizeLines": 2116,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/left_wrist_roll_link.STL",
+      "language": "stl",
+      "sizeLines": 2812,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/link11_L.STL",
+      "language": "stl",
+      "sizeLines": 75,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/link11_R.STL",
+      "language": "stl",
+      "sizeLines": 77,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/link12_L.STL",
+      "language": "stl",
+      "sizeLines": 2750,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/link12_R.STL",
+      "language": "stl",
+      "sizeLines": 2767,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/link13_L.STL",
+      "language": "stl",
+      "sizeLines": 1508,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/link13_R.STL",
+      "language": "stl",
+      "sizeLines": 1512,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/link14_L.STL",
+      "language": "stl",
+      "sizeLines": 566,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/link14_R.STL",
+      "language": "stl",
+      "sizeLines": 574,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/link15_L.STL",
+      "language": "stl",
+      "sizeLines": 1797,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/link15_R.STL",
+      "language": "stl",
+      "sizeLines": 2109,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/link16_L.STL",
+      "language": "stl",
+      "sizeLines": 995,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/link16_R.STL",
+      "language": "stl",
+      "sizeLines": 851,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/link17_L.STL",
+      "language": "stl",
+      "sizeLines": 1795,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/link17_R.STL",
+      "language": "stl",
+      "sizeLines": 1787,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/link18_L.STL",
+      "language": "stl",
+      "sizeLines": 585,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/link18_R.STL",
+      "language": "stl",
+      "sizeLines": 625,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/link19_L.STL",
+      "language": "stl",
+      "sizeLines": 1981,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/link19_R.STL",
+      "language": "stl",
+      "sizeLines": 1790,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/link20_L.STL",
+      "language": "stl",
+      "sizeLines": 1150,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/link20_R.STL",
+      "language": "stl",
+      "sizeLines": 1016,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/link21_L.STL",
+      "language": "stl",
+      "sizeLines": 1790,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/link21_R.STL",
+      "language": "stl",
+      "sizeLines": 1788,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/link22_L.STL",
+      "language": "stl",
+      "sizeLines": 1533,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/link22_R.STL",
+      "language": "stl",
+      "sizeLines": 1579,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/logo_link.STL",
+      "language": "stl",
+      "sizeLines": 233,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/pelvis.STL",
+      "language": "stl",
+      "sizeLines": 2240,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/R_hand_base_link.STL",
+      "language": "stl",
+      "sizeLines": 10322,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/R_index_intermediate.STL",
+      "language": "stl",
+      "sizeLines": 851,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/R_index_proximal.STL",
+      "language": "stl",
+      "sizeLines": 2109,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/R_middle_intermediate.STL",
+      "language": "stl",
+      "sizeLines": 625,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/R_middle_proximal.STL",
+      "language": "stl",
+      "sizeLines": 1787,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/R_pinky_intermediate.STL",
+      "language": "stl",
+      "sizeLines": 1579,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/R_pinky_proximal.STL",
+      "language": "stl",
+      "sizeLines": 1788,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/R_ring_intermediate.STL",
+      "language": "stl",
+      "sizeLines": 1016,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/R_ring_proximal.STL",
+      "language": "stl",
+      "sizeLines": 1790,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/R_thumb_distal.STL",
+      "language": "stl",
+      "sizeLines": 574,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/R_thumb_intermediate.STL",
+      "language": "stl",
+      "sizeLines": 1512,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/R_thumb_proximal_base.STL",
+      "language": "stl",
+      "sizeLines": 77,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/R_thumb_proximal.STL",
+      "language": "stl",
+      "sizeLines": 2767,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_ankle_A_link.STL",
+      "language": "stl",
+      "sizeLines": 891,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_ankle_A_rod_link.STL",
+      "language": "stl",
+      "sizeLines": 111,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_ankle_B_link.STL",
+      "language": "stl",
+      "sizeLines": 940,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_ankle_B_rod_link.STL",
+      "language": "stl",
+      "sizeLines": 92,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_ankle_link.STL",
+      "language": "stl",
+      "sizeLines": 2279,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_ankle_pitch_link.STL",
+      "language": "stl",
+      "sizeLines": 84,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_ankle_roll_link.STL",
+      "language": "stl",
+      "sizeLines": 765,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_base_link.STL",
+      "language": "stl",
+      "sizeLines": 22325,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_elbow_link.STL",
+      "language": "stl",
+      "sizeLines": 2995,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_hand_link.STL",
+      "language": "stl",
+      "sizeLines": 269,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_hip_pitch_link.STL",
+      "language": "stl",
+      "sizeLines": 3828,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_hip_roll_link.STL",
+      "language": "stl",
+      "sizeLines": 1094,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_hip_yaw_link.STL",
+      "language": "stl",
+      "sizeLines": 4723,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_index_1.STL",
+      "language": "stl",
+      "sizeLines": 2277,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_index_2.STL",
+      "language": "stl",
+      "sizeLines": 925,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_index_force_sensor_1.STL",
+      "language": "stl",
+      "sizeLines": 954,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_index_force_sensor_2.STL",
+      "language": "stl",
+      "sizeLines": 1046,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_index_force_sensor_3.STL",
+      "language": "stl",
+      "sizeLines": 306,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_knee_link.STL",
+      "language": "stl",
+      "sizeLines": 682,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_little_1.STL",
+      "language": "stl",
+      "sizeLines": 2277,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_little_2.STL",
+      "language": "stl",
+      "sizeLines": 1167,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_little_force_sensor_1.STL",
+      "language": "stl",
+      "sizeLines": 1000,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_little_force_sensor_2.STL",
+      "language": "stl",
+      "sizeLines": 1191,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_little_force_sensor_3.STL",
+      "language": "stl",
+      "sizeLines": 306,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_middle_1.STL",
+      "language": "stl",
+      "sizeLines": 2277,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_middle_2.STL",
+      "language": "stl",
+      "sizeLines": 1460,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_middle_force_sensor_1.STL",
+      "language": "stl",
+      "sizeLines": 795,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_middle_force_sensor_2.STL",
+      "language": "stl",
+      "sizeLines": 949,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_middle_force_sensor_3.STL",
+      "language": "stl",
+      "sizeLines": 237,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_palm_force_sensor.STL",
+      "language": "stl",
+      "sizeLines": 3947,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_pitch_link.STL",
+      "language": "stl",
+      "sizeLines": 2003,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_ring_1.STL",
+      "language": "stl",
+      "sizeLines": 2277,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_ring_2.STL",
+      "language": "stl",
+      "sizeLines": 924,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_ring_force_sensor_1.STL",
+      "language": "stl",
+      "sizeLines": 849,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_ring_force_sensor_2.STL",
+      "language": "stl",
+      "sizeLines": 1066,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_ring_force_sensor_3.STL",
+      "language": "stl",
+      "sizeLines": 300,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_shoulder_pitch_link.STL",
+      "language": "stl",
+      "sizeLines": 7061,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_shoulder_roll_link.STL",
+      "language": "stl",
+      "sizeLines": 6310,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_shoulder_yaw_link.STL",
+      "language": "stl",
+      "sizeLines": 8390,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_thumb_1.STL",
+      "language": "stl",
+      "sizeLines": 186,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_thumb_2.STL",
+      "language": "stl",
+      "sizeLines": 1639,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_thumb_3.STL",
+      "language": "stl",
+      "sizeLines": 1235,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_thumb_4.STL",
+      "language": "stl",
+      "sizeLines": 1372,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_thumb_force_sensor_1.STL",
+      "language": "stl",
+      "sizeLines": 1077,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_thumb_force_sensor_2.STL",
+      "language": "stl",
+      "sizeLines": 420,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_thumb_force_sensor_3.STL",
+      "language": "stl",
+      "sizeLines": 829,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_thumb_force_sensor_4.STL",
+      "language": "stl",
+      "sizeLines": 244,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_wrist_pitch_link.STL",
+      "language": "stl",
+      "sizeLines": 2085,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/right_wrist_roll_link.STL",
+      "language": "stl",
+      "sizeLines": 2781,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/torso_link.STL",
+      "language": "stl",
+      "sizeLines": 13131,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/meshes/wrist_yaw_link.STL",
+      "language": "stl",
+      "sizeLines": 145,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_description/package.xml",
+      "language": "xml",
+      "sizeLines": 14,
+      "fileCategory": "config"
+    },
+    {
+      "path": "src/h1_2_description/README.md",
+      "language": "markdown",
+      "sizeLines": 20,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "src/h1_2_icp_localization/CMakeLists.txt",
+      "language": "txt",
+      "sizeLines": 179,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "src/h1_2_icp_localization/include/h1_2_icp_localization/cloud_accumulator.hpp",
+      "language": "cpp",
+      "sizeLines": 29,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_icp_localization/include/h1_2_icp_localization/icp_localizer.hpp",
+      "language": "cpp",
+      "sizeLines": 71,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_icp_localization/include/h1_2_icp_localization/relocalization_state.hpp",
+      "language": "cpp",
+      "sizeLines": 82,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_icp_localization/msg/LocalizationStatus.msg",
+      "language": "msg",
+      "sizeLines": 7,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_icp_localization/package.xml",
+      "language": "xml",
+      "sizeLines": 40,
+      "fileCategory": "config"
+    },
+    {
+      "path": "src/h1_2_icp_localization/src/global_relocalization_node.cpp",
+      "language": "cpp",
+      "sizeLines": 1018,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_icp_localization/src/icp_localization_node.cpp",
+      "language": "cpp",
+      "sizeLines": 284,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_icp_localization/src/icp_localizer.cpp",
+      "language": "cpp",
+      "sizeLines": 252,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_icp_localization/srv/Relocalize.srv",
+      "language": "srv",
+      "sizeLines": 8,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_icp_localization/test/test_relocalization_state.cpp",
+      "language": "cpp",
+      "sizeLines": 100,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_loco_bridge/CMakeLists.txt",
+      "language": "txt",
+      "sizeLines": 67,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "src/h1_2_loco_bridge/launch/h1_2_loco_bridge.launch.py",
+      "language": "python",
+      "sizeLines": 105,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_loco_bridge/package.xml",
+      "language": "xml",
+      "sizeLines": 18,
+      "fileCategory": "config"
+    },
+    {
+      "path": "src/h1_2_loco_bridge/src/cmd_vel_to_h1_2_loco.cpp",
+      "language": "cpp",
+      "sizeLines": 146,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_loco_bridge/src/gesture_to_h1_2_loco.cpp",
+      "language": "cpp",
+      "sizeLines": 132,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_loco_bridge/src/h1_2_loco_udp_daemon.cpp",
+      "language": "cpp",
+      "sizeLines": 224,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_msgs/CMakeLists.txt",
+      "language": "txt",
+      "sizeLines": 20,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "src/h1_2_nav_msgs/package.xml",
+      "language": "xml",
+      "sizeLines": 22,
+      "fileCategory": "config"
+    },
+    {
+      "path": "src/h1_2_nav_msgs/srv/DeleteMemoryPoint.srv",
+      "language": "srv",
+      "sizeLines": 4,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_msgs/srv/ExecuteGesture.srv",
+      "language": "srv",
+      "sizeLines": 5,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_msgs/srv/ListMemoryPoints.srv",
+      "language": "srv",
+      "sizeLines": 5,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_msgs/srv/RouteStatus.srv",
+      "language": "srv",
+      "sizeLines": 6,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_msgs/srv/SaveMemoryPoint.srv",
+      "language": "srv",
+      "sizeLines": 6,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_msgs/srv/StartRoute.srv",
+      "language": "srv",
+      "sizeLines": 3,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_msgs/srv/StopRoute.srv",
+      "language": "srv",
+      "sizeLines": 3,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_tools/behavior_trees/h1_2_navigate_to_pose_no_spin_recovery.xml",
+      "language": "xml",
+      "sizeLines": 26,
+      "fileCategory": "config"
+    },
+    {
+      "path": "src/h1_2_nav_tools/config/nav_tools.yaml",
+      "language": "yaml",
+      "sizeLines": 44,
+      "fileCategory": "config"
+    },
+    {
+      "path": "src/h1_2_nav_tools/config/nav2_h1_2_camera_init.yaml",
+      "language": "yaml",
+      "sizeLines": 212,
+      "fileCategory": "config"
+    },
+    {
+      "path": "src/h1_2_nav_tools/config/nav2_h1_2_rpp.yaml",
+      "language": "yaml",
+      "sizeLines": 210,
+      "fileCategory": "config"
+    },
+    {
+      "path": "src/h1_2_nav_tools/config/nav2_h1_2.yaml",
+      "language": "yaml",
+      "sizeLines": 224,
+      "fileCategory": "config"
+    },
+    {
+      "path": "src/h1_2_nav_tools/config/teaching_route_events.example.json",
+      "language": "json",
+      "sizeLines": 10,
+      "fileCategory": "config"
+    },
+    {
+      "path": "src/h1_2_nav_tools/h1_2_nav_tools/__init__.py",
+      "language": "python",
+      "sizeLines": 1,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_tools/h1_2_nav_tools/auto_initial_pose.py",
+      "language": "python",
+      "sizeLines": 297,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_tools/h1_2_nav_tools/camera_stream.py",
+      "language": "python",
+      "sizeLines": 197,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_tools/h1_2_nav_tools/cmd_vel_to_sport_mode.py",
+      "language": "python",
+      "sizeLines": 94,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_tools/h1_2_nav_tools/costmap_clear_on_initialpose.py",
+      "language": "python",
+      "sizeLines": 58,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_tools/h1_2_nav_tools/fastlio_odom_adapter.py",
+      "language": "python",
+      "sizeLines": 90,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_tools/h1_2_nav_tools/goal_pose_to_nav2.py",
+      "language": "python",
+      "sizeLines": 89,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_tools/h1_2_nav_tools/h1_2_nav_gui.py",
+      "language": "python",
+      "sizeLines": 1076,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_tools/h1_2_nav_tools/h1_2_nav_web_gui.py",
+      "language": "python",
+      "sizeLines": 2615,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_tools/h1_2_nav_tools/h1_2_voice_action_bridge.py",
+      "language": "python",
+      "sizeLines": 282,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_tools/h1_2_nav_tools/initialpose_time_adapter.py",
+      "language": "python",
+      "sizeLines": 58,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_tools/h1_2_nav_tools/local2map_odom.py",
+      "language": "python",
+      "sizeLines": 41,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_tools/h1_2_nav_tools/memory_point_cli.py",
+      "language": "python",
+      "sizeLines": 92,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_tools/h1_2_nav_tools/memory_point_manager.py",
+      "language": "python",
+      "sizeLines": 205,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_tools/h1_2_nav_tools/memory_point_markers.py",
+      "language": "python",
+      "sizeLines": 135,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_tools/h1_2_nav_tools/memory_route_runner.py",
+      "language": "python",
+      "sizeLines": 438,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_tools/h1_2_nav_tools/odometry_z_offset.py",
+      "language": "python",
+      "sizeLines": 44,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_tools/h1_2_nav_tools/path_to_waypoint.py",
+      "language": "python",
+      "sizeLines": 185,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_tools/h1_2_nav_tools/play_teaching_path.py",
+      "language": "python",
+      "sizeLines": 74,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_tools/h1_2_nav_tools/pointcloud_frame_adapter.py",
+      "language": "python",
+      "sizeLines": 44,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_tools/h1_2_nav_tools/pointcloud_to_occupancy_grid.py",
+      "language": "python",
+      "sizeLines": 415,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_tools/h1_2_nav_tools/record_teaching_path.py",
+      "language": "python",
+      "sizeLines": 201,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_tools/h1_2_nav_tools/route_activity_guard.py",
+      "language": "python",
+      "sizeLines": 44,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_tools/h1_2_nav_tools/route_runner_cli.py",
+      "language": "python",
+      "sizeLines": 81,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_tools/h1_2_nav_tools/simple_grid_navigator.py",
+      "language": "python",
+      "sizeLines": 496,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_tools/h1_2_nav_tools/simple_pointcloud_to_laserscan.py",
+      "language": "python",
+      "sizeLines": 123,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_tools/h1_2_nav_tools/slam_grid_navigator.py",
+      "language": "python",
+      "sizeLines": 82,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_tools/h1_2_nav_tools/teaching_route_runner.py",
+      "language": "python",
+      "sizeLines": 789,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_tools/h1_2_nav_tools/transform_utils.py",
+      "language": "python",
+      "sizeLines": 55,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_tools/h1_2_nav_tools/velocity_smoother_ema.py",
+      "language": "python",
+      "sizeLines": 142,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_tools/launch/h1_2_voice_action_bridge.launch.py",
+      "language": "python",
+      "sizeLines": 66,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_tools/launch/realtime_grid_map.launch.py",
+      "language": "python",
+      "sizeLines": 59,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_tools/launch/record_teaching_path.launch.py",
+      "language": "python",
+      "sizeLines": 41,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_tools/launch/simple_grid_navigation.launch.py",
+      "language": "python",
+      "sizeLines": 100,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_tools/launch/teaching_navigation.launch.py",
+      "language": "python",
+      "sizeLines": 65,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_tools/launch/teaching_route_runner.launch.py",
+      "language": "python",
+      "sizeLines": 92,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_tools/package.xml",
+      "language": "xml",
+      "sizeLines": 33,
+      "fileCategory": "config"
+    },
+    {
+      "path": "src/h1_2_nav_tools/path/teaching_paths.txt",
+      "language": "txt",
+      "sizeLines": 40,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "src/h1_2_nav_tools/resource/h1_2_nav_tools",
+      "language": "unknown",
+      "sizeLines": 1,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_tools/rviz/h1_2_nav2_camera_init.rviz",
+      "language": "rviz",
+      "sizeLines": 274,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_tools/rviz/h1_2_nav2_offline.rviz",
+      "language": "rviz",
+      "sizeLines": 294,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_tools/setup.cfg",
+      "language": "config",
+      "sizeLines": 4,
+      "fileCategory": "config"
+    },
+    {
+      "path": "src/h1_2_nav_tools/setup.py",
+      "language": "python",
+      "sizeLines": 58,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_tools/urdf/h1_2_nav2_light.urdf",
+      "language": "urdf",
+      "sizeLines": 81,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_slam_bringup/config/pointcloud_to_laserscan_body.yaml",
+      "language": "yaml",
+      "sizeLines": 16,
+      "fileCategory": "config"
+    },
+    {
+      "path": "src/h1_2_slam_bringup/config/pointcloud_to_laserscan.yaml",
+      "language": "yaml",
+      "sizeLines": 14,
+      "fileCategory": "config"
+    },
+    {
+      "path": "src/h1_2_slam_bringup/config/slam_toolbox_localization.yaml",
+      "language": "yaml",
+      "sizeLines": 16,
+      "fileCategory": "config"
+    },
+    {
+      "path": "src/h1_2_slam_bringup/config/slam_toolbox_mapping.yaml",
+      "language": "yaml",
+      "sizeLines": 34,
+      "fileCategory": "config"
+    },
+    {
+      "path": "src/h1_2_slam_bringup/launch/fastlio2_grid_navigation.launch.py",
+      "language": "python",
+      "sizeLines": 91,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_slam_bringup/launch/fastlio2_mid360_grid_mapping.launch.py",
+      "language": "python",
+      "sizeLines": 97,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_slam_bringup/launch/fastlio2_mid360_mapping.launch.py",
+      "language": "python",
+      "sizeLines": 51,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_slam_bringup/launch/fastlio2_mid360_navigation.launch.py",
+      "language": "python",
+      "sizeLines": 60,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_slam_bringup/launch/h1_2_global_relocalization.launch.py",
+      "language": "python",
+      "sizeLines": 113,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_slam_bringup/launch/h1_2_icp_localization.launch.py",
+      "language": "python",
+      "sizeLines": 56,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_slam_bringup/launch/h1_2_nav2_camera_init_navigation.launch.py",
+      "language": "python",
+      "sizeLines": 254,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_slam_bringup/launch/h1_2_nav2_mapping.launch.py",
+      "language": "python",
+      "sizeLines": 108,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_slam_bringup/launch/h1_2_nav2_navigation.launch.py",
+      "language": "python",
+      "sizeLines": 473,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_slam_bringup/launch/h1_2_nav2_rviz.launch.py",
+      "language": "python",
+      "sizeLines": 45,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_slam_bringup/launch/h1_2_nav2_slam_navigation.launch.py",
+      "language": "python",
+      "sizeLines": 176,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_slam_bringup/launch/lidar_slam_mapping.launch.py",
+      "language": "python",
+      "sizeLines": 68,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_slam_bringup/launch/lidar_slam_navigation.launch.py",
+      "language": "python",
+      "sizeLines": 78,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_slam_bringup/launch/livox_mid360.launch.py",
+      "language": "python",
+      "sizeLines": 39,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_slam_bringup/package.xml",
+      "language": "xml",
+      "sizeLines": 38,
+      "fileCategory": "config"
+    },
+    {
+      "path": "src/h1_2_slam_bringup/resource/h1_2_slam_bringup",
+      "language": "unknown",
+      "sizeLines": 1,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_slam_bringup/setup.cfg",
+      "language": "config",
+      "sizeLines": 4,
+      "fileCategory": "config"
+    },
+    {
+      "path": "src/h1_2_slam_bringup/setup.py",
+      "language": "python",
+      "sizeLines": 22,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_vision/h1_2_vision/__init__.py",
+      "language": "python",
+      "sizeLines": 1,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_vision/h1_2_vision/detector_core.py",
+      "language": "python",
+      "sizeLines": 103,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_vision/h1_2_vision/yolo_detector.py",
+      "language": "python",
+      "sizeLines": 194,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_vision/launch/yolo_detector.launch.py",
+      "language": "python",
+      "sizeLines": 58,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_vision/package.xml",
+      "language": "xml",
+      "sizeLines": 22,
+      "fileCategory": "config"
+    },
+    {
+      "path": "src/h1_2_vision/README.md",
+      "language": "markdown",
+      "sizeLines": 27,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "src/h1_2_vision/resource/h1_2_vision",
+      "language": "unknown",
+      "sizeLines": 1,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_vision/setup.cfg",
+      "language": "config",
+      "sizeLines": 4,
+      "fileCategory": "config"
+    },
+    {
+      "path": "src/h1_2_vision/setup.py",
+      "language": "python",
+      "sizeLines": 28,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_voice_control/h1_2_voice_control/__init__.py",
+      "language": "python",
+      "sizeLines": 1,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_voice_control/h1_2_voice_control/h1_2_voice_control.py",
+      "language": "python",
+      "sizeLines": 207,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_voice_control/launch/h1_2_voice_control.launch.py",
+      "language": "python",
+      "sizeLines": 42,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_voice_control/package.xml",
+      "language": "xml",
+      "sizeLines": 18,
+      "fileCategory": "config"
+    },
+    {
+      "path": "src/h1_2_voice_control/resource/h1_2_voice_control",
+      "language": "unknown",
+      "sizeLines": 1,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_voice_control/setup.cfg",
+      "language": "config",
+      "sizeLines": 4,
+      "fileCategory": "config"
+    },
+    {
+      "path": "src/h1_2_voice_control/setup.py",
+      "language": "python",
+      "sizeLines": 26,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/3rdparty/rapidjson/allocators.h",
+      "language": "c",
+      "sizeLines": 308,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/3rdparty/rapidjson/cursorstreamwrapper.h",
+      "language": "c",
+      "sizeLines": 81,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/3rdparty/rapidjson/document.h",
+      "language": "c",
+      "sizeLines": 3309,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/3rdparty/rapidjson/encodedstream.h",
+      "language": "c",
+      "sizeLines": 407,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/3rdparty/rapidjson/encodings.h",
+      "language": "c",
+      "sizeLines": 816,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/3rdparty/rapidjson/error/en.h",
+      "language": "c",
+      "sizeLines": 104,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/3rdparty/rapidjson/error/error.h",
+      "language": "c",
+      "sizeLines": 186,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/3rdparty/rapidjson/filereadstream.h",
+      "language": "c",
+      "sizeLines": 123,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/3rdparty/rapidjson/filewritestream.h",
+      "language": "c",
+      "sizeLines": 128,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/3rdparty/rapidjson/fwd.h",
+      "language": "c",
+      "sizeLines": 170,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/3rdparty/rapidjson/internal/biginteger.h",
+      "language": "c",
+      "sizeLines": 295,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/3rdparty/rapidjson/internal/clzll.h",
+      "language": "c",
+      "sizeLines": 76,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/3rdparty/rapidjson/internal/diyfp.h",
+      "language": "c",
+      "sizeLines": 305,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/3rdparty/rapidjson/internal/dtoa.h",
+      "language": "c",
+      "sizeLines": 269,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/3rdparty/rapidjson/internal/ieee754.h",
+      "language": "c",
+      "sizeLines": 100,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/3rdparty/rapidjson/internal/itoa.h",
+      "language": "c",
+      "sizeLines": 288,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/3rdparty/rapidjson/internal/meta.h",
+      "language": "c",
+      "sizeLines": 243,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/3rdparty/rapidjson/internal/pow10.h",
+      "language": "c",
+      "sizeLines": 77,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/3rdparty/rapidjson/internal/regex.h",
+      "language": "c",
+      "sizeLines": 753,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/3rdparty/rapidjson/internal/stack.h",
+      "language": "c",
+      "sizeLines": 245,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/3rdparty/rapidjson/internal/strfunc.h",
+      "language": "c",
+      "sizeLines": 74,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/3rdparty/rapidjson/internal/strtod.h",
+      "language": "c",
+      "sizeLines": 303,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/3rdparty/rapidjson/internal/swap.h",
+      "language": "c",
+      "sizeLines": 50,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/3rdparty/rapidjson/istreamwrapper.h",
+      "language": "c",
+      "sizeLines": 161,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/3rdparty/rapidjson/license.txt",
+      "language": "txt",
+      "sizeLines": 57,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "src/livox_ros_driver2/3rdparty/rapidjson/memorybuffer.h",
+      "language": "c",
+      "sizeLines": 78,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/3rdparty/rapidjson/memorystream.h",
+      "language": "c",
+      "sizeLines": 84,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/3rdparty/rapidjson/msinttypes/inttypes.h",
+      "language": "c",
+      "sizeLines": 316,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/3rdparty/rapidjson/msinttypes/stdint.h",
+      "language": "c",
+      "sizeLines": 301,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/3rdparty/rapidjson/ostreamwrapper.h",
+      "language": "c",
+      "sizeLines": 96,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/3rdparty/rapidjson/pointer.h",
+      "language": "c",
+      "sizeLines": 1712,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/3rdparty/rapidjson/prettywriter.h",
+      "language": "c",
+      "sizeLines": 333,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/3rdparty/rapidjson/rapidjson.h",
+      "language": "c",
+      "sizeLines": 719,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/3rdparty/rapidjson/reader.h",
+      "language": "c",
+      "sizeLines": 2458,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/3rdparty/rapidjson/schema.h",
+      "language": "c",
+      "sizeLines": 2743,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/3rdparty/rapidjson/stream.h",
+      "language": "c",
+      "sizeLines": 242,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/3rdparty/rapidjson/stringbuffer.h",
+      "language": "c",
+      "sizeLines": 130,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/3rdparty/rapidjson/writer.h",
+      "language": "c",
+      "sizeLines": 811,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/build.sh",
+      "language": "shell",
+      "sizeLines": 70,
+      "fileCategory": "script"
+    },
+    {
+      "path": "src/livox_ros_driver2/CHANGELOG.md",
+      "language": "markdown",
+      "sizeLines": 57,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "src/livox_ros_driver2/cmake/version.cmake",
+      "language": "cmake",
+      "sizeLines": 16,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/CMakeLists.txt",
+      "language": "txt",
+      "sizeLines": 361,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "src/livox_ros_driver2/config/display_point_cloud_ROS1.rviz",
+      "language": "rviz",
+      "sizeLines": 172,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/config/display_point_cloud_ROS2.rviz",
+      "language": "rviz",
+      "sizeLines": 137,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/config/HAP_config.json",
+      "language": "json",
+      "sizeLines": 42,
+      "fileCategory": "config"
+    },
+    {
+      "path": "src/livox_ros_driver2/config/MID360_config.json",
+      "language": "json",
+      "sizeLines": 41,
+      "fileCategory": "config"
+    },
+    {
+      "path": "src/livox_ros_driver2/config/mixed_HAP_MID360_config.json",
+      "language": "json",
+      "sizeLines": 76,
+      "fileCategory": "config"
+    },
+    {
+      "path": "src/livox_ros_driver2/launch_ROS1/msg_HAP.launch",
+      "language": "launch",
+      "sizeLines": 40,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/launch_ROS1/msg_MID360.launch",
+      "language": "launch",
+      "sizeLines": 40,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/launch_ROS1/msg_mixed.launch",
+      "language": "launch",
+      "sizeLines": 40,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/launch_ROS1/rviz_HAP.launch",
+      "language": "launch",
+      "sizeLines": 45,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/launch_ROS1/rviz_MID360.launch",
+      "language": "launch",
+      "sizeLines": 45,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/launch_ROS1/rviz_mixed.launch",
+      "language": "launch",
+      "sizeLines": 45,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/launch_ROS2/msg_HAP_launch.py",
+      "language": "python",
+      "sizeLines": 55,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/launch_ROS2/msg_MID360_launch.py",
+      "language": "python",
+      "sizeLines": 54,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/launch_ROS2/rviz_HAP_launch.py",
+      "language": "python",
+      "sizeLines": 63,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/launch_ROS2/rviz_MID360_launch.py",
+      "language": "python",
+      "sizeLines": 63,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/launch_ROS2/rviz_mixed.py",
+      "language": "python",
+      "sizeLines": 63,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/launch/msg_HAP_launch.py",
+      "language": "python",
+      "sizeLines": 55,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/launch/msg_MID360_launch.py",
+      "language": "python",
+      "sizeLines": 54,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/launch/rviz_HAP_launch.py",
+      "language": "python",
+      "sizeLines": 63,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/launch/rviz_MID360_launch.py",
+      "language": "python",
+      "sizeLines": 63,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/launch/rviz_mixed.py",
+      "language": "python",
+      "sizeLines": 63,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/LICENSE.txt",
+      "language": "txt",
+      "sizeLines": 412,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "src/livox_ros_driver2/msg/CustomMsg.msg",
+      "language": "msg",
+      "sizeLines": 9,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/msg/CustomPoint.msg",
+      "language": "msg",
+      "sizeLines": 10,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/package_ROS2.xml",
+      "language": "xml",
+      "sizeLines": 35,
+      "fileCategory": "config"
+    },
+    {
+      "path": "src/livox_ros_driver2/README.md",
+      "language": "markdown",
+      "sizeLines": 545,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "src/livox_ros_driver2/src/call_back/lidar_common_callback.cpp",
+      "language": "cpp",
+      "sizeLines": 73,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/src/call_back/lidar_common_callback.h",
+      "language": "c",
+      "sizeLines": 40,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/src/call_back/livox_lidar_callback.cpp",
+      "language": "cpp",
+      "sizeLines": 333,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/src/call_back/livox_lidar_callback.h",
+      "language": "c",
+      "sizeLines": 71,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/src/comm/cache_index.cpp",
+      "language": "cpp",
+      "sizeLines": 121,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/src/comm/cache_index.h",
+      "language": "c",
+      "sizeLines": 54,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/src/comm/comm.cpp",
+      "language": "cpp",
+      "sizeLines": 70,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/src/comm/comm.h",
+      "language": "c",
+      "sizeLines": 304,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/src/comm/ldq.cpp",
+      "language": "cpp",
+      "sizeLines": 150,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/src/comm/ldq.h",
+      "language": "c",
+      "sizeLines": 66,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/src/comm/lidar_imu_data_queue.cpp",
+      "language": "cpp",
+      "sizeLines": 69,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/src/comm/lidar_imu_data_queue.h",
+      "language": "c",
+      "sizeLines": 77,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/src/comm/pub_handler.cpp",
+      "language": "cpp",
+      "sizeLines": 457,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/src/comm/pub_handler.h",
+      "language": "c",
+      "sizeLines": 137,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/src/comm/semaphore.cpp",
+      "language": "cpp",
+      "sizeLines": 41,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/src/comm/semaphore.h",
+      "language": "c",
+      "sizeLines": 51,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/src/driver_node.cpp",
+      "language": "cpp",
+      "sizeLines": 46,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/src/driver_node.h",
+      "language": "c",
+      "sizeLines": 77,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/src/include/livox_ros_driver2.h",
+      "language": "c",
+      "sizeLines": 40,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/src/include/ros_headers.h",
+      "language": "c",
+      "sizeLines": 34,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/src/include/ros1_headers.h",
+      "language": "c",
+      "sizeLines": 54,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/src/include/ros2_headers.h",
+      "language": "c",
+      "sizeLines": 52,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/src/lddc.cpp",
+      "language": "cpp",
+      "sizeLines": 703,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/src/lddc.h",
+      "language": "c",
+      "sizeLines": 163,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/src/lds_lidar.cpp",
+      "language": "cpp",
+      "sizeLines": 214,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/src/lds_lidar.h",
+      "language": "c",
+      "sizeLines": 95,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/src/lds.cpp",
+      "language": "cpp",
+      "sizeLines": 200,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/src/lds.h",
+      "language": "c",
+      "sizeLines": 83,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/src/livox_ros_driver2.cpp",
+      "language": "cpp",
+      "sizeLines": 235,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/src/parse_cfg_file/parse_cfg_file.cpp",
+      "language": "cpp",
+      "sizeLines": 67,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/src/parse_cfg_file/parse_cfg_file.h",
+      "language": "c",
+      "sizeLines": 52,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/src/parse_cfg_file/parse_livox_lidar_cfg.cpp",
+      "language": "cpp",
+      "sizeLines": 156,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/src/parse_cfg_file/parse_livox_lidar_cfg.h",
+      "language": "c",
+      "sizeLines": 58,
+      "fileCategory": "code"
+    },
+    {
+      "path": "stop_ai_slam_nav.sh",
+      "language": "shell",
+      "sizeLines": 55,
+      "fileCategory": "script"
+    },
+    {
+      "path": "test/manual/README.md",
+      "language": "markdown",
+      "sizeLines": 23,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "test/README.md",
+      "language": "markdown",
+      "sizeLines": 9,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "test/ros_integration/global_relocalization_real_map_smoke.py",
+      "language": "python",
+      "sizeLines": 248,
+      "fileCategory": "code"
+    },
+    {
+      "path": "test/ros_integration/global_relocalization_service_smoke.py",
+      "language": "python",
+      "sizeLines": 113,
+      "fileCategory": "code"
+    },
+    {
+      "path": "test/ros_integration/global_relocalization_smoke.py",
+      "language": "python",
+      "sizeLines": 189,
+      "fileCategory": "code"
+    },
+    {
+      "path": "test/ros_integration/README.md",
+      "language": "markdown",
+      "sizeLines": 5,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "test/static/test_auto_initial_pose.py",
+      "language": "python",
+      "sizeLines": 148,
+      "fileCategory": "code"
+    },
+    {
+      "path": "test/static/test_auto_route_icp_status_gate.py",
+      "language": "python",
+      "sizeLines": 45,
+      "fileCategory": "code"
+    },
+    {
+      "path": "test/static/test_camera_stream.py",
+      "language": "python",
+      "sizeLines": 104,
+      "fileCategory": "code"
+    },
+    {
+      "path": "test/static/test_cli_tools.py",
+      "language": "python",
+      "sizeLines": 36,
+      "fileCategory": "code"
+    },
+    {
+      "path": "test/static/test_global_relocalization_real_map_smoke.py",
+      "language": "python",
+      "sizeLines": 17,
+      "fileCategory": "code"
+    },
+    {
+      "path": "test/static/test_h1_2_nav_gui.py",
+      "language": "python",
+      "sizeLines": 96,
+      "fileCategory": "code"
+    },
+    {
+      "path": "test/static/test_h1_2_nav_web_gui.py",
+      "language": "python",
+      "sizeLines": 419,
+      "fileCategory": "code"
+    },
+    {
+      "path": "test/static/test_h1_2_vision.py",
+      "language": "python",
+      "sizeLines": 100,
+      "fileCategory": "code"
+    },
+    {
+      "path": "test/static/test_h1_2_voice_control.py",
+      "language": "python",
+      "sizeLines": 125,
+      "fileCategory": "code"
+    },
+    {
+      "path": "test/static/test_icp_package_structure.py",
+      "language": "python",
+      "sizeLines": 198,
+      "fileCategory": "code"
+    },
+    {
+      "path": "test/static/test_memory_launch_integration.py",
+      "language": "python",
+      "sizeLines": 103,
+      "fileCategory": "code"
+    },
+    {
+      "path": "test/static/test_memory_point_manager.py",
+      "language": "python",
+      "sizeLines": 46,
+      "fileCategory": "code"
+    },
+    {
+      "path": "test/static/test_memory_point_markers.py",
+      "language": "python",
+      "sizeLines": 46,
+      "fileCategory": "code"
+    },
+    {
+      "path": "test/static/test_memory_route_runner.py",
+      "language": "python",
+      "sizeLines": 103,
+      "fileCategory": "code"
+    },
+    {
+      "path": "test/static/test_nav_msgs_interfaces.py",
+      "language": "python",
+      "sizeLines": 59,
+      "fileCategory": "code"
+    },
+    {
+      "path": "test/static/test_offline_demo_workflow.py",
+      "language": "python",
+      "sizeLines": 48,
+      "fileCategory": "code"
+    },
+    {
+      "path": "test/static/test_offline_icp_backend_switch.py",
+      "language": "python",
+      "sizeLines": 72,
+      "fileCategory": "code"
+    },
+    {
+      "path": "test/static/test_offline_icp_localization_entrypoint.py",
+      "language": "python",
+      "sizeLines": 41,
+      "fileCategory": "code"
+    },
+    {
+      "path": "test/static/test_offline_icp_time_sync.py",
+      "language": "python",
+      "sizeLines": 50,
+      "fileCategory": "code"
+    },
+    {
+      "path": "test/static/test_offline_rviz_display.py",
+      "language": "python",
+      "sizeLines": 51,
+      "fileCategory": "code"
+    },
+    {
+      "path": "test/static/test_pcd_map_save_workflow.py",
+      "language": "python",
+      "sizeLines": 54,
+      "fileCategory": "code"
+    },
+    {
+      "path": "test/static/test_relocalization_deps_workflow.py",
+      "language": "python",
+      "sizeLines": 59,
+      "fileCategory": "code"
+    },
+    {
+      "path": "test/static/test_teaching_route_runner.py",
+      "language": "python",
+      "sizeLines": 176,
+      "fileCategory": "code"
+    }
+  ],
+  "totalFiles": 456,
+  "filteredByIgnore": 80,
+  "estimatedComplexity": "large",
+  "importMap": {
+    ".understand-anything/.understandignore": [],
+    ".understand-anything/config.json": [],
+    "AGENTS.md": [],
+    "check_remote_livox.sh": [],
+    "config/cyclonedds_enp45s0.xml": [],
+    "config/cyclonedds_localhost.xml": [],
+    "config/fastdds_enp45s0_robot.xml": [],
+    "cyclonedds_upper.xml": [],
+    "docs/architecture/2026-06-11-offline-3d-icp-localization.md": [],
+    "docs/architecture/2026-06-15-current-icp-vs-global-relocalization.md": [],
+    "docs/superpowers/plans/2026-06-11-offline-3d-icp-localization.md": [],
+    "README.md": [],
+    "run_ai_slam_nav.sh": [],
+    "scripts/install_relocalization_deps.sh": [],
+    "src/FAST_LIO_ROS2/.github/stale.yml": [],
+    "src/FAST_LIO_ROS2/.gitmodules": [],
+    "src/FAST_LIO_ROS2/CMakeLists.txt": [],
+    "src/FAST_LIO_ROS2/config/avia.yaml": [],
+    "src/FAST_LIO_ROS2/config/horizon.yaml": [],
+    "src/FAST_LIO_ROS2/config/mid360.yaml": [],
+    "src/FAST_LIO_ROS2/config/ouster64.yaml": [],
+    "src/FAST_LIO_ROS2/config/velodyne.yaml": [],
+    "src/FAST_LIO_ROS2/include/common_lib.h": [],
+    "src/FAST_LIO_ROS2/include/Exp_mat.h": [],
+    "src/FAST_LIO_ROS2/include/ikd-Tree/ikd_Tree.cpp": [
+      "src/FAST_LIO_ROS2/include/ikd-Tree/ikd_Tree.h"
+    ],
+    "src/FAST_LIO_ROS2/include/ikd-Tree/ikd_Tree.h": [],
+    "src/FAST_LIO_ROS2/include/ikd-Tree/README.md": [],
+    "src/FAST_LIO_ROS2/include/IKFoM_toolkit/esekfom/esekfom.hpp": [],
+    "src/FAST_LIO_ROS2/include/IKFoM_toolkit/esekfom/util.hpp": [],
+    "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/build_manifold.hpp": [],
+    "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/src/mtkmath.hpp": [],
+    "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/src/SubManifold.hpp": [],
+    "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/src/vectview.hpp": [],
+    "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/startIdx.hpp": [],
+    "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/types/S2.hpp": [],
+    "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/types/SOn.hpp": [],
+    "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/types/vect.hpp": [],
+    "src/FAST_LIO_ROS2/include/IKFoM_toolkit/mtk/types/wrapped_cv_mat.hpp": [],
+    "src/FAST_LIO_ROS2/include/matplotlibcpp.h": [],
+    "src/FAST_LIO_ROS2/include/so3_math.h": [],
+    "src/FAST_LIO_ROS2/include/use-ikfom.hpp": [],
+    "src/FAST_LIO_ROS2/launch/gdb_debug_example.launch": [],
+    "src/FAST_LIO_ROS2/launch/mapping.launch.py": [],
+    "src/FAST_LIO_ROS2/msg/Pose6D.msg": [],
+    "src/FAST_LIO_ROS2/package.xml": [],
+    "src/FAST_LIO_ROS2/PCD/1": [],
+    "src/FAST_LIO_ROS2/README.md": [],
+    "src/FAST_LIO_ROS2/rviz_cfg/loam_livox.rviz": [],
+    "src/FAST_LIO_ROS2/rviz/fastlio.rviz": [],
+    "src/FAST_LIO_ROS2/src/IMU_Processing.hpp": [],
+    "src/FAST_LIO_ROS2/src/laserMapping.cpp": [
+      "src/FAST_LIO_ROS2/src/IMU_Processing.hpp",
+      "src/FAST_LIO_ROS2/src/preprocess.h"
+    ],
+    "src/FAST_LIO_ROS2/src/preprocess.cpp": [
+      "src/FAST_LIO_ROS2/src/preprocess.h"
+    ],
+    "src/FAST_LIO_ROS2/src/preprocess.h": [],
+    "src/h1_2_description/CMakeLists.txt": [],
+    "src/h1_2_description/h1_2_handless.urdf": [],
+    "src/h1_2_description/h1_2_handless.xml": [],
+    "src/h1_2_description/h1_2_with_FTP_hand.urdf": [],
+    "src/h1_2_description/h1_2.urdf": [],
+    "src/h1_2_description/h1_2.xml": [],
+    "src/h1_2_description/meshes/L_hand_base_link.STL": [],
+    "src/h1_2_description/meshes/L_index_intermediate.STL": [],
+    "src/h1_2_description/meshes/L_index_proximal.STL": [],
+    "src/h1_2_description/meshes/L_middle_intermediate.STL": [],
+    "src/h1_2_description/meshes/L_middle_proximal.STL": [],
+    "src/h1_2_description/meshes/L_pinky_intermediate.STL": [],
+    "src/h1_2_description/meshes/L_pinky_proximal.STL": [],
+    "src/h1_2_description/meshes/L_ring_intermediate.STL": [],
+    "src/h1_2_description/meshes/L_ring_proximal.STL": [],
+    "src/h1_2_description/meshes/L_thumb_distal.STL": [],
+    "src/h1_2_description/meshes/L_thumb_intermediate.STL": [],
+    "src/h1_2_description/meshes/L_thumb_proximal_base.STL": [],
+    "src/h1_2_description/meshes/L_thumb_proximal.STL": [],
+    "src/h1_2_description/meshes/left_ankle_A_link.STL": [],
+    "src/h1_2_description/meshes/left_ankle_A_rod_link.STL": [],
+    "src/h1_2_description/meshes/left_ankle_B_link.STL": [],
+    "src/h1_2_description/meshes/left_ankle_B_rod_link.STL": [],
+    "src/h1_2_description/meshes/left_ankle_pitch_link.STL": [],
+    "src/h1_2_description/meshes/left_ankle_roll_link.STL": [],
+    "src/h1_2_description/meshes/left_base_link.STL": [],
+    "src/h1_2_description/meshes/left_elbow_link.STL": [],
+    "src/h1_2_description/meshes/left_hand_link.STL": [],
+    "src/h1_2_description/meshes/left_hip_pitch_link.STL": [],
+    "src/h1_2_description/meshes/left_hip_roll_link.STL": [],
+    "src/h1_2_description/meshes/left_hip_yaw_link.STL": [],
+    "src/h1_2_description/meshes/left_index_1.STL": [],
+    "src/h1_2_description/meshes/left_index_2.STL": [],
+    "src/h1_2_description/meshes/left_index_force_sensor_1.STL": [],
+    "src/h1_2_description/meshes/left_index_force_sensor_2.STL": [],
+    "src/h1_2_description/meshes/left_index_force_sensor_3.STL": [],
+    "src/h1_2_description/meshes/left_knee_link.STL": [],
+    "src/h1_2_description/meshes/left_little_1.STL": [],
+    "src/h1_2_description/meshes/left_little_2.STL": [],
+    "src/h1_2_description/meshes/left_little_force_sensor_1.STL": [],
+    "src/h1_2_description/meshes/left_little_force_sensor_2.STL": [],
+    "src/h1_2_description/meshes/left_little_force_sensor_3.STL": [],
+    "src/h1_2_description/meshes/left_middle_1.STL": [],
+    "src/h1_2_description/meshes/left_middle_2.STL": [],
+    "src/h1_2_description/meshes/left_middle_force_sensor_1.STL": [],
+    "src/h1_2_description/meshes/left_middle_force_sensor_2.STL": [],
+    "src/h1_2_description/meshes/left_middle_force_sensor_3.STL": [],
+    "src/h1_2_description/meshes/left_palm_force_sensor.STL": [],
+    "src/h1_2_description/meshes/left_ring_1.STL": [],
+    "src/h1_2_description/meshes/left_ring_2.STL": [],
+    "src/h1_2_description/meshes/left_ring_force_sensor_1.STL": [],
+    "src/h1_2_description/meshes/left_ring_force_sensor_2.STL": [],
+    "src/h1_2_description/meshes/left_ring_force_sensor_3.STL": [],
+    "src/h1_2_description/meshes/left_shoulder_pitch_link.STL": [],
+    "src/h1_2_description/meshes/left_shoulder_roll_link.STL": [],
+    "src/h1_2_description/meshes/left_shoulder_yaw_link.STL": [],
+    "src/h1_2_description/meshes/left_thumb_1.STL": [],
+    "src/h1_2_description/meshes/left_thumb_2.STL": [],
+    "src/h1_2_description/meshes/left_thumb_3.STL": [],
+    "src/h1_2_description/meshes/left_thumb_4.STL": [],
+    "src/h1_2_description/meshes/left_thumb_force_sensor_1.STL": [],
+    "src/h1_2_description/meshes/left_thumb_force_sensor_2.STL": [],
+    "src/h1_2_description/meshes/left_thumb_force_sensor_3.STL": [],
+    "src/h1_2_description/meshes/left_thumb_force_sensor_4.STL": [],
+    "src/h1_2_description/meshes/left_wrist_pitch_link.STL": [],
+    "src/h1_2_description/meshes/left_wrist_roll_link.STL": [],
+    "src/h1_2_description/meshes/link11_L.STL": [],
+    "src/h1_2_description/meshes/link11_R.STL": [],
+    "src/h1_2_description/meshes/link12_L.STL": [],
+    "src/h1_2_description/meshes/link12_R.STL": [],
+    "src/h1_2_description/meshes/link13_L.STL": [],
+    "src/h1_2_description/meshes/link13_R.STL": [],
+    "src/h1_2_description/meshes/link14_L.STL": [],
+    "src/h1_2_description/meshes/link14_R.STL": [],
+    "src/h1_2_description/meshes/link15_L.STL": [],
+    "src/h1_2_description/meshes/link15_R.STL": [],
+    "src/h1_2_description/meshes/link16_L.STL": [],
+    "src/h1_2_description/meshes/link16_R.STL": [],
+    "src/h1_2_description/meshes/link17_L.STL": [],
+    "src/h1_2_description/meshes/link17_R.STL": [],
+    "src/h1_2_description/meshes/link18_L.STL": [],
+    "src/h1_2_description/meshes/link18_R.STL": [],
+    "src/h1_2_description/meshes/link19_L.STL": [],
+    "src/h1_2_description/meshes/link19_R.STL": [],
+    "src/h1_2_description/meshes/link20_L.STL": [],
+    "src/h1_2_description/meshes/link20_R.STL": [],
+    "src/h1_2_description/meshes/link21_L.STL": [],
+    "src/h1_2_description/meshes/link21_R.STL": [],
+    "src/h1_2_description/meshes/link22_L.STL": [],
+    "src/h1_2_description/meshes/link22_R.STL": [],
+    "src/h1_2_description/meshes/logo_link.STL": [],
+    "src/h1_2_description/meshes/pelvis.STL": [],
+    "src/h1_2_description/meshes/R_hand_base_link.STL": [],
+    "src/h1_2_description/meshes/R_index_intermediate.STL": [],
+    "src/h1_2_description/meshes/R_index_proximal.STL": [],
+    "src/h1_2_description/meshes/R_middle_intermediate.STL": [],
+    "src/h1_2_description/meshes/R_middle_proximal.STL": [],
+    "src/h1_2_description/meshes/R_pinky_intermediate.STL": [],
+    "src/h1_2_description/meshes/R_pinky_proximal.STL": [],
+    "src/h1_2_description/meshes/R_ring_intermediate.STL": [],
+    "src/h1_2_description/meshes/R_ring_proximal.STL": [],
+    "src/h1_2_description/meshes/R_thumb_distal.STL": [],
+    "src/h1_2_description/meshes/R_thumb_intermediate.STL": [],
+    "src/h1_2_description/meshes/R_thumb_proximal_base.STL": [],
+    "src/h1_2_description/meshes/R_thumb_proximal.STL": [],
+    "src/h1_2_description/meshes/right_ankle_A_link.STL": [],
+    "src/h1_2_description/meshes/right_ankle_A_rod_link.STL": [],
+    "src/h1_2_description/meshes/right_ankle_B_link.STL": [],
+    "src/h1_2_description/meshes/right_ankle_B_rod_link.STL": [],
+    "src/h1_2_description/meshes/right_ankle_link.STL": [],
+    "src/h1_2_description/meshes/right_ankle_pitch_link.STL": [],
+    "src/h1_2_description/meshes/right_ankle_roll_link.STL": [],
+    "src/h1_2_description/meshes/right_base_link.STL": [],
+    "src/h1_2_description/meshes/right_elbow_link.STL": [],
+    "src/h1_2_description/meshes/right_hand_link.STL": [],
+    "src/h1_2_description/meshes/right_hip_pitch_link.STL": [],
+    "src/h1_2_description/meshes/right_hip_roll_link.STL": [],
+    "src/h1_2_description/meshes/right_hip_yaw_link.STL": [],
+    "src/h1_2_description/meshes/right_index_1.STL": [],
+    "src/h1_2_description/meshes/right_index_2.STL": [],
+    "src/h1_2_description/meshes/right_index_force_sensor_1.STL": [],
+    "src/h1_2_description/meshes/right_index_force_sensor_2.STL": [],
+    "src/h1_2_description/meshes/right_index_force_sensor_3.STL": [],
+    "src/h1_2_description/meshes/right_knee_link.STL": [],
+    "src/h1_2_description/meshes/right_little_1.STL": [],
+    "src/h1_2_description/meshes/right_little_2.STL": [],
+    "src/h1_2_description/meshes/right_little_force_sensor_1.STL": [],
+    "src/h1_2_description/meshes/right_little_force_sensor_2.STL": [],
+    "src/h1_2_description/meshes/right_little_force_sensor_3.STL": [],
+    "src/h1_2_description/meshes/right_middle_1.STL": [],
+    "src/h1_2_description/meshes/right_middle_2.STL": [],
+    "src/h1_2_description/meshes/right_middle_force_sensor_1.STL": [],
+    "src/h1_2_description/meshes/right_middle_force_sensor_2.STL": [],
+    "src/h1_2_description/meshes/right_middle_force_sensor_3.STL": [],
+    "src/h1_2_description/meshes/right_palm_force_sensor.STL": [],
+    "src/h1_2_description/meshes/right_pitch_link.STL": [],
+    "src/h1_2_description/meshes/right_ring_1.STL": [],
+    "src/h1_2_description/meshes/right_ring_2.STL": [],
+    "src/h1_2_description/meshes/right_ring_force_sensor_1.STL": [],
+    "src/h1_2_description/meshes/right_ring_force_sensor_2.STL": [],
+    "src/h1_2_description/meshes/right_ring_force_sensor_3.STL": [],
+    "src/h1_2_description/meshes/right_shoulder_pitch_link.STL": [],
+    "src/h1_2_description/meshes/right_shoulder_roll_link.STL": [],
+    "src/h1_2_description/meshes/right_shoulder_yaw_link.STL": [],
+    "src/h1_2_description/meshes/right_thumb_1.STL": [],
+    "src/h1_2_description/meshes/right_thumb_2.STL": [],
+    "src/h1_2_description/meshes/right_thumb_3.STL": [],
+    "src/h1_2_description/meshes/right_thumb_4.STL": [],
+    "src/h1_2_description/meshes/right_thumb_force_sensor_1.STL": [],
+    "src/h1_2_description/meshes/right_thumb_force_sensor_2.STL": [],
+    "src/h1_2_description/meshes/right_thumb_force_sensor_3.STL": [],
+    "src/h1_2_description/meshes/right_thumb_force_sensor_4.STL": [],
+    "src/h1_2_description/meshes/right_wrist_pitch_link.STL": [],
+    "src/h1_2_description/meshes/right_wrist_roll_link.STL": [],
+    "src/h1_2_description/meshes/torso_link.STL": [],
+    "src/h1_2_description/meshes/wrist_yaw_link.STL": [],
+    "src/h1_2_description/package.xml": [],
+    "src/h1_2_description/README.md": [],
+    "src/h1_2_icp_localization/CMakeLists.txt": [],
+    "src/h1_2_icp_localization/include/h1_2_icp_localization/cloud_accumulator.hpp": [],
+    "src/h1_2_icp_localization/include/h1_2_icp_localization/icp_localizer.hpp": [],
+    "src/h1_2_icp_localization/include/h1_2_icp_localization/relocalization_state.hpp": [],
+    "src/h1_2_icp_localization/msg/LocalizationStatus.msg": [],
+    "src/h1_2_icp_localization/package.xml": [],
+    "src/h1_2_icp_localization/src/global_relocalization_node.cpp": [],
+    "src/h1_2_icp_localization/src/icp_localization_node.cpp": [],
+    "src/h1_2_icp_localization/src/icp_localizer.cpp": [],
+    "src/h1_2_icp_localization/srv/Relocalize.srv": [],
+    "src/h1_2_icp_localization/test/test_relocalization_state.cpp": [],
+    "src/h1_2_loco_bridge/CMakeLists.txt": [],
+    "src/h1_2_loco_bridge/launch/h1_2_loco_bridge.launch.py": [],
+    "src/h1_2_loco_bridge/package.xml": [],
+    "src/h1_2_loco_bridge/src/cmd_vel_to_h1_2_loco.cpp": [],
+    "src/h1_2_loco_bridge/src/gesture_to_h1_2_loco.cpp": [],
+    "src/h1_2_loco_bridge/src/h1_2_loco_udp_daemon.cpp": [],
+    "src/h1_2_nav_msgs/CMakeLists.txt": [],
+    "src/h1_2_nav_msgs/package.xml": [],
+    "src/h1_2_nav_msgs/srv/DeleteMemoryPoint.srv": [],
+    "src/h1_2_nav_msgs/srv/ExecuteGesture.srv": [],
+    "src/h1_2_nav_msgs/srv/ListMemoryPoints.srv": [],
+    "src/h1_2_nav_msgs/srv/RouteStatus.srv": [],
+    "src/h1_2_nav_msgs/srv/SaveMemoryPoint.srv": [],
+    "src/h1_2_nav_msgs/srv/StartRoute.srv": [],
+    "src/h1_2_nav_msgs/srv/StopRoute.srv": [],
+    "src/h1_2_nav_tools/behavior_trees/h1_2_navigate_to_pose_no_spin_recovery.xml": [],
+    "src/h1_2_nav_tools/config/nav_tools.yaml": [],
+    "src/h1_2_nav_tools/config/nav2_h1_2_camera_init.yaml": [],
+    "src/h1_2_nav_tools/config/nav2_h1_2_rpp.yaml": [],
+    "src/h1_2_nav_tools/config/nav2_h1_2.yaml": [],
+    "src/h1_2_nav_tools/config/teaching_route_events.example.json": [],
+    "src/h1_2_nav_tools/h1_2_nav_tools/__init__.py": [],
+    "src/h1_2_nav_tools/h1_2_nav_tools/auto_initial_pose.py": [],
+    "src/h1_2_nav_tools/h1_2_nav_tools/camera_stream.py": [],
+    "src/h1_2_nav_tools/h1_2_nav_tools/cmd_vel_to_sport_mode.py": [],
+    "src/h1_2_nav_tools/h1_2_nav_tools/costmap_clear_on_initialpose.py": [],
+    "src/h1_2_nav_tools/h1_2_nav_tools/fastlio_odom_adapter.py": [],
+    "src/h1_2_nav_tools/h1_2_nav_tools/goal_pose_to_nav2.py": [],
+    "src/h1_2_nav_tools/h1_2_nav_tools/h1_2_nav_gui.py": [],
+    "src/h1_2_nav_tools/h1_2_nav_tools/h1_2_nav_web_gui.py": [
+      "src/h1_2_nav_tools/h1_2_nav_tools/camera_stream.py"
+    ],
+    "src/h1_2_nav_tools/h1_2_nav_tools/h1_2_voice_action_bridge.py": [
+      "src/h1_2_voice_control/h1_2_voice_control/__init__.py"
+    ],
+    "src/h1_2_nav_tools/h1_2_nav_tools/initialpose_time_adapter.py": [],
+    "src/h1_2_nav_tools/h1_2_nav_tools/local2map_odom.py": [
+      "src/h1_2_nav_tools/h1_2_nav_tools/transform_utils.py"
+    ],
+    "src/h1_2_nav_tools/h1_2_nav_tools/memory_point_cli.py": [],
+    "src/h1_2_nav_tools/h1_2_nav_tools/memory_point_manager.py": [
+      "src/h1_2_nav_tools/h1_2_nav_tools/transform_utils.py"
+    ],
+    "src/h1_2_nav_tools/h1_2_nav_tools/memory_point_markers.py": [],
+    "src/h1_2_nav_tools/h1_2_nav_tools/memory_route_runner.py": [
+      "src/h1_2_nav_tools/h1_2_nav_tools/route_activity_guard.py"
+    ],
+    "src/h1_2_nav_tools/h1_2_nav_tools/odometry_z_offset.py": [],
+    "src/h1_2_nav_tools/h1_2_nav_tools/path_to_waypoint.py": [
+      "src/h1_2_nav_tools/h1_2_nav_tools/transform_utils.py"
+    ],
+    "src/h1_2_nav_tools/h1_2_nav_tools/play_teaching_path.py": [],
+    "src/h1_2_nav_tools/h1_2_nav_tools/pointcloud_frame_adapter.py": [],
+    "src/h1_2_nav_tools/h1_2_nav_tools/pointcloud_to_occupancy_grid.py": [],
+    "src/h1_2_nav_tools/h1_2_nav_tools/record_teaching_path.py": [
+      "src/h1_2_nav_tools/h1_2_nav_tools/transform_utils.py"
+    ],
+    "src/h1_2_nav_tools/h1_2_nav_tools/route_activity_guard.py": [],
+    "src/h1_2_nav_tools/h1_2_nav_tools/route_runner_cli.py": [],
+    "src/h1_2_nav_tools/h1_2_nav_tools/simple_grid_navigator.py": [],
+    "src/h1_2_nav_tools/h1_2_nav_tools/simple_pointcloud_to_laserscan.py": [],
+    "src/h1_2_nav_tools/h1_2_nav_tools/slam_grid_navigator.py": [
+      "src/h1_2_nav_tools/h1_2_nav_tools/pointcloud_to_occupancy_grid.py",
+      "src/h1_2_nav_tools/h1_2_nav_tools/simple_grid_navigator.py",
+      "src/h1_2_nav_tools/h1_2_nav_tools/velocity_smoother_ema.py"
+    ],
+    "src/h1_2_nav_tools/h1_2_nav_tools/teaching_route_runner.py": [
+      "src/h1_2_nav_tools/h1_2_nav_tools/route_activity_guard.py"
+    ],
+    "src/h1_2_nav_tools/h1_2_nav_tools/transform_utils.py": [],
+    "src/h1_2_nav_tools/h1_2_nav_tools/velocity_smoother_ema.py": [],
+    "src/h1_2_nav_tools/launch/h1_2_voice_action_bridge.launch.py": [],
+    "src/h1_2_nav_tools/launch/realtime_grid_map.launch.py": [],
+    "src/h1_2_nav_tools/launch/record_teaching_path.launch.py": [],
+    "src/h1_2_nav_tools/launch/simple_grid_navigation.launch.py": [],
+    "src/h1_2_nav_tools/launch/teaching_navigation.launch.py": [],
+    "src/h1_2_nav_tools/launch/teaching_route_runner.launch.py": [],
+    "src/h1_2_nav_tools/package.xml": [],
+    "src/h1_2_nav_tools/path/teaching_paths.txt": [],
+    "src/h1_2_nav_tools/resource/h1_2_nav_tools": [],
+    "src/h1_2_nav_tools/rviz/h1_2_nav2_camera_init.rviz": [],
+    "src/h1_2_nav_tools/rviz/h1_2_nav2_offline.rviz": [],
+    "src/h1_2_nav_tools/setup.cfg": [],
+    "src/h1_2_nav_tools/setup.py": [],
+    "src/h1_2_nav_tools/urdf/h1_2_nav2_light.urdf": [],
+    "src/h1_2_slam_bringup/config/pointcloud_to_laserscan_body.yaml": [],
+    "src/h1_2_slam_bringup/config/pointcloud_to_laserscan.yaml": [],
+    "src/h1_2_slam_bringup/config/slam_toolbox_localization.yaml": [],
+    "src/h1_2_slam_bringup/config/slam_toolbox_mapping.yaml": [],
+    "src/h1_2_slam_bringup/launch/fastlio2_grid_navigation.launch.py": [],
+    "src/h1_2_slam_bringup/launch/fastlio2_mid360_grid_mapping.launch.py": [],
+    "src/h1_2_slam_bringup/launch/fastlio2_mid360_mapping.launch.py": [],
+    "src/h1_2_slam_bringup/launch/fastlio2_mid360_navigation.launch.py": [],
+    "src/h1_2_slam_bringup/launch/h1_2_global_relocalization.launch.py": [],
+    "src/h1_2_slam_bringup/launch/h1_2_icp_localization.launch.py": [],
+    "src/h1_2_slam_bringup/launch/h1_2_nav2_camera_init_navigation.launch.py": [],
+    "src/h1_2_slam_bringup/launch/h1_2_nav2_mapping.launch.py": [],
+    "src/h1_2_slam_bringup/launch/h1_2_nav2_navigation.launch.py": [],
+    "src/h1_2_slam_bringup/launch/h1_2_nav2_rviz.launch.py": [],
+    "src/h1_2_slam_bringup/launch/h1_2_nav2_slam_navigation.launch.py": [],
+    "src/h1_2_slam_bringup/launch/lidar_slam_mapping.launch.py": [],
+    "src/h1_2_slam_bringup/launch/lidar_slam_navigation.launch.py": [],
+    "src/h1_2_slam_bringup/launch/livox_mid360.launch.py": [],
+    "src/h1_2_slam_bringup/package.xml": [],
+    "src/h1_2_slam_bringup/resource/h1_2_slam_bringup": [],
+    "src/h1_2_slam_bringup/setup.cfg": [],
+    "src/h1_2_slam_bringup/setup.py": [],
+    "src/h1_2_vision/h1_2_vision/__init__.py": [],
+    "src/h1_2_vision/h1_2_vision/detector_core.py": [],
+    "src/h1_2_vision/h1_2_vision/yolo_detector.py": [
+      "src/h1_2_vision/h1_2_vision/detector_core.py"
+    ],
+    "src/h1_2_vision/launch/yolo_detector.launch.py": [],
+    "src/h1_2_vision/package.xml": [],
+    "src/h1_2_vision/README.md": [],
+    "src/h1_2_vision/resource/h1_2_vision": [],
+    "src/h1_2_vision/setup.cfg": [],
+    "src/h1_2_vision/setup.py": [],
+    "src/h1_2_voice_control/h1_2_voice_control/__init__.py": [],
+    "src/h1_2_voice_control/h1_2_voice_control/h1_2_voice_control.py": [],
+    "src/h1_2_voice_control/launch/h1_2_voice_control.launch.py": [],
+    "src/h1_2_voice_control/package.xml": [],
+    "src/h1_2_voice_control/resource/h1_2_voice_control": [],
+    "src/h1_2_voice_control/setup.cfg": [],
+    "src/h1_2_voice_control/setup.py": [],
+    "src/livox_ros_driver2/3rdparty/rapidjson/allocators.h": [],
+    "src/livox_ros_driver2/3rdparty/rapidjson/cursorstreamwrapper.h": [],
+    "src/livox_ros_driver2/3rdparty/rapidjson/document.h": [],
+    "src/livox_ros_driver2/3rdparty/rapidjson/encodedstream.h": [],
+    "src/livox_ros_driver2/3rdparty/rapidjson/encodings.h": [],
+    "src/livox_ros_driver2/3rdparty/rapidjson/error/en.h": [],
+    "src/livox_ros_driver2/3rdparty/rapidjson/error/error.h": [],
+    "src/livox_ros_driver2/3rdparty/rapidjson/filereadstream.h": [],
+    "src/livox_ros_driver2/3rdparty/rapidjson/filewritestream.h": [],
+    "src/livox_ros_driver2/3rdparty/rapidjson/fwd.h": [],
+    "src/livox_ros_driver2/3rdparty/rapidjson/internal/biginteger.h": [],
+    "src/livox_ros_driver2/3rdparty/rapidjson/internal/clzll.h": [],
+    "src/livox_ros_driver2/3rdparty/rapidjson/internal/diyfp.h": [],
+    "src/livox_ros_driver2/3rdparty/rapidjson/internal/dtoa.h": [],
+    "src/livox_ros_driver2/3rdparty/rapidjson/internal/ieee754.h": [],
+    "src/livox_ros_driver2/3rdparty/rapidjson/internal/itoa.h": [],
+    "src/livox_ros_driver2/3rdparty/rapidjson/internal/meta.h": [],
+    "src/livox_ros_driver2/3rdparty/rapidjson/internal/pow10.h": [],
+    "src/livox_ros_driver2/3rdparty/rapidjson/internal/regex.h": [],
+    "src/livox_ros_driver2/3rdparty/rapidjson/internal/stack.h": [],
+    "src/livox_ros_driver2/3rdparty/rapidjson/internal/strfunc.h": [],
+    "src/livox_ros_driver2/3rdparty/rapidjson/internal/strtod.h": [],
+    "src/livox_ros_driver2/3rdparty/rapidjson/internal/swap.h": [],
+    "src/livox_ros_driver2/3rdparty/rapidjson/istreamwrapper.h": [],
+    "src/livox_ros_driver2/3rdparty/rapidjson/license.txt": [],
+    "src/livox_ros_driver2/3rdparty/rapidjson/memorybuffer.h": [],
+    "src/livox_ros_driver2/3rdparty/rapidjson/memorystream.h": [],
+    "src/livox_ros_driver2/3rdparty/rapidjson/msinttypes/inttypes.h": [],
+    "src/livox_ros_driver2/3rdparty/rapidjson/msinttypes/stdint.h": [
+      "src/livox_ros_driver2/3rdparty/rapidjson/msinttypes/stdint.h"
+    ],
+    "src/livox_ros_driver2/3rdparty/rapidjson/ostreamwrapper.h": [],
+    "src/livox_ros_driver2/3rdparty/rapidjson/pointer.h": [],
+    "src/livox_ros_driver2/3rdparty/rapidjson/prettywriter.h": [],
+    "src/livox_ros_driver2/3rdparty/rapidjson/rapidjson.h": [],
+    "src/livox_ros_driver2/3rdparty/rapidjson/reader.h": [],
+    "src/livox_ros_driver2/3rdparty/rapidjson/schema.h": [],
+    "src/livox_ros_driver2/3rdparty/rapidjson/stream.h": [
+      "src/livox_ros_driver2/3rdparty/rapidjson/rapidjson.h"
+    ],
+    "src/livox_ros_driver2/3rdparty/rapidjson/stringbuffer.h": [],
+    "src/livox_ros_driver2/3rdparty/rapidjson/writer.h": [],
+    "src/livox_ros_driver2/build.sh": [],
+    "src/livox_ros_driver2/CHANGELOG.md": [],
+    "src/livox_ros_driver2/cmake/version.cmake": [],
+    "src/livox_ros_driver2/CMakeLists.txt": [],
+    "src/livox_ros_driver2/config/display_point_cloud_ROS1.rviz": [],
+    "src/livox_ros_driver2/config/display_point_cloud_ROS2.rviz": [],
+    "src/livox_ros_driver2/config/HAP_config.json": [],
+    "src/livox_ros_driver2/config/MID360_config.json": [],
+    "src/livox_ros_driver2/config/mixed_HAP_MID360_config.json": [],
+    "src/livox_ros_driver2/launch_ROS1/msg_HAP.launch": [],
+    "src/livox_ros_driver2/launch_ROS1/msg_MID360.launch": [],
+    "src/livox_ros_driver2/launch_ROS1/msg_mixed.launch": [],
+    "src/livox_ros_driver2/launch_ROS1/rviz_HAP.launch": [],
+    "src/livox_ros_driver2/launch_ROS1/rviz_MID360.launch": [],
+    "src/livox_ros_driver2/launch_ROS1/rviz_mixed.launch": [],
+    "src/livox_ros_driver2/launch_ROS2/msg_HAP_launch.py": [],
+    "src/livox_ros_driver2/launch_ROS2/msg_MID360_launch.py": [],
+    "src/livox_ros_driver2/launch_ROS2/rviz_HAP_launch.py": [],
+    "src/livox_ros_driver2/launch_ROS2/rviz_MID360_launch.py": [],
+    "src/livox_ros_driver2/launch_ROS2/rviz_mixed.py": [],
+    "src/livox_ros_driver2/launch/msg_HAP_launch.py": [],
+    "src/livox_ros_driver2/launch/msg_MID360_launch.py": [],
+    "src/livox_ros_driver2/launch/rviz_HAP_launch.py": [],
+    "src/livox_ros_driver2/launch/rviz_MID360_launch.py": [],
+    "src/livox_ros_driver2/launch/rviz_mixed.py": [],
+    "src/livox_ros_driver2/LICENSE.txt": [],
+    "src/livox_ros_driver2/msg/CustomMsg.msg": [],
+    "src/livox_ros_driver2/msg/CustomPoint.msg": [],
+    "src/livox_ros_driver2/package_ROS2.xml": [],
+    "src/livox_ros_driver2/README.md": [],
+    "src/livox_ros_driver2/src/call_back/lidar_common_callback.cpp": [
+      "src/livox_ros_driver2/src/call_back/lidar_common_callback.h",
+      "src/livox_ros_driver2/src/lds_lidar.h"
+    ],
+    "src/livox_ros_driver2/src/call_back/lidar_common_callback.h": [],
+    "src/livox_ros_driver2/src/call_back/livox_lidar_callback.cpp": [
+      "src/livox_ros_driver2/src/call_back/livox_lidar_callback.h"
+    ],
+    "src/livox_ros_driver2/src/call_back/livox_lidar_callback.h": [],
+    "src/livox_ros_driver2/src/comm/cache_index.cpp": [
+      "src/livox_ros_driver2/src/comm/cache_index.h"
+    ],
+    "src/livox_ros_driver2/src/comm/cache_index.h": [],
+    "src/livox_ros_driver2/src/comm/comm.cpp": [],
+    "src/livox_ros_driver2/src/comm/comm.h": [],
+    "src/livox_ros_driver2/src/comm/ldq.cpp": [
+      "src/livox_ros_driver2/src/comm/ldq.h"
+    ],
+    "src/livox_ros_driver2/src/comm/ldq.h": [],
+    "src/livox_ros_driver2/src/comm/lidar_imu_data_queue.cpp": [
+      "src/livox_ros_driver2/src/comm/lidar_imu_data_queue.h"
+    ],
+    "src/livox_ros_driver2/src/comm/lidar_imu_data_queue.h": [],
+    "src/livox_ros_driver2/src/comm/pub_handler.cpp": [
+      "src/livox_ros_driver2/src/comm/pub_handler.h"
+    ],
+    "src/livox_ros_driver2/src/comm/pub_handler.h": [],
+    "src/livox_ros_driver2/src/comm/semaphore.cpp": [
+      "src/livox_ros_driver2/src/comm/semaphore.h"
+    ],
+    "src/livox_ros_driver2/src/comm/semaphore.h": [],
+    "src/livox_ros_driver2/src/driver_node.cpp": [
+      "src/livox_ros_driver2/src/driver_node.h",
+      "src/livox_ros_driver2/src/lddc.h"
+    ],
+    "src/livox_ros_driver2/src/driver_node.h": [],
+    "src/livox_ros_driver2/src/include/livox_ros_driver2.h": [],
+    "src/livox_ros_driver2/src/include/ros_headers.h": [],
+    "src/livox_ros_driver2/src/include/ros1_headers.h": [],
+    "src/livox_ros_driver2/src/include/ros2_headers.h": [],
+    "src/livox_ros_driver2/src/lddc.cpp": [
+      "src/livox_ros_driver2/src/comm/comm.h",
+      "src/livox_ros_driver2/src/comm/ldq.h",
+      "src/livox_ros_driver2/src/driver_node.h",
+      "src/livox_ros_driver2/src/include/ros_headers.h",
+      "src/livox_ros_driver2/src/lddc.h",
+      "src/livox_ros_driver2/src/lds_lidar.h"
+    ],
+    "src/livox_ros_driver2/src/lddc.h": [],
+    "src/livox_ros_driver2/src/lds_lidar.cpp": [
+      "src/livox_ros_driver2/src/call_back/lidar_common_callback.h",
+      "src/livox_ros_driver2/src/call_back/livox_lidar_callback.h",
+      "src/livox_ros_driver2/src/comm/comm.h",
+      "src/livox_ros_driver2/src/comm/pub_handler.h",
+      "src/livox_ros_driver2/src/lds_lidar.h",
+      "src/livox_ros_driver2/src/parse_cfg_file/parse_cfg_file.h",
+      "src/livox_ros_driver2/src/parse_cfg_file/parse_livox_lidar_cfg.h"
+    ],
+    "src/livox_ros_driver2/src/lds_lidar.h": [],
+    "src/livox_ros_driver2/src/lds.cpp": [
+      "src/livox_ros_driver2/src/comm/ldq.h",
+      "src/livox_ros_driver2/src/lds.h"
+    ],
+    "src/livox_ros_driver2/src/lds.h": [],
+    "src/livox_ros_driver2/src/livox_ros_driver2.cpp": [
+      "src/livox_ros_driver2/src/driver_node.h",
+      "src/livox_ros_driver2/src/include/livox_ros_driver2.h",
+      "src/livox_ros_driver2/src/include/ros_headers.h",
+      "src/livox_ros_driver2/src/lddc.h",
+      "src/livox_ros_driver2/src/lds_lidar.h"
+    ],
+    "src/livox_ros_driver2/src/parse_cfg_file/parse_cfg_file.cpp": [
+      "src/livox_ros_driver2/src/parse_cfg_file/parse_cfg_file.h"
+    ],
+    "src/livox_ros_driver2/src/parse_cfg_file/parse_cfg_file.h": [],
+    "src/livox_ros_driver2/src/parse_cfg_file/parse_livox_lidar_cfg.cpp": [
+      "src/livox_ros_driver2/src/parse_cfg_file/parse_livox_lidar_cfg.h"
+    ],
+    "src/livox_ros_driver2/src/parse_cfg_file/parse_livox_lidar_cfg.h": [],
+    "stop_ai_slam_nav.sh": [],
+    "test/manual/README.md": [],
+    "test/README.md": [],
+    "test/ros_integration/global_relocalization_real_map_smoke.py": [],
+    "test/ros_integration/global_relocalization_service_smoke.py": [],
+    "test/ros_integration/global_relocalization_smoke.py": [],
+    "test/ros_integration/README.md": [],
+    "test/static/test_auto_initial_pose.py": [],
+    "test/static/test_auto_route_icp_status_gate.py": [],
+    "test/static/test_camera_stream.py": [],
+    "test/static/test_cli_tools.py": [],
+    "test/static/test_global_relocalization_real_map_smoke.py": [],
+    "test/static/test_h1_2_nav_gui.py": [],
+    "test/static/test_h1_2_nav_web_gui.py": [],
+    "test/static/test_h1_2_vision.py": [],
+    "test/static/test_h1_2_voice_control.py": [],
+    "test/static/test_icp_package_structure.py": [],
+    "test/static/test_memory_launch_integration.py": [],
+    "test/static/test_memory_point_manager.py": [],
+    "test/static/test_memory_point_markers.py": [],
+    "test/static/test_memory_route_runner.py": [],
+    "test/static/test_nav_msgs_interfaces.py": [],
+    "test/static/test_offline_demo_workflow.py": [],
+    "test/static/test_offline_icp_backend_switch.py": [],
+    "test/static/test_offline_icp_localization_entrypoint.py": [],
+    "test/static/test_offline_icp_time_sync.py": [],
+    "test/static/test_offline_rviz_display.py": [],
+    "test/static/test_pcd_map_save_workflow.py": [],
+    "test/static/test_relocalization_deps_workflow.py": [],
+    "test/static/test_teaching_route_runner.py": []
+  }
+}

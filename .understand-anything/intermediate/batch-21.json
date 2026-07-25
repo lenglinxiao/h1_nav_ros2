@@ -1,0 +1,255 @@
+{
+  "nodes": [
+    {
+      "id": "src/h1_2_description/meshes/left_middle_force_sensor_2.STL",
+      "type": "3d-mesh",
+      "name": "left_middle_force_sensor_2.STL",
+      "filePath": "src/h1_2_description/meshes/left_middle_force_sensor_2.STL",
+      "summary": "H1-2 仿人机器人左手食指第二力传感器三角网格模型，用于 URDF 中的视觉与碰撞几何定义，支持仿真场景下的力反馈可视化。",
+      "tags": ["STL", "三维网格", "力传感器", "左手", "食指", "H1-2", "URDF", "碰撞几何"],
+      "complexity": "low",
+      "languageNotes": "STL 二进制格式，存储三角形面片顶点与法向量数据，尺寸约 833 行等效面片数。"
+    },
+    {
+      "id": "src/h1_2_description/meshes/left_middle_force_sensor_3.STL",
+      "type": "3d-mesh",
+      "name": "left_middle_force_sensor_3.STL",
+      "filePath": "src/h1_2_description/meshes/left_middle_force_sensor_3.STL",
+      "summary": "H1-2 仿人机器人左手食指第三力传感器三角网格模型，精度较低（242 面片），用于辅助力感知区域的几何表示。",
+      "tags": ["STL", "三维网格", "力传感器", "左手", "食指", "H1-2", "URDF", "碰撞几何"],
+      "complexity": "low",
+      "languageNotes": "STL 二进制格式，面片数约 242，属小规模轻量网格。"
+    },
+    {
+      "id": "src/h1_2_description/meshes/left_palm_force_sensor.STL",
+      "type": "3d-mesh",
+      "name": "left_palm_force_sensor.STL",
+      "filePath": "src/h1_2_description/meshes/left_palm_force_sensor.STL",
+      "summary": "H1-2 仿人机器人左手掌力传感器三角网格模型，涵盖手掌大面积接触区域的力感知几何，3675 面片精细建模。",
+      "tags": ["STL", "三维网格", "力传感器", "左手", "手掌", "H1-2", "URDF", "碰撞几何"],
+      "complexity": "low",
+      "languageNotes": "STL 二进制格式，面片数约 3675，属中等密度网格。"
+    },
+    {
+      "id": "src/h1_2_description/meshes/left_ring_1.STL",
+      "type": "3d-mesh",
+      "name": "left_ring_1.STL",
+      "filePath": "src/h1_2_description/meshes/left_ring_1.STL",
+      "summary": "H1-2 仿人机器人左手无名指第一节指节三角网格模型，2442 面片定义手指近端几何形状，用于 URDF 视觉与碰撞检测。",
+      "tags": ["STL", "三维网格", "无名指", "左手", "指节", "H1-2", "URDF", "碰撞几何"],
+      "complexity": "low",
+      "languageNotes": "STL 二进制格式，面片数约 2442，属中等密度网格。"
+    },
+    {
+      "id": "src/h1_2_description/meshes/left_ring_2.STL",
+      "type": "3d-mesh",
+      "name": "left_ring_2.STL",
+      "filePath": "src/h1_2_description/meshes/left_ring_2.STL",
+      "summary": "H1-2 仿人机器人左手无名指第二节指节三角网格模型，1042 面片定义手指中段几何，用于机器人仿真渲染与碰撞。",
+      "tags": ["STL", "三维网格", "无名指", "左手", "指节", "H1-2", "URDF", "碰撞几何"],
+      "complexity": "low",
+      "languageNotes": "STL 二进制格式，面片数约 1042，属小规模网格。"
+    },
+    {
+      "id": "src/h1_2_description/meshes/left_ring_force_sensor_1.STL",
+      "type": "3d-mesh",
+      "name": "left_ring_force_sensor_1.STL",
+      "filePath": "src/h1_2_description/meshes/left_ring_force_sensor_1.STL",
+      "summary": "H1-2 仿人机器人左手无名指第一力传感器三角网格模型，1028 面片刻画指腹力感知区域几何。",
+      "tags": ["STL", "三维网格", "力传感器", "左手", "无名指", "H1-2", "URDF", "碰撞几何"],
+      "complexity": "low",
+      "languageNotes": "STL 二进制格式，面片数约 1028。"
+    },
+    {
+      "id": "src/h1_2_description/meshes/left_ring_force_sensor_2.STL",
+      "type": "3d-mesh",
+      "name": "left_ring_force_sensor_2.STL",
+      "filePath": "src/h1_2_description/meshes/left_ring_force_sensor_2.STL",
+      "summary": "H1-2 仿人机器人左手无名指第二力传感器三角网格模型，968 面片用于指节力反馈仿真。",
+      "tags": ["STL", "三维网格", "力传感器", "左手", "无名指", "H1-2", "URDF", "碰撞几何"],
+      "complexity": "low",
+      "languageNotes": "STL 二进制格式，面片数约 968。"
+    },
+    {
+      "id": "src/h1_2_description/meshes/left_ring_force_sensor_3.STL",
+      "type": "3d-mesh",
+      "name": "left_ring_force_sensor_3.STL",
+      "filePath": "src/h1_2_description/meshes/left_ring_force_sensor_3.STL",
+      "summary": "H1-2 仿人机器人左手无名指第三力传感器三角网格模型，302 面片轻量几何，定位指尖或末端感知区。",
+      "tags": ["STL", "三维网格", "力传感器", "左手", "无名指", "H1-2", "URDF", "碰撞几何"],
+      "complexity": "low",
+      "languageNotes": "STL 二进制格式，面片数约 302，属极轻量网格。"
+    },
+    {
+      "id": "src/h1_2_description/meshes/left_shoulder_pitch_link.STL",
+      "type": "3d-mesh",
+      "name": "left_shoulder_pitch_link.STL",
+      "filePath": "src/h1_2_description/meshes/left_shoulder_pitch_link.STL",
+      "summary": "H1-2 仿人机器人左肩俯仰关节连杆三角网格模型，7090 面片精细建模肩部俯仰自由度对应的结构件，是 URDF 运动学链中的关键连杆。",
+      "tags": ["STL", "三维网格", "肩关节", "俯仰", "左手", "H1-2", "URDF", "运动学"],
+      "complexity": "low",
+      "languageNotes": "STL 二进制格式，面片数约 7090，属中高密度网格。"
+    },
+    {
+      "id": "src/h1_2_description/meshes/left_shoulder_roll_link.STL",
+      "type": "3d-mesh",
+      "name": "left_shoulder_roll_link.STL",
+      "filePath": "src/h1_2_description/meshes/left_shoulder_roll_link.STL",
+      "summary": "H1-2 仿人机器人左肩横滚关节连杆三角网格模型，6117 面片定义肩部横滚旋转自由度对应的机械结构。",
+      "tags": ["STL", "三维网格", "肩关节", "横滚", "左手", "H1-2", "URDF", "运动学"],
+      "complexity": "low",
+      "languageNotes": "STL 二进制格式，面片数约 6117，属中高密度网格。"
+    },
+    {
+      "id": "src/h1_2_description/meshes/left_shoulder_yaw_link.STL",
+      "type": "3d-mesh",
+      "name": "left_shoulder_yaw_link.STL",
+      "filePath": "src/h1_2_description/meshes/left_shoulder_yaw_link.STL",
+      "summary": "H1-2 仿人机器人左肩偏航关节连杆三角网格模型，8390 面片（本批次最大网格）定义肩部水平旋转自由度对应的结构件。",
+      "tags": ["STL", "三维网格", "肩关节", "偏航", "左手", "H1-2", "URDF", "运动学"],
+      "complexity": "low",
+      "languageNotes": "STL 二进制格式，面片数约 8390，属高密度网格。"
+    },
+    {
+      "id": "src/h1_2_description/meshes/left_thumb_1.STL",
+      "type": "3d-mesh",
+      "name": "left_thumb_1.STL",
+      "filePath": "src/h1_2_description/meshes/left_thumb_1.STL",
+      "summary": "H1-2 仿人机器人左手拇指第一指节三角网格模型，190 面片极轻量几何，通常为指尖小型结构。",
+      "tags": ["STL", "三维网格", "拇指", "左手", "指节", "H1-2", "URDF", "碰撞几何"],
+      "complexity": "low",
+      "languageNotes": "STL 二进制格式，面片数约 190，属极轻量网格。"
+    },
+    {
+      "id": "src/h1_2_description/meshes/left_thumb_2.STL",
+      "type": "3d-mesh",
+      "name": "left_thumb_2.STL",
+      "filePath": "src/h1_2_description/meshes/left_thumb_2.STL",
+      "summary": "H1-2 仿人机器人左手拇指第二指节三角网格模型，1526 面片定义拇指中段几何形状。",
+      "tags": ["STL", "三维网格", "拇指", "左手", "指节", "H1-2", "URDF", "碰撞几何"],
+      "complexity": "low",
+      "languageNotes": "STL 二进制格式，面片数约 1526，属中等密度网格。"
+    },
+    {
+      "id": "src/h1_2_description/meshes/left_thumb_3.STL",
+      "type": "3d-mesh",
+      "name": "left_thumb_3.STL",
+      "filePath": "src/h1_2_description/meshes/left_thumb_3.STL",
+      "summary": "H1-2 仿人机器人左手拇指第三指节三角网格模型，1203 面片用于拇指近端或中间段的几何表示。",
+      "tags": ["STL", "三维网格", "拇指", "左手", "指节", "H1-2", "URDF", "碰撞几何"],
+      "complexity": "low",
+      "languageNotes": "STL 二进制格式，面片数约 1203。"
+    },
+    {
+      "id": "src/h1_2_description/meshes/left_thumb_4.STL",
+      "type": "3d-mesh",
+      "name": "left_thumb_4.STL",
+      "filePath": "src/h1_2_description/meshes/left_thumb_4.STL",
+      "summary": "H1-2 仿人机器人左手拇指第四指节三角网格模型，1385 面片用于拇指基座或附加段的几何表示。",
+      "tags": ["STL", "三维网格", "拇指", "左手", "指节", "H1-2", "URDF", "碰撞几何"],
+      "complexity": "low",
+      "languageNotes": "STL 二进制格式，面片数约 1385。"
+    },
+    {
+      "id": "src/h1_2_description/meshes/left_thumb_force_sensor_1.STL",
+      "type": "3d-mesh",
+      "name": "left_thumb_force_sensor_1.STL",
+      "filePath": "src/h1_2_description/meshes/left_thumb_force_sensor_1.STL",
+      "summary": "H1-2 仿人机器人左手拇指第一力传感器三角网格模型，1100 面片定义拇指指腹力感知区域的几何边界。",
+      "tags": ["STL", "三维网格", "力传感器", "左手", "拇指", "H1-2", "URDF", "碰撞几何"],
+      "complexity": "low",
+      "languageNotes": "STL 二进制格式，面片数约 1100。"
+    },
+    {
+      "id": "src/h1_2_description/meshes/left_thumb_force_sensor_2.STL",
+      "type": "3d-mesh",
+      "name": "left_thumb_force_sensor_2.STL",
+      "filePath": "src/h1_2_description/meshes/left_thumb_force_sensor_2.STL",
+      "summary": "H1-2 仿人机器人左手拇指第二力传感器三角网格模型，459 面片辅助捕捉拇指中部力分布。",
+      "tags": ["STL", "三维网格", "力传感器", "左手", "拇指", "H1-2", "URDF", "碰撞几何"],
+      "complexity": "low",
+      "languageNotes": "STL 二进制格式，面片数约 459，属轻量网格。"
+    },
+    {
+      "id": "src/h1_2_description/meshes/left_thumb_force_sensor_3.STL",
+      "type": "3d-mesh",
+      "name": "left_thumb_force_sensor_3.STL",
+      "filePath": "src/h1_2_description/meshes/left_thumb_force_sensor_3.STL",
+      "summary": "H1-2 仿人机器人左手拇指第三力传感器三角网格模型，876 面片刻画拇指近端感知区域几何。",
+      "tags": ["STL", "三维网格", "力传感器", "左手", "拇指", "H1-2", "URDF", "碰撞几何"],
+      "complexity": "low",
+      "languageNotes": "STL 二进制格式，面片数约 876。"
+    },
+    {
+      "id": "src/h1_2_description/meshes/left_thumb_force_sensor_4.STL",
+      "type": "3d-mesh",
+      "name": "left_thumb_force_sensor_4.STL",
+      "filePath": "src/h1_2_description/meshes/left_thumb_force_sensor_4.STL",
+      "summary": "H1-2 仿人机器人左手拇指第四力传感器三角网格模型，188 面片极轻量几何，覆盖拇指末端或边缘感知区域。",
+      "tags": ["STL", "三维网格", "力传感器", "左手", "拇指", "H1-2", "URDF", "碰撞几何"],
+      "complexity": "low",
+      "languageNotes": "STL 二进制格式，面片数约 188，属极轻量网格。"
+    },
+    {
+      "id": "src/h1_2_description/meshes/left_wrist_pitch_link.STL",
+      "type": "3d-mesh",
+      "name": "left_wrist_pitch_link.STL",
+      "filePath": "src/h1_2_description/meshes/left_wrist_pitch_link.STL",
+      "summary": "H1-2 仿人机器人左手腕俯仰关节连杆三角网格模型，2116 面片定义腕部俯仰自由度对应的结构件，连接手部与前臂。",
+      "tags": ["STL", "三维网格", "腕关节", "俯仰", "左手", "H1-2", "URDF", "运动学"],
+      "complexity": "low",
+      "languageNotes": "STL 二进制格式，面片数约 2116，属中等密度网格。"
+    },
+    {
+      "id": "src/h1_2_description/meshes/left_wrist_roll_link.STL",
+      "type": "3d-mesh",
+      "name": "left_wrist_roll_link.STL",
+      "filePath": "src/h1_2_description/meshes/left_wrist_roll_link.STL",
+      "summary": "H1-2 仿人机器人左手腕横滚关节连杆三角网格模型，2812 面片定义腕部旋转自由度对应的结构件。",
+      "tags": ["STL", "三维网格", "腕关节", "横滚", "左手", "H1-2", "URDF", "运动学"],
+      "complexity": "low",
+      "languageNotes": "STL 二进制格式，面片数约 2812，属中等密度网格。"
+    },
+    {
+      "id": "src/h1_2_description/meshes/link11_L.STL",
+      "type": "3d-mesh",
+      "name": "link11_L.STL",
+      "filePath": "src/h1_2_description/meshes/link11_L.STL",
+      "summary": "H1-2 仿人机器人左手拇指近端基座（L_thumb_proximal_base）连杆三角网格模型，75 面片极简几何，作为拇指偏航关节的子连杆。",
+      "tags": ["STL", "三维网格", "拇指基座", "左手", "H1-2", "URDF", "运动学"],
+      "complexity": "low",
+      "languageNotes": "STL 二进制格式，面片数约 75，属极轻量简单几何体。"
+    },
+    {
+      "id": "src/h1_2_description/meshes/link11_R.STL",
+      "type": "3d-mesh",
+      "name": "link11_R.STL",
+      "filePath": "src/h1_2_description/meshes/link11_R.STL",
+      "summary": "H1-2 仿人机器人右手拇指近端基座（R_thumb_proximal_base）连杆三角网格模型，77 面片极简几何，与左手对称。",
+      "tags": ["STL", "三维网格", "拇指基座", "右手", "H1-2", "URDF", "运动学"],
+      "complexity": "low",
+      "languageNotes": "STL 二进制格式，面片数约 77，属极轻量简单几何体。"
+    },
+    {
+      "id": "src/h1_2_description/meshes/link12_L.STL",
+      "type": "3d-mesh",
+      "name": "link12_L.STL",
+      "filePath": "src/h1_2_description/meshes/link12_L.STL",
+      "summary": "H1-2 仿人机器人左手拇指近端（L_thumb_proximal）连杆三角网格模型，2750 面片定义拇指根部第一指节几何，是拇指俯仰关节的子连杆。",
+      "tags": ["STL", "三维网格", "拇指", "左手", "近端指节", "H1-2", "URDF", "运动学"],
+      "complexity": "low",
+      "languageNotes": "STL 二进制格式，面片数约 2750，属中等密度网格。"
+    },
+    {
+      "id": "src/h1_2_description/meshes/link12_R.STL",
+      "type": "3d-mesh",
+      "name": "link12_R.STL",
+      "filePath": "src/h1_2_description/meshes/link12_R.STL",
+      "summary": "H1-2 仿人机器人右手拇指近端（R_thumb_proximal）连杆三角网格模型，2767 面片，与左手对称，定义右手拇指根部第一指节几何。",
+      "tags": ["STL", "三维网格", "拇指", "右手", "近端指节", "H1-2", "URDF", "运动学"],
+      "complexity": "low",
+      "languageNotes": "STL 二进制格式，面片数约 2767，属中等密度网格。"
+    }
+  ],
+  "edges": []
+}

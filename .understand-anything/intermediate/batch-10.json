@@ -1,0 +1,64 @@
+{
+  "nodes": [
+    {
+      "id": "node-batch10-001",
+      "type": "build-config",
+      "name": "FAST_LIO2 CMakeLists.txt",
+      "filePath": "src/FAST_LIO_ROS2/CMakeLists.txt",
+      "summary": "FAST_LIO2 包的 CMake 构建配置文件。定义项目 fast_lio2，使用 C++17 标准，启用 OpenMP 多核并行（根据 CPU 核心数自动设置 MP_PROC_NUM）。依赖 ROS2 核心库（rclcpp, geometry_msgs, nav_msgs, sensor_msgs, pcl_conversions 等）、Eigen3、PCL 和 livox_ros_driver2。定义自定义消息 Pose6D.msg，编译生成 fastlio2_mapping 可执行文件（源文件包括 laserMapping.cpp、ikd_Tree.cpp、preprocess.cpp），并兼容 Foxy/Galactic 与新版 ROS2 发行版的 rosidl typesupport 差异。安装目标包括可执行文件、config、launch 和 rviz 目录。",
+      "tags": ["CMake", "构建系统", "FAST_LIO2", "ROS2", "C++17", "OpenMP", "Eigen3", "PCL", "Livox", "ikd-Tree"],
+      "complexity": "medium",
+      "languageNotes": "构建配置清晰分层：编译器设置 → 多核检测 → 依赖查找 → 消息生成 → 可执行文件构建 → 安装规则。值得注意的是重复的 ADD_COMPILE_OPTIONS(-std=c++17) 调用和 CMAKE_CXX_FLAGS 中混用了 -std=c++14 与 -std=c++17，可能存在标志冗余。通过检测 ROS_DISTRO 环境变量来区分新旧 rosidl typesupport 链接方式，体现了对 Foxy/Galactic 等 EOL 发行版的向后兼容处理。"
+    },
+    {
+      "id": "node-batch10-002",
+      "type": "documentation",
+      "name": "FAST_LIO2 README",
+      "filePath": "src/FAST_LIO_ROS2/README.md",
+      "summary": "FAST-LIO 和 FAST-LIO 2.0 的完整使用文档。FAST-LIO 是一种基于紧耦合迭代扩展卡尔曼滤波器的高效 LiDAR-惯性里程计算法，通过融合 LiDAR 特征点与 IMU 数据实现快速运动、噪声或退化环境中的鲁棒导航。FAST-LIO 2.0 新增基于 ikd-Tree 的增量建图、原始点云直接里程计（无需特征提取）、多类型 LiDAR 支持（旋转式如 Velodyne/Ouster 和固态如 Livox Avia/Horizon/MID-70）、外部 IMU 支持及 ARM 平台兼容。文档涵盖前提条件（Ubuntu 20.04+、ROS2 Humble 推荐、PCL >= 1.8、Eigen >= 3.3.4、livox_ros_driver2）、colcon 构建步骤、ROS2 launch 运行方式、PCD 地图保存、Rosbag 示例（Livox Avia、Velodyne HDL-32E、NCLT 数据集）以及无人机实物验证平台介绍。",
+      "tags": ["README", "文档", "FAST-LIO", "LiDAR-惯性里程计", "SLAM", "ikd-Tree", "紧耦合卡尔曼滤波", "ROS2", "Livox", "PCD", "无人机"],
+      "complexity": "medium",
+      "languageNotes": "文档结构清晰，从算法介绍、新特性、相关论文，到环境搭建、编译运行、示例数据，层层递进。包含丰富的图示和链接到相关工作的 GitHub 仓库。特别强调了 Livox LiDAR 时间同步的重要性（需要 CustomMsg 格式的每点时间戳用于运动畸变校正），以及软件时间同步仅作为最后手段。提供了 PCD 保存的 RQt Service Caller 操作步骤和 pcl_viewer 可视化技巧。"
+    },
+    {
+      "id": "node-batch10-003",
+      "type": "package-manifest",
+      "name": "FAST_LIO2 package.xml",
+      "filePath": "src/FAST_LIO_ROS2/package.xml",
+      "summary": "fast_lio2 包的 ROS2 package.xml 清单文件（格式版本 3）。声明包名为 fast_lio2，描述为 ROS2 FAST-LIO2 LiDAR-inertial odometry and mapping package，采用 BSD 许可证。构建工具依赖 ament_cmake 和 rosidl_default_generators，运行时依赖包括 geometry_msgs、nav_msgs、rclcpp、sensor_msgs、tf2 系列、pcl_conversions 和 livox_ros_driver2。标记为 rosidl_interface_packages 组成员，构建类型为 ament_cmake。",
+      "tags": ["package.xml", "ROS2", "包清单", "ament_cmake", "FAST_LIO2", "LiDAR-惯性里程计", "依赖管理"],
+      "complexity": "low",
+      "languageNotes": "标准的 ROS2 package.xml 格式 3 清单。声明了 12 个运行时依赖和 2 个构建工具依赖。exec_depend 中仅有 rosidl_default_runtime，用于自定义消息的运行时支持。member_of_group 声明为 rosidl_interface_packages 是因为该包使用 rosidl_generate_interfaces 生成了自定义消息 Pose6D。"
+    }
+  ],
+  "edges": [
+    {
+      "sourceId": "node-batch10-001",
+      "targetId": "node-batch10-003",
+      "type": "config-mirrors",
+      "label": "构建依赖与包清单一致",
+      "description": "CMakeLists.txt 中 find_package 的依赖项（rclcpp, geometry_msgs, nav_msgs, sensor_msgs, tf2_ros, pcl_conversions, livox_ros_driver2 等）与 package.xml 中声明的 <depend> 项保持对应，确保构建系统与包管理器的依赖声明同步。"
+    },
+    {
+      "sourceId": "node-batch10-002",
+      "targetId": "node-batch10-001",
+      "type": "documents-build",
+      "label": "文档描述构建流程",
+      "description": "README.md 第 2 节详细说明了基于 colcon 的构建步骤（git clone --recursive → rosdep install → colcon build --symlink-install），并在第 1.3 节强调构建前必须 source livox_ros_driver2，这些操作最终由 CMakeLists.txt 定义的构建规则执行。"
+    },
+    {
+      "sourceId": "node-batch10-002",
+      "targetId": "node-batch10-003",
+      "type": "documents-package",
+      "label": "文档引用包信息",
+      "description": "README.md 中多次引用包名 fast_lio2（如 ros2 launch fast_lio2 mapping.launch.py），其包名、版本信息和依赖关系由 package.xml 定义。README 描述的所有依赖（Eigen、PCL、livox_ros_driver2）均对应 package.xml 的依赖声明。"
+    },
+    {
+      "sourceId": "node-batch10-003",
+      "targetId": "node-batch10-001",
+      "type": "defines-build",
+      "label": "包清单定义构建需求",
+      "description": "package.xml 声明 ament_cmake 为构建工具且构建类型为 ament_cmake，CMakeLists.txt 据此以 ament_package() 结尾，并按照 ROS2 ament 规范组织 find_package、target_link_libraries 和 install 规则。"
+    }
+  ]
+}

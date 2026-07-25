@@ -40,6 +40,23 @@ def test_memory_point_manager_uses_latest_odom_and_target_frame():
     assert "transform_pose" in source
 
 
+def test_memory_point_manager_always_stores_camera_init_pose_as_map():
+    source = MANAGER.read_text(encoding="utf-8")
+
+    assert 'STORAGE_FRAME = "map"' in source
+    assert 'IDENTITY_FRAME_ALIASES = {"map", "camera_init"}' in source
+    assert "self.target_frame = self.STORAGE_FRAME" in source
+    assert "pose.header.frame_id = self.target_frame" in source
+
+
+def test_memory_point_manager_refuses_to_mix_coordinate_frames():
+    source = MANAGER.read_text(encoding="utf-8")
+
+    assert "refusing to mix coordinate frames" in source
+    assert "self.storage_error =" in source
+    assert "self.points = {}" in source
+
+
 def test_memory_point_manager_console_script_is_registered():
     setup = SETUP.read_text(encoding="utf-8")
 

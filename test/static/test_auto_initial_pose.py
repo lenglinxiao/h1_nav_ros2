@@ -141,8 +141,8 @@ def test_auto_initial_pose_warns_with_latest_icp_status_when_not_ready():
     assert "no /icp_localization/status received" in node
 
 
-def test_auto_initial_pose_default_icp_gate_is_lenient_for_real_global_gicp():
+def test_auto_initial_pose_default_icp_gate_requires_three_stable_samples():
     launch = read_repo_file("src/h1_2_slam_bringup/launch/h1_2_nav2_navigation.launch.py")
 
-    assert 'DeclareLaunchArgument("required_stable_samples", default_value="1")' in launch
+    assert 'DeclareLaunchArgument("required_stable_samples", default_value="3")' in launch
     assert 'DeclareLaunchArgument("max_icp_score", default_value="0.15")' in launch

@@ -1,0 +1,556 @@
+{
+  "nodes": [
+    {
+      "id": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_ankle_A_rod_link.STL",
+      "type": "mesh",
+      "name": "left_ankle_A_rod_link.STL",
+      "filePath": "src/h1_2_description/meshes/left_ankle_A_rod_link.STL",
+      "summary": "H1_2 机器人左踝关节 A 连接杆的 3D 三角网格文件。该部件为细长杆状结构，属于左腿踝关节组件的辅助连接件，以二进制 STL 格式存储三维几何数据。",
+      "tags": ["网格", "STL", "左腿", "踝关节", "连接杆", "H1_2", "运动学"],
+      "complexity": "low",
+      "languageNotes": "二进制 STL 格式，包含三角面片的法向量和顶点坐标数据，用于 URDF 机器人模型的视觉或碰撞几何渲染。"
+    },
+    {
+      "id": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_ankle_B_link.STL",
+      "type": "mesh",
+      "name": "left_ankle_B_link.STL",
+      "filePath": "src/h1_2_description/meshes/left_ankle_B_link.STL",
+      "summary": "H1_2 机器人左踝关节 B 部分的 3D 三角网格文件。该部件为踝关节主体结构之一，提供足部与小腿之间的机械连接和力传递，网格密度较高（约 938 行）。",
+      "tags": ["网格", "STL", "左腿", "踝关节", "H1_2", "运动学"],
+      "complexity": "medium",
+      "languageNotes": "二进制 STL 格式，包含较密集的三角面片，反映了该关节部件具有较复杂的几何形状和机械接口特征。"
+    },
+    {
+      "id": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_ankle_B_rod_link.STL",
+      "type": "mesh",
+      "name": "left_ankle_B_rod_link.STL",
+      "filePath": "src/h1_2_description/meshes/left_ankle_B_rod_link.STL",
+      "summary": "H1_2 机器人左踝关节 B 连接杆的 3D 三角网格文件。该部件为踝关节 B 部分附属的杆状连接件，尺寸较小，网格面片数较少。",
+      "tags": ["网格", "STL", "左腿", "踝关节", "连接杆", "H1_2", "运动学"],
+      "complexity": "low",
+      "languageNotes": "二进制 STL 格式，轻量级网格，对应踝关节 B 的附加连接件几何。"
+    },
+    {
+      "id": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_ankle_pitch_link.STL",
+      "type": "mesh",
+      "name": "left_ankle_pitch_link.STL",
+      "filePath": "src/h1_2_description/meshes/left_ankle_pitch_link.STL",
+      "summary": "H1_2 机器人左踝俯仰（pitch）关节连杆的 3D 三角网格文件。该部件实现踝关节的俯仰自由度（绕 Y 轴旋转），连接膝关节与踝横滚关节，是腿部运动学链的关键节点。",
+      "tags": ["网格", "STL", "左腿", "踝关节", "俯仰", "pitch", "H1_2", "运动学"],
+      "complexity": "low",
+      "languageNotes": "二进制 STL 格式。在 URDF 中由 left_ankle_pitch_joint 关节驱动，限制范围 -0.5~0.5 rad，父连杆为 left_knee_link。"
+    },
+    {
+      "id": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_ankle_roll_link.STL",
+      "type": "mesh",
+      "name": "left_ankle_roll_link.STL",
+      "filePath": "src/h1_2_description/meshes/left_ankle_roll_link.STL",
+      "summary": "H1_2 机器人左踝横滚（roll）关节连杆的 3D 三角网格文件。该部件实现踝关节的横滚自由度（绕 X 轴旋转），是左腿运动学链的最末端连杆之一，直接连接足部。",
+      "tags": ["网格", "STL", "左腿", "踝关节", "横滚", "roll", "H1_2", "运动学"],
+      "complexity": "low",
+      "languageNotes": "二进制 STL 格式。在 URDF 中由 left_ankle_roll_joint 关节驱动，限制范围 -0.5~0.5 rad，父连杆为 left_ankle_pitch_link。"
+    },
+    {
+      "id": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_base_link.STL",
+      "type": "mesh",
+      "name": "left_base_link.STL",
+      "filePath": "src/h1_2_description/meshes/left_base_link.STL",
+      "summary": "H1_2 机器人左手掌基座的 3D 三角网格文件。该部件是左手运动学链的核心枢纽——作为手掌本体连接手腕与五根手指，面片数量极大（约 16032 行），结构复杂精细。",
+      "tags": ["网格", "STL", "左手", "手掌", "基座", "手指", "H1_2", "运动学"],
+      "complexity": "high",
+      "languageNotes": "二进制 STL 格式，本批次中面片密度最高的网格文件。在 URDF 中作为 left_base_link 连杆使用，是所有左手手指连杆的公共父节点（thumb/index/middle/ring/little 共用此基座）。"
+    },
+    {
+      "id": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_elbow_link.STL",
+      "type": "mesh",
+      "name": "left_elbow_link.STL",
+      "filePath": "src/h1_2_description/meshes/left_elbow_link.STL",
+      "summary": "H1_2 机器人左肘关节连杆的 3D 三角网格文件。该部件连接左上臂与前臂，提供肘部俯仰旋转自由度，是实现手臂屈伸操作的关键结构件。",
+      "tags": ["网格", "STL", "左臂", "肘关节", "elbow", "H1_2", "运动学"],
+      "complexity": "medium",
+      "languageNotes": "二进制 STL 格式。在 URDF 中由 left_elbow_joint 关节驱动，父连杆为 left_shoulder_yaw_link，子连杆为 left_wrist_roll_link。"
+    },
+    {
+      "id": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_hand_link.STL",
+      "type": "mesh",
+      "name": "left_hand_link.STL",
+      "filePath": "src/h1_2_description/meshes/left_hand_link.STL",
+      "summary": "H1_2 机器人左手部外壳的 3D 三角网格文件。该部件为手部的外部封装几何体，非标准 URDF 连杆，可能在 Mujoco 仿真或可视化中作为覆盖件使用。",
+      "tags": ["网格", "STL", "左手", "外壳", "覆盖件", "H1_2", "可视化"],
+      "complexity": "low",
+      "languageNotes": "二进制 STL 格式。该网格文件名未在现有 URDF 中直接引用，可能用于 Mujoco 编译后的可视化或作为独立覆盖网格存在。"
+    },
+    {
+      "id": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_hip_pitch_link.STL",
+      "type": "mesh",
+      "name": "left_hip_pitch_link.STL",
+      "filePath": "src/h1_2_description/meshes/left_hip_pitch_link.STL",
+      "summary": "H1_2 机器人左髋俯仰（pitch）关节连杆的 3D 三角网格文件。该部件实现髋关节的俯仰自由度（绕 Y 轴旋转），连接髋偏航连杆与髋横滚连杆，是腿部运动学链的第二级关节。",
+      "tags": ["网格", "STL", "左腿", "髋关节", "俯仰", "pitch", "H1_2", "运动学"],
+      "complexity": "medium",
+      "languageNotes": "二进制 STL 格式。在 URDF 中由 left_hip_pitch_joint 驱动，限制范围 -3.14~2.5 rad，父连杆为 left_hip_yaw_link。"
+    },
+    {
+      "id": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_hip_roll_link.STL",
+      "type": "mesh",
+      "name": "left_hip_roll_link.STL",
+      "filePath": "src/h1_2_description/meshes/left_hip_roll_link.STL",
+      "summary": "H1_2 机器人左髋横滚（roll）关节连杆的 3D 三角网格文件。该部件实现髋关节的横滚自由度（绕 X 轴旋转），连接髋俯仰连杆与膝关节，是腿部运动学链的第三级关节。",
+      "tags": ["网格", "STL", "左腿", "髋关节", "横滚", "roll", "H1_2", "运动学"],
+      "complexity": "low",
+      "languageNotes": "二进制 STL 格式。在 URDF 中由 left_hip_roll_joint 驱动，限制范围 -1.5~1.0 rad，父连杆为 left_hip_pitch_link，子连杆为 left_knee_link。"
+    },
+    {
+      "id": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_hip_yaw_link.STL",
+      "type": "mesh",
+      "name": "left_hip_yaw_link.STL",
+      "filePath": "src/h1_2_description/meshes/left_hip_yaw_link.STL",
+      "summary": "H1_2 机器人左髋偏航（yaw）关节连杆的 3D 三角网格文件。该部件实现髋关节的偏航自由度（绕 Z 轴旋转），直接连接骨盆与髋俯仰连杆，是左腿运动学链的起始关节。",
+      "tags": ["网格", "STL", "左腿", "髋关节", "偏航", "yaw", "H1_2", "运动学"],
+      "complexity": "medium",
+      "languageNotes": "二进制 STL 格式。在 URDF 中由 left_hip_yaw_joint 驱动，限制范围 -0.43~0.43 rad，父连杆为 pelvis，是左腿的第一级关节。"
+    },
+    {
+      "id": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_index_1.STL",
+      "type": "mesh",
+      "name": "left_index_1.STL",
+      "filePath": "src/h1_2_description/meshes/left_index_1.STL",
+      "summary": "H1_2 机器人左手食指第一节（近端指骨）的 3D 三角网格文件。该部件为食指与手掌基座连接的第一段关节连杆，实现食指根部旋转自由度。",
+      "tags": ["网格", "STL", "左手", "食指", "指节", "index", "手指", "H1_2", "灵巧手"],
+      "complexity": "medium",
+      "languageNotes": "二进制 STL 格式。在 URDF 中作为 left_index_1 连杆，父连杆为 left_base_link，由 left_index_joint_1 关节驱动。"
+    },
+    {
+      "id": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_index_2.STL",
+      "type": "mesh",
+      "name": "left_index_2.STL",
+      "filePath": "src/h1_2_description/meshes/left_index_2.STL",
+      "summary": "H1_2 机器人左手食指第二节（远端指骨）的 3D 三角网格文件。该部件为食指尖端指节，连接在食指第一节之后，参与精细抓取操作。",
+      "tags": ["网格", "STL", "左手", "食指", "指节", "index", "手指", "H1_2", "灵巧手"],
+      "complexity": "low",
+      "languageNotes": "二进制 STL 格式。在 URDF 中作为 left_index_2 连杆，父连杆为 left_index_1，由 left_index_joint_2 关节驱动。"
+    },
+    {
+      "id": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_index_force_sensor_1.STL",
+      "type": "mesh",
+      "name": "left_index_force_sensor_1.STL",
+      "filePath": "src/h1_2_description/meshes/left_index_force_sensor_1.STL",
+      "summary": "H1_2 机器人左手食指尖端力传感器组件 1 的 3D 三角网格文件。该部件为食指末端力感知模块的几何模型，用于指端接触力检测。",
+      "tags": ["网格", "STL", "左手", "食指", "力传感器", "force_sensor", "触觉", "H1_2", "灵巧手"],
+      "complexity": "low",
+      "languageNotes": "二进制 STL 格式。在 URDF 中作为 left_index_force_sensor_1 连杆，提供指端力反馈的物理仿真几何。"
+    },
+    {
+      "id": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_index_force_sensor_2.STL",
+      "type": "mesh",
+      "name": "left_index_force_sensor_2.STL",
+      "filePath": "src/h1_2_description/meshes/left_index_force_sensor_2.STL",
+      "summary": "H1_2 机器人左手食指尖端力传感器组件 2 的 3D 三角网格文件。该部件为食指力感知链的第二级传感器模块几何模型。",
+      "tags": ["网格", "STL", "左手", "食指", "力传感器", "force_sensor", "触觉", "H1_2", "灵巧手"],
+      "complexity": "low",
+      "languageNotes": "二进制 STL 格式。在 URDF 中作为 left_index_force_sensor_2 连杆，是力传感链路的中间组件。"
+    },
+    {
+      "id": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_index_force_sensor_3.STL",
+      "type": "mesh",
+      "name": "left_index_force_sensor_3.STL",
+      "filePath": "src/h1_2_description/meshes/left_index_force_sensor_3.STL",
+      "summary": "H1_2 机器人左手食指尖端力传感器组件 3 的 3D 三角网格文件。该部件为食指力感知链的最末端传感器几何，面片数较少，对应最终的触觉感知模块。",
+      "tags": ["网格", "STL", "左手", "食指", "力传感器", "force_sensor", "触觉", "H1_2", "灵巧手"],
+      "complexity": "low",
+      "languageNotes": "二进制 STL 格式。在 URDF 中作为 left_index_force_sensor_3 连杆，是食指力传感链的末端组件。"
+    },
+    {
+      "id": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_knee_link.STL",
+      "type": "mesh",
+      "name": "left_knee_link.STL",
+      "filePath": "src/h1_2_description/meshes/left_knee_link.STL",
+      "summary": "H1_2 机器人左膝关节连杆的 3D 三角网格文件。该部件连接髋横滚关节与踝俯仰关节，实现膝部俯仰旋转（绕 Y 轴），是腿部运动学链中最长的连杆之一，负责主要的腿部屈伸运动。",
+      "tags": ["网格", "STL", "左腿", "膝关节", "knee", "H1_2", "运动学"],
+      "complexity": "low",
+      "languageNotes": "二进制 STL 格式。在 URDF 中由 left_knee_joint 关节驱动，限制范围 -0.15~2.8 rad，父连杆为 left_hip_roll_link，子连杆为 left_ankle_pitch_link。"
+    },
+    {
+      "id": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_little_1.STL",
+      "type": "mesh",
+      "name": "left_little_1.STL",
+      "filePath": "src/h1_2_description/meshes/left_little_1.STL",
+      "summary": "H1_2 机器人左手小指第一节（近端指骨）的 3D 三角网格文件。该部件为小指与手掌基座连接的第一段关节连杆，实现小指根部旋转自由度，面片数与食指第一节相同。",
+      "tags": ["网格", "STL", "左手", "小指", "指节", "little", "手指", "H1_2", "灵巧手"],
+      "complexity": "medium",
+      "languageNotes": "二进制 STL 格式。在 URDF 中作为 left_little_1 连杆，父连杆为 left_base_link，由 left_little_joint_1 关节驱动。"
+    },
+    {
+      "id": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_little_2.STL",
+      "type": "mesh",
+      "name": "left_little_2.STL",
+      "filePath": "src/h1_2_description/meshes/left_little_2.STL",
+      "summary": "H1_2 机器人左手小指第二节（远端指骨）的 3D 三角网格文件。该部件为小指尖端指节，尺寸略大于食指尖端，用于协助抓取的指尖支撑。",
+      "tags": ["网格", "STL", "左手", "小指", "指节", "little", "手指", "H1_2", "灵巧手"],
+      "complexity": "low",
+      "languageNotes": "二进制 STL 格式。在 URDF 中作为 left_little_2 连杆，父连杆为 left_little_1，由 left_little_joint_2 关节驱动。"
+    },
+    {
+      "id": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_little_force_sensor_1.STL",
+      "type": "mesh",
+      "name": "left_little_force_sensor_1.STL",
+      "filePath": "src/h1_2_description/meshes/left_little_force_sensor_1.STL",
+      "summary": "H1_2 机器人左手小指尖端力传感器组件 1 的 3D 三角网格文件。该部件为小指末端力感知模块的几何模型，用于小指接触力检测。",
+      "tags": ["网格", "STL", "左手", "小指", "力传感器", "force_sensor", "触觉", "H1_2", "灵巧手"],
+      "complexity": "low",
+      "languageNotes": "二进制 STL 格式。在 URDF 中作为 left_little_force_sensor_1 连杆，提供小指端力反馈的物理仿真几何。"
+    },
+    {
+      "id": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_little_force_sensor_2.STL",
+      "type": "mesh",
+      "name": "left_little_force_sensor_2.STL",
+      "filePath": "src/h1_2_description/meshes/left_little_force_sensor_2.STL",
+      "summary": "H1_2 机器人左手小指尖端力传感器组件 2 的 3D 三角网格文件。该部件为小指力感知链的第二级传感器模块几何模型。",
+      "tags": ["网格", "STL", "左手", "小指", "力传感器", "force_sensor", "触觉", "H1_2", "灵巧手"],
+      "complexity": "low",
+      "languageNotes": "二进制 STL 格式。在 URDF 中作为 left_little_force_sensor_2 连杆，是小指力传感链路的中间组件。"
+    },
+    {
+      "id": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_little_force_sensor_3.STL",
+      "type": "mesh",
+      "name": "left_little_force_sensor_3.STL",
+      "filePath": "src/h1_2_description/meshes/left_little_force_sensor_3.STL",
+      "summary": "H1_2 机器人左手小指尖端力传感器组件 3 的 3D 三角网格文件。该部件为小指力感知链的最末端传感器几何，面片数较少，对应最终的触觉感知模块。",
+      "tags": ["网格", "STL", "左手", "小指", "力传感器", "force_sensor", "触觉", "H1_2", "灵巧手"],
+      "complexity": "low",
+      "languageNotes": "二进制 STL 格式。在 URDF 中作为 left_little_force_sensor_3 连杆，是小指力传感链的末端组件。"
+    },
+    {
+      "id": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_middle_1.STL",
+      "type": "mesh",
+      "name": "left_middle_1.STL",
+      "filePath": "src/h1_2_description/meshes/left_middle_1.STL",
+      "summary": "H1_2 机器人左手中指第一节（近端指骨）的 3D 三角网格文件。该部件为中指与手掌基座连接的第一段关节连杆，面片数与食指第一节相同（2442 行），体现手指结构的对称设计。",
+      "tags": ["网格", "STL", "左手", "中指", "指节", "middle", "手指", "H1_2", "灵巧手"],
+      "complexity": "medium",
+      "languageNotes": "二进制 STL 格式。在 URDF 中作为 left_middle_1 连杆，父连杆为 left_base_link，由 left_middle_joint_1 关节驱动。"
+    },
+    {
+      "id": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_middle_2.STL",
+      "type": "mesh",
+      "name": "left_middle_2.STL",
+      "filePath": "src/h1_2_description/meshes/left_middle_2.STL",
+      "summary": "H1_2 机器人左手中指第二节（远端指骨）的 3D 三角网格文件。该部件为中指尖端指节，面片密度略高于其他指尖（1503 行），是中指精细操作的执行末端。",
+      "tags": ["网格", "STL", "左手", "中指", "指节", "middle", "手指", "H1_2", "灵巧手"],
+      "complexity": "low",
+      "languageNotes": "二进制 STL 格式。在 URDF 中作为 left_middle_2 连杆，父连杆为 left_middle_1，由 left_middle_joint_2 关节驱动。"
+    },
+    {
+      "id": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_middle_force_sensor_1.STL",
+      "type": "mesh",
+      "name": "left_middle_force_sensor_1.STL",
+      "filePath": "src/h1_2_description/meshes/left_middle_force_sensor_1.STL",
+      "summary": "H1_2 机器人左手中指尖端力传感器组件 1 的 3D 三角网格文件。该部件为中指末端力感知模块的几何模型，用于中指尖端接触力检测，是中指力传感链的首级组件。",
+      "tags": ["网格", "STL", "左手", "中指", "力传感器", "force_sensor", "触觉", "H1_2", "灵巧手"],
+      "complexity": "low",
+      "languageNotes": "二进制 STL 格式。在 URDF 中作为 left_middle_force_sensor_1 连杆，是中指力传感链的首端组件。"
+    }
+  ],
+  "edges": [
+    {
+      "source": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_ankle_A_rod_link.STL",
+      "target": "h1_2_nav2_ros2_ws:src/h1_2_description",
+      "type": "belongs_to_package",
+      "label": "属于包"
+    },
+    {
+      "source": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_ankle_A_rod_link.STL",
+      "target": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_ankle_pitch_link.STL",
+      "type": "kinematic_chain",
+      "label": "踝关节辅助组件"
+    },
+    {
+      "source": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_ankle_A_rod_link.STL",
+      "target": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_ankle_roll_link.STL",
+      "type": "kinematic_chain",
+      "label": "踝关节辅助组件"
+    },
+    {
+      "source": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_ankle_B_link.STL",
+      "target": "h1_2_nav2_ros2_ws:src/h1_2_description",
+      "type": "belongs_to_package",
+      "label": "属于包"
+    },
+    {
+      "source": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_ankle_B_link.STL",
+      "target": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_ankle_pitch_link.STL",
+      "type": "kinematic_chain",
+      "label": "踝关节主体组件"
+    },
+    {
+      "source": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_ankle_B_rod_link.STL",
+      "target": "h1_2_nav2_ros2_ws:src/h1_2_description",
+      "type": "belongs_to_package",
+      "label": "属于包"
+    },
+    {
+      "source": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_ankle_B_rod_link.STL",
+      "target": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_ankle_B_link.STL",
+      "type": "kinematic_chain",
+      "label": "B 连杆辅助连接件"
+    },
+    {
+      "source": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_ankle_pitch_link.STL",
+      "target": "h1_2_nav2_ros2_ws:src/h1_2_description",
+      "type": "belongs_to_package",
+      "label": "属于包"
+    },
+    {
+      "source": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_ankle_pitch_link.STL",
+      "target": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_ankle_roll_link.STL",
+      "type": "kinematic_chain",
+      "label": "父连杆 (pitch_joint -> roll)"
+    },
+    {
+      "source": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_ankle_pitch_link.STL",
+      "target": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_knee_link.STL",
+      "type": "kinematic_chain",
+      "label": "子连杆 (knee_joint -> ankle_pitch)"
+    },
+    {
+      "source": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_ankle_roll_link.STL",
+      "target": "h1_2_nav2_ros2_ws:src/h1_2_description",
+      "type": "belongs_to_package",
+      "label": "属于包"
+    },
+    {
+      "source": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_base_link.STL",
+      "target": "h1_2_nav2_ros2_ws:src/h1_2_description",
+      "type": "belongs_to_package",
+      "label": "属于包"
+    },
+    {
+      "source": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_base_link.STL",
+      "target": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_hand_link.STL",
+      "type": "visual_overlay",
+      "label": "手掌本体与外部覆盖件"
+    },
+    {
+      "source": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_base_link.STL",
+      "target": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_index_1.STL",
+      "type": "kinematic_chain",
+      "label": "手指父连杆 (食指根部)"
+    },
+    {
+      "source": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_base_link.STL",
+      "target": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_middle_1.STL",
+      "type": "kinematic_chain",
+      "label": "手指父连杆 (中指根部)"
+    },
+    {
+      "source": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_base_link.STL",
+      "target": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_little_1.STL",
+      "type": "kinematic_chain",
+      "label": "手指父连杆 (小指根部)"
+    },
+    {
+      "source": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_elbow_link.STL",
+      "target": "h1_2_nav2_ros2_ws:src/h1_2_description",
+      "type": "belongs_to_package",
+      "label": "属于包"
+    },
+    {
+      "source": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_hand_link.STL",
+      "target": "h1_2_nav2_ros2_ws:src/h1_2_description",
+      "type": "belongs_to_package",
+      "label": "属于包"
+    },
+    {
+      "source": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_hip_pitch_link.STL",
+      "target": "h1_2_nav2_ros2_ws:src/h1_2_description",
+      "type": "belongs_to_package",
+      "label": "属于包"
+    },
+    {
+      "source": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_hip_pitch_link.STL",
+      "target": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_hip_yaw_link.STL",
+      "type": "kinematic_chain",
+      "label": "子连杆 (yaw_joint -> pitch)"
+    },
+    {
+      "source": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_hip_pitch_link.STL",
+      "target": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_hip_roll_link.STL",
+      "type": "kinematic_chain",
+      "label": "父连杆 (pitch_joint -> roll)"
+    },
+    {
+      "source": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_hip_roll_link.STL",
+      "target": "h1_2_nav2_ros2_ws:src/h1_2_description",
+      "type": "belongs_to_package",
+      "label": "属于包"
+    },
+    {
+      "source": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_hip_roll_link.STL",
+      "target": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_knee_link.STL",
+      "type": "kinematic_chain",
+      "label": "父连杆 (roll_joint -> knee)"
+    },
+    {
+      "source": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_hip_yaw_link.STL",
+      "target": "h1_2_nav2_ros2_ws:src/h1_2_description",
+      "type": "belongs_to_package",
+      "label": "属于包"
+    },
+    {
+      "source": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_hip_yaw_link.STL",
+      "target": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_hip_pitch_link.STL",
+      "type": "kinematic_chain",
+      "label": "父连杆 (yaw_joint -> pitch)"
+    },
+    {
+      "source": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_index_1.STL",
+      "target": "h1_2_nav2_ros2_ws:src/h1_2_description",
+      "type": "belongs_to_package",
+      "label": "属于包"
+    },
+    {
+      "source": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_index_1.STL",
+      "target": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_index_2.STL",
+      "type": "kinematic_chain",
+      "label": "父连杆 (index_joint_1 -> index_2)"
+    },
+    {
+      "source": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_index_2.STL",
+      "target": "h1_2_nav2_ros2_ws:src/h1_2_description",
+      "type": "belongs_to_package",
+      "label": "属于包"
+    },
+    {
+      "source": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_index_2.STL",
+      "target": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_index_force_sensor_1.STL",
+      "type": "kinematic_chain",
+      "label": "父连杆 (index_2 -> force_sensor)"
+    },
+    {
+      "source": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_index_force_sensor_1.STL",
+      "target": "h1_2_nav2_ros2_ws:src/h1_2_description",
+      "type": "belongs_to_package",
+      "label": "属于包"
+    },
+    {
+      "source": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_index_force_sensor_1.STL",
+      "target": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_index_force_sensor_2.STL",
+      "type": "kinematic_chain",
+      "label": "力传感链路 (sensor_1 -> sensor_2)"
+    },
+    {
+      "source": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_index_force_sensor_2.STL",
+      "target": "h1_2_nav2_ros2_ws:src/h1_2_description",
+      "type": "belongs_to_package",
+      "label": "属于包"
+    },
+    {
+      "source": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_index_force_sensor_2.STL",
+      "target": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_index_force_sensor_3.STL",
+      "type": "kinematic_chain",
+      "label": "力传感链路 (sensor_2 -> sensor_3)"
+    },
+    {
+      "source": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_index_force_sensor_3.STL",
+      "target": "h1_2_nav2_ros2_ws:src/h1_2_description",
+      "type": "belongs_to_package",
+      "label": "属于包"
+    },
+    {
+      "source": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_knee_link.STL",
+      "target": "h1_2_nav2_ros2_ws:src/h1_2_description",
+      "type": "belongs_to_package",
+      "label": "属于包"
+    },
+    {
+      "source": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_knee_link.STL",
+      "target": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_ankle_pitch_link.STL",
+      "type": "kinematic_chain",
+      "label": "父连杆 (knee_joint -> ankle_pitch)"
+    },
+    {
+      "source": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_little_1.STL",
+      "target": "h1_2_nav2_ros2_ws:src/h1_2_description",
+      "type": "belongs_to_package",
+      "label": "属于包"
+    },
+    {
+      "source": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_little_1.STL",
+      "target": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_little_2.STL",
+      "type": "kinematic_chain",
+      "label": "父连杆 (little_joint_1 -> little_2)"
+    },
+    {
+      "source": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_little_2.STL",
+      "target": "h1_2_nav2_ros2_ws:src/h1_2_description",
+      "type": "belongs_to_package",
+      "label": "属于包"
+    },
+    {
+      "source": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_little_2.STL",
+      "target": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_little_force_sensor_1.STL",
+      "type": "kinematic_chain",
+      "label": "父连杆 (little_2 -> force_sensor)"
+    },
+    {
+      "source": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_little_force_sensor_1.STL",
+      "target": "h1_2_nav2_ros2_ws:src/h1_2_description",
+      "type": "belongs_to_package",
+      "label": "属于包"
+    },
+    {
+      "source": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_little_force_sensor_1.STL",
+      "target": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_little_force_sensor_2.STL",
+      "type": "kinematic_chain",
+      "label": "力传感链路 (sensor_1 -> sensor_2)"
+    },
+    {
+      "source": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_little_force_sensor_2.STL",
+      "target": "h1_2_nav2_ros2_ws:src/h1_2_description",
+      "type": "belongs_to_package",
+      "label": "属于包"
+    },
+    {
+      "source": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_little_force_sensor_2.STL",
+      "target": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_little_force_sensor_3.STL",
+      "type": "kinematic_chain",
+      "label": "力传感链路 (sensor_2 -> sensor_3)"
+    },
+    {
+      "source": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_little_force_sensor_3.STL",
+      "target": "h1_2_nav2_ros2_ws:src/h1_2_description",
+      "type": "belongs_to_package",
+      "label": "属于包"
+    },
+    {
+      "source": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_middle_1.STL",
+      "target": "h1_2_nav2_ros2_ws:src/h1_2_description",
+      "type": "belongs_to_package",
+      "label": "属于包"
+    },
+    {
+      "source": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_middle_1.STL",
+      "target": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_middle_2.STL",
+      "type": "kinematic_chain",
+      "label": "父连杆 (middle_joint_1 -> middle_2)"
+    },
+    {
+      "source": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_middle_2.STL",
+      "target": "h1_2_nav2_ros2_ws:src/h1_2_description",
+      "type": "belongs_to_package",
+      "label": "属于包"
+    },
+    {
+      "source": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_middle_2.STL",
+      "target": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_middle_force_sensor_1.STL",
+      "type": "kinematic_chain",
+      "label": "父连杆 (middle_2 -> force_sensor)"
+    },
+    {
+      "source": "h1_2_nav2_ros2_ws:src/h1_2_description/meshes/left_middle_force_sensor_1.STL",
+      "target": "h1_2_nav2_ros2_ws:src/h1_2_description",
+      "type": "belongs_to_package",
+      "label": "属于包"
+    }
+  ]
+}

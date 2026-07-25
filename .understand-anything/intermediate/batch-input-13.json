@@ -1,0 +1,43 @@
+{
+  "batchIndex": 13,
+  "files": [
+    {
+      "path": "src/h1_2_nav_tools/config/nav2_h1_2.yaml",
+      "language": "yaml",
+      "sizeLines": 224,
+      "fileCategory": "config"
+    },
+    {
+      "path": "src/h1_2_nav_tools/config/nav2_h1_2_camera_init.yaml",
+      "language": "yaml",
+      "sizeLines": 212,
+      "fileCategory": "config"
+    },
+    {
+      "path": "src/h1_2_nav_tools/config/nav2_h1_2_rpp.yaml",
+      "language": "yaml",
+      "sizeLines": 210,
+      "fileCategory": "config"
+    },
+    {
+      "path": "src/h1_2_nav_tools/config/nav_tools.yaml",
+      "language": "yaml",
+      "sizeLines": 44,
+      "fileCategory": "config"
+    },
+    {
+      "path": "src/h1_2_nav_tools/config/teaching_route_events.example.json",
+      "language": "json",
+      "sizeLines": 10,
+      "fileCategory": "config"
+    }
+  ],
+  "batchImportData": {
+    "src/h1_2_nav_tools/config/nav2_h1_2.yaml": [],
+    "src/h1_2_nav_tools/config/nav2_h1_2_camera_init.yaml": [],
+    "src/h1_2_nav_tools/config/nav2_h1_2_rpp.yaml": [],
+    "src/h1_2_nav_tools/config/nav_tools.yaml": [],
+    "src/h1_2_nav_tools/config/teaching_route_events.example.json": []
+  },
+  "neighborMap": {}
+}

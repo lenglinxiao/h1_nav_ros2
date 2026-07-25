@@ -1,0 +1,50 @@
+{
+  "batchIndex": 16,
+  "files": [
+    {
+      "path": "src/livox_ros_driver2/CHANGELOG.md",
+      "language": "markdown",
+      "sizeLines": 57,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "src/livox_ros_driver2/CMakeLists.txt",
+      "language": "txt",
+      "sizeLines": 361,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "src/livox_ros_driver2/LICENSE.txt",
+      "language": "txt",
+      "sizeLines": 412,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "src/livox_ros_driver2/README.md",
+      "language": "markdown",
+      "sizeLines": 545,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "src/livox_ros_driver2/build.sh",
+      "language": "shell",
+      "sizeLines": 70,
+      "fileCategory": "script"
+    },
+    {
+      "path": "src/livox_ros_driver2/package_ROS2.xml",
+      "language": "xml",
+      "sizeLines": 35,
+      "fileCategory": "config"
+    }
+  ],
+  "batchImportData": {
+    "src/livox_ros_driver2/CHANGELOG.md": [],
+    "src/livox_ros_driver2/CMakeLists.txt": [],
+    "src/livox_ros_driver2/LICENSE.txt": [],
+    "src/livox_ros_driver2/README.md": [],
+    "src/livox_ros_driver2/build.sh": [],
+    "src/livox_ros_driver2/package_ROS2.xml": []
+  },
+  "neighborMap": {}
+}

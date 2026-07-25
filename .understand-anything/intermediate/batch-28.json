@@ -1,0 +1,324 @@
+{
+  "nodes": [
+    {
+      "id": "h1_2_slam_bringup:launch:h1_2_icp_localization.launch.py",
+      "type": "LaunchFile",
+      "name": "h1_2_icp_localization.launch.py",
+      "filePath": "src/h1_2_slam_bringup/launch/h1_2_icp_localization.launch.py",
+      "summary": "ICP 重定位启动文件，声明 PCD 地图路径、坐标系参数、ICP 精配/粗配分辨率与迭代次数等配置参数，并启动 h1_2_icp_localization 包的 icp_localization_node 节点，用于基于点云地图的全局重定位。",
+      "tags": ["ICP", "重定位", "点云配准", "launch", "ROS2", "h1_2"],
+      "complexity": "low",
+      "languageNotes": "典型的 ROS2 Python launch 文件，使用 DeclareLaunchArgument 暴露多个可配置参数（点位分辨率、迭代次数、得分阈值、搜索步数等），通过 LaunchConfiguration 将参数注入 Node 的 parameters 字典。"
+    },
+    {
+      "id": "h1_2_slam_bringup:launch:h1_2_nav2_camera_init_navigation.launch.py",
+      "type": "LaunchFile",
+      "name": "h1_2_nav2_camera_init_navigation.launch.py",
+      "filePath": "src/h1_2_slam_bringup/launch/h1_2_nav2_camera_init_navigation.launch.py",
+      "summary": "基于 camera_init 坐标系的完整导航启动文件，启动 robot_state_publisher、静态 tf 变换、FAST-LIO 定位、点云转占据栅格地图、Nav2 导航栈、goal_pose 转换、记忆点管理、记忆路线执行、运动学桥接等全套节点，并动态修正 URDF 中的网格路径和关节类型。",
+      "tags": ["导航", "camera_init", "FAST-LIO", "点云转栅格", "Nav2", "记忆点", "路径规划", "launch", "ROS2", "h1_2"],
+      "complexity": "high",
+      "languageNotes": "254 行大型 launch 文件，使用 xml.etree.ElementTree 动态处理 URDF（替换 mesh 路径、将关节设为 fixed、补充 material name），通过 RewrittenYaml 注入行为树配置，使用 ParameterValue 进行类型转换，集成了点云转占据栅格的完整参数（射线追踪、衰减策略等）。"
+    },
+    {
+      "id": "h1_2_slam_bringup:launch:h1_2_nav2_mapping.launch.py",
+      "type": "LaunchFile",
+      "name": "h1_2_nav2_mapping.launch.py",
+      "filePath": "src/h1_2_slam_bringup/launch/h1_2_nav2_mapping.launch.py",
+      "summary": "建图模式启动文件，组合 FAST-LIO 里程计、里程计适配器（带 yaw 偏移和平面化）、 LiDAR 坐标系静态 tf、点云帧适配、pointcloud_to_laserscan 转换和 SLAM Toolbox 异步建图节点，实现从 LiDAR 原始数据到 SLAM 地图的完整建图管线。",
+      "tags": ["建图", "FAST-LIO", "SLAM Toolbox", "里程计", "激光扫描", "launch", "ROS2", "h1_2"],
+      "complexity": "medium",
+      "languageNotes": "108 行 launch 文件，管线清晰：LiDAR驱动 → 里程计适配(yaw偏移π) → 坐标系tf → 点云帧转换 → 激光扫描转换 → SLAM建图。使用 fastlio_odom_adapter 进行里程计平面化处理。"
+    },
+    {
+      "id": "h1_2_slam_bringup:launch:h1_2_nav2_navigation.launch.py",
+      "type": "LaunchFile",
+      "name": "h1_2_nav2_navigation.launch.py",
+      "filePath": "src/h1_2_slam_bringup/launch/h1_2_nav2_navigation.launch.py",
+      "summary": "主导航启动文件，支持三种定位后端切换（icp/global_gicp/默认），根据后端条件启动相应节点组，集成 robot_state_publisher、里程计适配、LiDAR 坐标系 tf、点云帧适配、激光扫描生成、odom z 偏移、initialpose 时间适配、自动初始位姿设定、map_server、Nav2 导航、ICP 重定位、global GICP 重定位、goal_pose 转换、记忆点管理、记忆点可视化 marker、记忆路线执行（含手势控制）、速度平滑器和运动学桥接等全套功能。",
+      "tags": ["导航", "ICP", "GICP", "全局重定位", "FAST-LIO", "Nav2", "记忆点", "手势控制", "速度平滑", "launch", "ROS2", "h1_2"],
+      "complexity": "high",
+      "languageNotes": "473 行最复杂的 launch 文件，使用 IfCondition 和 PythonExpression 实现条件化节点启动（三种定位后端），动态 URDF 处理与 camera_init 文件相同，使用 RPP 参数感知的 min_linear_speed 覆盖逻辑，集成了 auto_initial_pose 的完整定位等待/超时/重试配置，以及 memory_route_runner 的 return_to_start 环回功能。"
+    },
+    {
+      "id": "h1_2_slam_bringup:launch:h1_2_nav2_rviz.launch.py",
+      "type": "LaunchFile",
+      "name": "h1_2_nav2_rviz.launch.py",
+      "filePath": "src/h1_2_slam_bringup/launch/h1_2_nav2_rviz.launch.py",
+      "summary": "RViz2 可视化启动文件，清除 ROS 网络相关环境变量后设置本地通信和 CycloneDDS RMW，根据 mode 参数自动选择在线/离线 RViz 配置文件，使用 OpaqueFunction 延迟执行以确保 LaunchConfiguration 已被求值。",
+      "tags": ["RViz", "可视化", "环境变量", "CycloneDDS", "launch", "ROS2", "h1_2"],
+      "complexity": "low",
+      "languageNotes": "45 行，使用 OpaqueFunction 模式在 launch_setup 函数中执行上下文相关的逻辑（根据 mode 选择 rviz 配置文件），避免直接在 LaunchDescription 中使用未求值的 LaunchConfiguration。先 Unset 再 Set 环境变量确保干净配置。"
+    },
+    {
+      "id": "h1_2_slam_bringup:launch:h1_2_nav2_slam_navigation.launch.py",
+      "type": "LaunchFile",
+      "name": "h1_2_nav2_slam_navigation.launch.py",
+      "filePath": "src/h1_2_slam_bringup/launch/h1_2_nav2_slam_navigation.launch.py",
+      "summary": "SLAM 导航联合启动文件，同时启动 FAST-LIO 定位、里程计适配、LiDAR 坐标系 tf、点云帧适配、激光扫描转换、SLAM Toolbox 异步建图、Nav2 导航、goal_pose 转换、速度平滑器和运动学桥接，实现边建图边导航的功能。",
+      "tags": ["SLAM", "导航", "FAST-LIO", "SLAM Toolbox", "建图", "launch", "ROS2", "h1_2"],
+      "complexity": "medium",
+      "languageNotes": "176 行 launch 文件，在建图管线基础上增加 Nav2 导航栈和运动控制桥接，与 h1_2_nav2_mapping 共享大部分管线节点，额外添加 velocity_smoother_ema 和 loco_bridge。"
+    },
+    {
+      "id": "h1_2_slam_bringup:launch:lidar_slam_mapping.launch.py",
+      "type": "LaunchFile",
+      "name": "lidar_slam_mapping.launch.py",
+      "filePath": "src/h1_2_slam_bringup/launch/lidar_slam_mapping.launch.py",
+      "summary": "纯 LiDAR SLAM 建图启动文件，仅使用 Livox MID360 驱动器（非 FAST-LIO）、坐标系静态 tf、pointcloud_to_laserscan 和 SLAM Toolbox 异步建图节点，适用于不需要 FAST-LIO 里程计的简化建图场景。",
+      "tags": ["LiDAR", "SLAM", "建图", "Livox", "SLAM Toolbox", "launch", "ROS2", "h1_2"],
+      "complexity": "low",
+      "languageNotes": "68 行 launch 文件，不使用 FAST-LIO，直接使用 livox_ros_driver2 驱动 MID360，点云原始数据经 pointcloud_to_laserscan 转为 laser scan 后送入 SLAM Toolbox 建图。"
+    },
+    {
+      "id": "h1_2_slam_bringup:launch:lidar_slam_navigation.launch.py",
+      "type": "LaunchFile",
+      "name": "lidar_slam_navigation.launch.py",
+      "filePath": "src/h1_2_slam_bringup/launch/lidar_slam_navigation.launch.py",
+      "summary": "纯 LiDAR SLAM 导航启动文件，在 lidar_slam_mapping 基础上新增 odom→slam_odom 的静态 tf 变换、SLAM Toolbox 定位模式（非建图）、示教路径播放器和路径转航点节点，支持基于预存路径的 SLAM 导航。",
+      "tags": ["LiDAR", "SLAM", "导航", "定位", "示教路径", "Livox", "launch", "ROS2", "h1_2"],
+      "complexity": "medium",
+      "languageNotes": "78 行 launch 文件，使用 localization_slam_toolbox_node 进行定位（非建图），配置了两个静态 tf 发布器（base→livox 和 odom→slam_odom），集成 play_teaching_path 和 path_to_waypoint 节点实现示教导航。"
+    },
+    {
+      "id": "h1_2_slam_bringup:launch:livox_mid360.launch.py",
+      "type": "LaunchFile",
+      "name": "livox_mid360.launch.py",
+      "filePath": "src/h1_2_slam_bringup/launch/livox_mid360.launch.py",
+      "summary": "Livox MID360 激光雷达驱动启动文件，使用 PathJoinSubstitution 和 FindPackageShare 查找默认配置文件，启动 livox_ros_driver2_node 节点，配置传输格式、多话题、数据源、发布频率和坐标系 ID。",
+      "tags": ["Livox", "MID360", "激光雷达", "驱动", "launch", "ROS2", "h1_2"],
+      "complexity": "low",
+      "languageNotes": "39 行 launch 文件，使用 PathJoinSubstitution 和 FindPackageShare 组合构建默认配置路径，支持通过 launch 参数覆盖 frame_id、配置路径、发布频率和传输格式。"
+    },
+    {
+      "id": "h1_2_slam_bringup:package.xml",
+      "type": "PackageManifest",
+      "name": "h1_2_slam_bringup package.xml",
+      "filePath": "src/h1_2_slam_bringup/package.xml",
+      "summary": "h1_2_slam_bringup 包的清单文件，声明对 h1_2_nav_tools、h1_2_icp_localization、h1_2_description、FAST-LIO、Nav2 全套组件、SLAM Toolbox、pointcloud_to_laserscan 等关键包的运行时依赖，构建类型为 ament_python。",
+      "tags": ["package.xml", "清单", "依赖", "ament_python", "ROS2"],
+      "complexity": "low"
+    },
+    {
+      "id": "h1_2_slam_bringup:resource:h1_2_slam_bringup",
+      "type": "ResourceMarker",
+      "name": "h1_2_slam_bringup resource marker",
+      "filePath": "src/h1_2_slam_bringup/resource/h1_2_slam_bringup",
+      "summary": "ament 包索引资源标记文件，空文件，用于将 h1_2_slam_bringup 注册到 ament 资源索引中。",
+      "tags": ["resource", "ament", "索引", "标记"],
+      "complexity": "low"
+    },
+    {
+      "id": "h1_2_slam_bringup:setup.cfg",
+      "type": "SetupConfig",
+      "name": "h1_2_slam_bringup setup.cfg",
+      "filePath": "src/h1_2_slam_bringup/setup.cfg",
+      "summary": "Python 包安装配置，指定 develop 和 install 模式下的脚本安装目录为 $base/lib/h1_2_slam_bringup。",
+      "tags": ["setup.cfg", "配置", "Python", "ROS2"],
+      "complexity": "low"
+    },
+    {
+      "id": "h1_2_slam_bringup:setup.py",
+      "type": "PythonSetup",
+      "name": "h1_2_slam_bringup setup.py",
+      "filePath": "src/h1_2_slam_bringup/setup.py",
+      "summary": "h1_2_slam_bringup 包的 setup.py 安装脚本，通过 glob 收集 launch 和 config 目录下所有文件作为 data_files 安装到 share 目录，不打包 Python 代码（packages=[]）。",
+      "tags": ["setup.py", "安装", "ament_python", "ROS2"],
+      "complexity": "low"
+    },
+    {
+      "id": "h1_2_vision:__init__.py",
+      "type": "PythonModule",
+      "name": "h1_2_vision __init__.py",
+      "filePath": "src/h1_2_vision/h1_2_vision/__init__.py",
+      "summary": "h1_2_vision Python 包初始化文件，空文件，标识该目录为 Python 包。",
+      "tags": ["__init__", "Python", "包初始化"],
+      "complexity": "low"
+    },
+    {
+      "id": "h1_2_vision:detector_core.py",
+      "type": "PythonModule",
+      "name": "detector_core.py",
+      "filePath": "src/h1_2_vision/h1_2_vision/detector_core.py",
+      "summary": "视觉检测核心工具模块，定义 Detection 不可变数据类（类别名、置信度、边界框坐标）、LatestFrameSlot 线程安全帧缓存（基于 threading.Lock 的 put/take）、RateLimiter 自适应速率限制器和 parse_yolo_result/draw_detections 工具函数，为 YOLO 检测器提供基础设施。",
+      "tags": ["检测", "YOLO", "工具", "数据类", "线程安全", "速率限制", "OpenCV", "Python", "ROS2"],
+      "complexity": "medium",
+      "languageNotes": "使用 @dataclass(frozen=True) 定义不可变检测结果，LatestFrameSlot 采用 lock 保护的单一值槽位实现无阻塞帧更新，RateLimiter 基于时间戳差值进行自适应频率控制，parse_yolo_result 解析 ultralytics YOLO 输出格式，draw_detections 使用 OpenCV 绘制带标签的边界框。"
+    },
+    {
+      "id": "h1_2_vision:yolo_detector.py",
+      "type": "PythonModule",
+      "name": "yolo_detector.py",
+      "filePath": "src/h1_2_vision/h1_2_vision/yolo_detector.py",
+      "summary": "基于 Ultralytics YOLO 的 ROS2 目标检测节点，订阅 RealSense 相机图像话题，在独立线程中执行 YOLO 推理（支持 GPU/CPU 设备切换），通过 RateLimiter 控制推理频率，将检测结果发布为 vision_msgs/Detection2DArray 并同时发布带标注框的渲染图像。",
+      "tags": ["YOLO", "目标检测", "RealSense", "视觉", "推理", "ROS2", "Python", "h1_2"],
+      "complexity": "high",
+      "languageNotes": "194 行完整 ROS2 节点实现，采用生产者-消费者模式：主线程回调将图像存入 LatestFrameSlot 并触发 Event，后台推理线程检测 Event 后取出帧执行 YOLO predict，通过 RateLimiter 控制最大推理频率。使用 cv_bridge 进行 ROS Image 与 OpenCV Mat 互转。destroy_node 中优雅停止推理线程（Event + join timeout）。_set_bbox 兼容 vision_msgs 不同版本的 Point 字段布局。"
+    },
+    {
+      "id": "h1_2_vision:launch:yolo_detector.launch.py",
+      "type": "LaunchFile",
+      "name": "yolo_detector.launch.py",
+      "filePath": "src/h1_2_vision/launch/yolo_detector.launch.py",
+      "summary": "YOLO 目标检测器启动文件，声明输入图像话题、标注图像/检测结果发布话题、YOLO 模型路径、置信度/IoU 阈值、图像尺寸、最大推理频率和设备类型等参数，启动 h1_2_vision 包的 yolo_detector 节点。",
+      "tags": ["YOLO", "检测", "launch", "ROS2", "h1_2"],
+      "complexity": "low",
+      "languageNotes": "58 行 launch 文件，使用 ParameterValue 对 confidence_threshold、iou_threshold、image_size、max_inference_rate 进行显式类型转换（float/int）。"
+    },
+    {
+      "id": "h1_2_vision:resource:h1_2_vision",
+      "type": "ResourceMarker",
+      "name": "h1_2_vision resource marker",
+      "filePath": "src/h1_2_vision/resource/h1_2_vision",
+      "summary": "ament 包索引资源标记文件，空文件，用于将 h1_2_vision 注册到 ament 资源索引中。",
+      "tags": ["resource", "ament", "索引", "标记"],
+      "complexity": "low"
+    },
+    {
+      "id": "h1_2_vision:setup.py",
+      "type": "PythonSetup",
+      "name": "h1_2_vision setup.py",
+      "filePath": "src/h1_2_vision/setup.py",
+      "summary": "h1_2_vision 包的 setup.py 安装脚本，使用 find_packages 自动发现包，注册 yolo_detector 控制台入口点为 h1_2_vision.yolo_detector:main，安装 launch 目录和资源标记文件到 ament share 目录。",
+      "tags": ["setup.py", "安装", "ament_python", "entry_point", "ROS2"],
+      "complexity": "low",
+      "languageNotes": "使用 find_packages(exclude=['test']) 排除测试目录，通过 console_scripts entry_points 将 yolo_detector 注册为可执行命令。"
+    },
+    {
+      "id": "h1_2_voice_control:__init__.py",
+      "type": "PythonModule",
+      "name": "h1_2_voice_control __init__.py",
+      "filePath": "src/h1_2_voice_control/h1_2_voice_control/__init__.py",
+      "summary": "h1_2_voice_control Python 包初始化文件，空文件，标识该目录为 Python 包。",
+      "tags": ["__init__", "Python", "包初始化"],
+      "complexity": "low"
+    },
+    {
+      "id": "h1_2_voice_control:h1_2_voice_control.py",
+      "type": "PythonModule",
+      "name": "h1_2_voice_control.py",
+      "filePath": "src/h1_2_voice_control/h1_2_voice_control/h1_2_voice_control.py",
+      "summary": "H1-2 语音控制 ROS2 节点，通过串口与语音识别模块通信，解析 AA 55 帧格式的指令码（停止/前进/下蹲/站立/右转/导航A-C/启动导航/伸手/缩手/挥手），将识别到的指令码发布到 voice_command 话题，并支持通过 voice_feedback 话题接收反馈后播放语音响应。",
+      "tags": ["语音控制", "串口", "指令解析", "语音识别", "ROS2", "Python", "h1_2"],
+      "complexity": "high",
+      "languageNotes": "207 行完整实现，自定义 AA 55 帧协议解析（extract_command_codes 函数处理粘包/分包），使用 deque 缓冲解析后的指令码，parse_code_list 支持逗号分隔字符串和列表两种参数格式，known_codes 集合用于过滤未知指令，speech_factory 注入模式支持测试替身，acknowledge 调用 void_write 播放语音反馈。"
+    },
+    {
+      "id": "h1_2_voice_control:launch:h1_2_voice_control.launch.py",
+      "type": "LaunchFile",
+      "name": "h1_2_voice_control.launch.py",
+      "filePath": "src/h1_2_voice_control/launch/h1_2_voice_control.launch.py",
+      "summary": "语音控制节点启动文件，声明串口设备路径、指令/反馈话题和轮询频率参数，以硬编码数组形式配置全部 12 种语音指令码映射（停止码 1,2、前进码 4、下蹲码 5 等），启动 h1_2_voice_control 节点。",
+      "tags": ["语音控制", "launch", "ROS2", "h1_2"],
+      "complexity": "low",
+      "languageNotes": "42 行 launch 文件，指令码以 Python 列表直接写在 parameters 字典中（非 LaunchConfiguration），其余参数通过 LaunchConfiguration 动态注入。"
+    },
+    {
+      "id": "h1_2_voice_control:package.xml",
+      "type": "PackageManifest",
+      "name": "h1_2_voice_control package.xml",
+      "filePath": "src/h1_2_voice_control/package.xml",
+      "summary": "h1_2_voice_control 包的清单文件，声明对 python3-serial（串口库）、rclpy 和 std_msgs 的运行时依赖，构建类型为 ament_python。",
+      "tags": ["package.xml", "清单", "依赖", "ament_python", "串口", "ROS2"],
+      "complexity": "low"
+    },
+    {
+      "id": "h1_2_voice_control:resource:h1_2_voice_control",
+      "type": "ResourceMarker",
+      "name": "h1_2_voice_control resource marker",
+      "filePath": "src/h1_2_voice_control/resource/h1_2_voice_control",
+      "summary": "ament 包索引资源标记文件，空文件，用于将 h1_2_voice_control 注册到 ament 资源索引中。",
+      "tags": ["resource", "ament", "索引", "标记"],
+      "complexity": "low"
+    },
+    {
+      "id": "h1_2_voice_control:setup.cfg",
+      "type": "SetupConfig",
+      "name": "h1_2_voice_control setup.cfg",
+      "filePath": "src/h1_2_voice_control/setup.cfg",
+      "summary": "Python 包安装配置，指定 develop 和 install 模式下的脚本安装目录为 $base/lib/h1_2_voice_control。",
+      "tags": ["setup.cfg", "配置", "Python", "ROS2"],
+      "complexity": "low"
+    }
+  ],
+  "edges": [
+    {
+      "source": "h1_2_vision:yolo_detector.py",
+      "target": "h1_2_vision:detector_core.py",
+      "type": "IMPORTS",
+      "label": "导入 Detection, LatestFrameSlot, RateLimiter, parse_yolo_result, draw_detections"
+    },
+    {
+      "source": "h1_2_vision:launch:yolo_detector.launch.py",
+      "target": "h1_2_vision:yolo_detector.py",
+      "type": "LAUNCHES",
+      "label": "启动 yolo_detector 节点 (package=h1_2_vision, executable=yolo_detector)"
+    },
+    {
+      "source": "h1_2_voice_control:launch:h1_2_voice_control.launch.py",
+      "target": "h1_2_voice_control:h1_2_voice_control.py",
+      "type": "LAUNCHES",
+      "label": "启动 h1_2_voice_control 节点 (package=h1_2_voice_control, executable=h1_2_voice_control)"
+    },
+    {
+      "source": "h1_2_voice_control:__init__.py",
+      "target": "h1_2_nav_tools:h1_2_voice_action_bridge.py",
+      "type": "NEIGHBOR",
+      "label": "与 H12VoiceActionBridge 存在符号关联"
+    },
+    {
+      "source": "h1_2_slam_bringup:launch:h1_2_nav2_navigation.launch.py",
+      "target": "h1_2_slam_bringup:launch:h1_2_icp_localization.launch.py",
+      "type": "INCLUDES",
+      "label": "条件引入 ICP 定位 launch (localization_backend=icp)"
+    },
+    {
+      "source": "h1_2_slam_bringup:launch:h1_2_nav2_navigation.launch.py",
+      "target": "h1_2_slam_bringup:launch:h1_2_nav2_camera_init_navigation.launch.py",
+      "type": "RELATED",
+      "label": "共享 URDF 处理逻辑、机器人状态发布和坐标变换配置"
+    },
+    {
+      "source": "h1_2_slam_bringup:launch:h1_2_nav2_mapping.launch.py",
+      "target": "h1_2_slam_bringup:launch:h1_2_nav2_slam_navigation.launch.py",
+      "type": "RELATED",
+      "label": "共用 FAST-LIO + SLAM Toolbox 建图管线，后者额外添加 Nav2 导航和运动控制"
+    },
+    {
+      "source": "h1_2_slam_bringup:launch:lidar_slam_mapping.launch.py",
+      "target": "h1_2_slam_bringup:launch:livox_mid360.launch.py",
+      "type": "INCLUDES",
+      "label": "引入 Livox MID360 驱动 launch"
+    },
+    {
+      "source": "h1_2_slam_bringup:launch:lidar_slam_navigation.launch.py",
+      "target": "h1_2_slam_bringup:launch:livox_mid360.launch.py",
+      "type": "INCLUDES",
+      "label": "引入 Livox MID360 驱动 launch"
+    },
+    {
+      "source": "h1_2_slam_bringup:launch:h1_2_nav2_navigation.launch.py",
+      "target": "h1_2_slam_bringup:launch:livox_mid360.launch.py",
+      "type": "INDIRECT_INCLUDES",
+      "label": "通过 fastlio2_mid360_mapping.launch.py 间接引入 Livox 驱动"
+    },
+    {
+      "source": "h1_2_slam_bringup:launch:h1_2_nav2_mapping.launch.py",
+      "target": "h1_2_slam_bringup:launch:livox_mid360.launch.py",
+      "type": "INDIRECT_INCLUDES",
+      "label": "通过 fastlio2_mid360_mapping.launch.py 间接引入 Livox 驱动"
+    },
+    {
+      "source": "h1_2_slam_bringup:launch:h1_2_nav2_camera_init_navigation.launch.py",
+      "target": "h1_2_slam_bringup:launch:livox_mid360.launch.py",
+      "type": "INDIRECT_INCLUDES",
+      "label": "通过 fastlio2_mid360_mapping.launch.py 间接引入 Livox 驱动"
+    },
+    {
+      "source": "h1_2_slam_bringup:launch:h1_2_nav2_slam_navigation.launch.py",
+      "target": "h1_2_slam_bringup:launch:livox_mid360.launch.py",
+      "type": "INDIRECT_INCLUDES",
+      "label": "通过 fastlio2_mid360_mapping.launch.py 间接引入 Livox 驱动"
+    }
+  ]
+}

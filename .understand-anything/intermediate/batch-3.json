@@ -1,0 +1,333 @@
+{
+  "nodes": [
+    {
+      "id": "src/h1_2_nav_tools/h1_2_nav_tools/transform_utils.py",
+      "type": "module",
+      "name": "transform_utils",
+      "filePath": "src/h1_2_nav_tools/h1_2_nav_tools/transform_utils.py",
+      "summary": "坐标变换工具模块，提供四元数运算（乘法、共轭、归一化）、向量旋转以及 PoseStamped 的 TF 坐标变换函数。是整个导航工具包的基础数学库。",
+      "tags": ["坐标变换", "四元数", "TF", "数学工具", "ROS2"],
+      "complexity": "low",
+      "languageNotes": "纯函数式风格，无类定义，无 ROS2 节点依赖，仅依赖 geometry_msgs 消息类型"
+    },
+    {
+      "id": "quat_multiply",
+      "type": "function",
+      "name": "quat_multiply",
+      "filePath": "src/h1_2_nav_tools/h1_2_nav_tools/transform_utils.py",
+      "summary": "四元数乘法函数，实现两个四元数 (a, b) 的 Hamilton 乘积，返回组合旋转。",
+      "tags": ["四元数", "数学运算", "旋转"],
+      "complexity": "low"
+    },
+    {
+      "id": "quat_conjugate",
+      "type": "function",
+      "name": "quat_conjugate",
+      "filePath": "src/h1_2_nav_tools/h1_2_nav_tools/transform_utils.py",
+      "summary": "四元数共轭函数，返回输入四元数的共轭（虚部取反，实部不变），用于逆旋转计算。",
+      "tags": ["四元数", "共轭", "数学运算"],
+      "complexity": "low"
+    },
+    {
+      "id": "quat_normalize",
+      "type": "function",
+      "name": "quat_normalize",
+      "filePath": "src/h1_2_nav_tools/h1_2_nav_tools/transform_utils.py",
+      "summary": "四元数归一化函数，将四元数缩放为单位长度，若范数过小则返回单位四元数 (0,0,0,1)。",
+      "tags": ["四元数", "归一化", "数学运算"],
+      "complexity": "low"
+    },
+    {
+      "id": "rotate_vector",
+      "type": "function",
+      "name": "rotate_vector",
+      "filePath": "src/h1_2_nav_tools/h1_2_nav_tools/transform_utils.py",
+      "summary": "向量旋转函数，利用四元数 q 对三维向量 v 进行旋转，通过 q * v * q_conjugate 公式实现。",
+      "tags": ["四元数", "向量旋转", "3D变换"],
+      "complexity": "low"
+    },
+    {
+      "id": "transform_pose",
+      "type": "function",
+      "name": "transform_pose",
+      "filePath": "src/h1_2_nav_tools/h1_2_nav_tools/transform_utils.py",
+      "summary": "PoseStamped 坐标变换函数，根据 TF TransformStamped 对位姿进行旋转和平移，输出目标坐标系下的位姿。是整个导航工具包中被最广泛引用的核心函数。",
+      "tags": ["坐标变换", "TF", "PoseStamped", "核心函数"],
+      "complexity": "medium"
+    },
+    {
+      "id": "src/h1_2_nav_tools/h1_2_nav_tools/local2map_odom.py",
+      "type": "module",
+      "name": "local2map_odom",
+      "filePath": "src/h1_2_nav_tools/h1_2_nav_tools/local2map_odom.py",
+      "summary": "局部里程计到地图坐标系的转换节点模块，定义 LocalToMapOdom 类及其入口函数。",
+      "tags": ["坐标变换", "里程计", "ROS2节点"],
+      "complexity": "low"
+    },
+    {
+      "id": "LocalToMapOdom",
+      "type": "class",
+      "name": "LocalToMapOdom",
+      "filePath": "src/h1_2_nav_tools/h1_2_nav_tools/local2map_odom.py",
+      "summary": "ROS2 节点类，订阅 SLAM 里程计话题，通过 TF 查询将里程计位姿从局部坐标系转换到 map 坐标系，并将转换后的 PoseStamped 发布出去。支持通过参数配置里程计话题、输出话题和目标坐标系。",
+      "tags": ["ROS2节点", "坐标变换", "里程计", "TF", "订阅/发布"],
+      "complexity": "low"
+    },
+    {
+      "id": "local2map_odom_main",
+      "type": "function",
+      "name": "main",
+      "filePath": "src/h1_2_nav_tools/h1_2_nav_tools/local2map_odom.py",
+      "summary": "local2map_odom 节点的程序入口，初始化 ROS2、创建 LocalToMapOdom 节点并进入 spin 循环。",
+      "tags": ["入口函数", "ROS2"],
+      "complexity": "low"
+    },
+    {
+      "id": "src/h1_2_nav_tools/h1_2_nav_tools/memory_point_manager.py",
+      "type": "module",
+      "name": "memory_point_manager",
+      "filePath": "src/h1_2_nav_tools/h1_2_nav_tools/memory_point_manager.py",
+      "summary": "记忆点管理模块，定义 MemoryPointManager 类及其入口函数，负责机器人记忆点的增删查操作。",
+      "tags": ["记忆点", "ROS2服务", "持久化", "导航"],
+      "complexity": "medium"
+    },
+    {
+      "id": "MemoryPointManager",
+      "type": "class",
+      "name": "MemoryPointManager",
+      "filePath": "src/h1_2_nav_tools/h1_2_nav_tools/memory_point_manager.py",
+      "summary": "ROS2 节点类，提供记忆点的保存、删除和列表查询三项服务。通过订阅里程计获取机器人当前位姿，利用 TF 转换到目标坐标系后保存为记忆点。数据以 JSON 文件持久化存储，支持原子写入（先写临时文件再替换）和自定义服务接口（SaveMemoryPoint、DeleteMemoryPoint、ListMemoryPoints）。",
+      "tags": ["ROS2节点", "ROS2服务", "记忆点", "JSON持久化", "坐标变换", "TF", "CRUD"],
+      "complexity": "medium"
+    },
+    {
+      "id": "memory_point_manager_main",
+      "type": "function",
+      "name": "main",
+      "filePath": "src/h1_2_nav_tools/h1_2_nav_tools/memory_point_manager.py",
+      "summary": "memory_point_manager 节点的程序入口，初始化 ROS2、创建 MemoryPointManager 节点并进入 spin 循环。",
+      "tags": ["入口函数", "ROS2"],
+      "complexity": "low"
+    },
+    {
+      "id": "src/h1_2_nav_tools/h1_2_nav_tools/path_to_waypoint.py",
+      "type": "module",
+      "name": "path_to_waypoint",
+      "filePath": "src/h1_2_nav_tools/h1_2_nav_tools/path_to_waypoint.py",
+      "summary": "路径到航点转换模块，定义 PathToWaypoint 类及其入口函数，将全局路径转换为自适应前瞻的航点序列。",
+      "tags": ["路径跟踪", "航点生成", "纯追踪", "ROS2节点"],
+      "complexity": "medium"
+    },
+    {
+      "id": "PathToWaypoint",
+      "type": "class",
+      "name": "PathToWaypoint",
+      "filePath": "src/h1_2_nav_tools/h1_2_nav_tools/path_to_waypoint.py",
+      "summary": "ROS2 节点类，实现基于曲率自适应的纯追踪（Pure Pursuit）航点生成器。订阅导航路径和里程计，对路径进行等距采样，计算各点曲率，根据曲率动态调整前视距离（高曲率段缩短前视距离以精确跟踪，低曲率段增大前视距离以提高效率），定时发布当前目标航点。同时发布可视化路径。",
+      "tags": ["ROS2节点", "纯追踪", "曲率自适应", "前视距离", "航点生成", "路径跟踪"],
+      "complexity": "medium",
+      "languageNotes": "引入曲率自适应前视策略：高曲率段前视距离从 max_lookahead 线性过渡到 min_lookahead，最大压缩至 min_lookahead 的2倍"
+    },
+    {
+      "id": "path_to_waypoint_main",
+      "type": "function",
+      "name": "main",
+      "filePath": "src/h1_2_nav_tools/h1_2_nav_tools/path_to_waypoint.py",
+      "summary": "path_to_waypoint 节点的程序入口，初始化 ROS2、创建 PathToWaypoint 节点并进入 spin 循环。",
+      "tags": ["入口函数", "ROS2"],
+      "complexity": "low"
+    },
+    {
+      "id": "src/h1_2_nav_tools/h1_2_nav_tools/record_teaching_path.py",
+      "type": "module",
+      "name": "record_teaching_path",
+      "filePath": "src/h1_2_nav_tools/h1_2_nav_tools/record_teaching_path.py",
+      "summary": "示教路径录制模块，定义 RecordTeachingPath 类及其入口函数，用于录制机器人手动引导的导航路径。",
+      "tags": ["示教路径", "路径录制", "ROS2节点", "教学"],
+      "complexity": "medium"
+    },
+    {
+      "id": "RecordTeachingPath",
+      "type": "class",
+      "name": "RecordTeachingPath",
+      "filePath": "src/h1_2_nav_tools/h1_2_nav_tools/record_teaching_path.py",
+      "summary": "ROS2 节点类，实现示教路径录制功能。提供 ROS2 服务接口（start/stop_and_save）和交互式控制台两种操作方式。录制时按距离阈值（默认0.1m）采样位姿点，通过 TF 转换到目标坐标系，支持多条路径录制并保存为文本文件。具备 TF 可用性预检功能，确保离线重定位就绪后才允许录制。",
+      "tags": ["ROS2节点", "ROS2服务", "路径录制", "示教", "交互式控制台", "TF预检", "多线程"],
+      "complexity": "medium",
+      "languageNotes": "采用 threading.Lock 保护路径数据的并发访问；支持交互式控制台和 ROS2 spin 双线程并行运行"
+    },
+    {
+      "id": "record_teaching_path_main",
+      "type": "function",
+      "name": "main",
+      "filePath": "src/h1_2_nav_tools/h1_2_nav_tools/record_teaching_path.py",
+      "summary": "record_teaching_path 节点的程序入口，初始化 ROS2、创建 RecordTeachingPath 节点，根据 interactive_console 参数决定是否启用交互式控制台线程。",
+      "tags": ["入口函数", "ROS2", "多线程"],
+      "complexity": "low"
+    }
+  ],
+  "edges": [
+    {
+      "source": "src/h1_2_nav_tools/h1_2_nav_tools/local2map_odom.py",
+      "target": "src/h1_2_nav_tools/h1_2_nav_tools/transform_utils.py",
+      "type": "imports",
+      "label": "从 transform_utils 导入 transform_pose 函数"
+    },
+    {
+      "source": "src/h1_2_nav_tools/h1_2_nav_tools/memory_point_manager.py",
+      "target": "src/h1_2_nav_tools/h1_2_nav_tools/transform_utils.py",
+      "type": "imports",
+      "label": "从 transform_utils 导入 transform_pose 函数"
+    },
+    {
+      "source": "src/h1_2_nav_tools/h1_2_nav_tools/path_to_waypoint.py",
+      "target": "src/h1_2_nav_tools/h1_2_nav_tools/transform_utils.py",
+      "type": "imports",
+      "label": "从 transform_utils 导入 transform_pose 函数"
+    },
+    {
+      "source": "src/h1_2_nav_tools/h1_2_nav_tools/record_teaching_path.py",
+      "target": "src/h1_2_nav_tools/h1_2_nav_tools/transform_utils.py",
+      "type": "imports",
+      "label": "从 transform_utils 导入 transform_pose 函数"
+    },
+    {
+      "source": "src/h1_2_nav_tools/h1_2_nav_tools/local2map_odom.py",
+      "target": "LocalToMapOdom",
+      "type": "defines",
+      "label": "定义 LocalToMapOdom 节点类"
+    },
+    {
+      "source": "LocalToMapOdom",
+      "target": "local2map_odom_main",
+      "type": "instantiates",
+      "label": "由 main 函数实例化并运行"
+    },
+    {
+      "source": "src/h1_2_nav_tools/h1_2_nav_tools/memory_point_manager.py",
+      "target": "MemoryPointManager",
+      "type": "defines",
+      "label": "定义 MemoryPointManager 节点类"
+    },
+    {
+      "source": "MemoryPointManager",
+      "target": "memory_point_manager_main",
+      "type": "instantiates",
+      "label": "由 main 函数实例化并运行"
+    },
+    {
+      "source": "src/h1_2_nav_tools/h1_2_nav_tools/path_to_waypoint.py",
+      "target": "PathToWaypoint",
+      "type": "defines",
+      "label": "定义 PathToWaypoint 节点类"
+    },
+    {
+      "source": "PathToWaypoint",
+      "target": "path_to_waypoint_main",
+      "type": "instantiates",
+      "label": "由 main 函数实例化并运行"
+    },
+    {
+      "source": "src/h1_2_nav_tools/h1_2_nav_tools/record_teaching_path.py",
+      "target": "RecordTeachingPath",
+      "type": "defines",
+      "label": "定义 RecordTeachingPath 节点类"
+    },
+    {
+      "source": "RecordTeachingPath",
+      "target": "record_teaching_path_main",
+      "type": "instantiates",
+      "label": "由 main 函数实例化并运行"
+    },
+    {
+      "source": "transform_pose",
+      "target": "rotate_vector",
+      "type": "calls",
+      "label": "调用 rotate_vector 旋转位置向量"
+    },
+    {
+      "source": "transform_pose",
+      "target": "quat_normalize",
+      "type": "calls",
+      "label": "调用 quat_normalize 归一化姿态四元数"
+    },
+    {
+      "source": "transform_pose",
+      "target": "quat_multiply",
+      "type": "calls",
+      "label": "调用 quat_multiply 组合旋转变换"
+    },
+    {
+      "source": "rotate_vector",
+      "target": "quat_normalize",
+      "type": "calls",
+      "label": "调用 quat_normalize 归一化旋转四元数"
+    },
+    {
+      "source": "rotate_vector",
+      "target": "quat_multiply",
+      "type": "calls",
+      "label": "调用 quat_multiply 执行四元数旋转公式"
+    },
+    {
+      "source": "rotate_vector",
+      "target": "quat_conjugate",
+      "type": "calls",
+      "label": "调用 quat_conjugate 获取逆旋转"
+    },
+    {
+      "source": "LocalToMapOdom",
+      "target": "transform_pose",
+      "type": "calls",
+      "label": "在 odom_callback 中调用 transform_pose 进行坐标变换"
+    },
+    {
+      "source": "MemoryPointManager",
+      "target": "transform_pose",
+      "type": "calls",
+      "label": "在 current_pose_in_target_frame 中调用 transform_pose 获取目标坐标系位姿"
+    },
+    {
+      "source": "PathToWaypoint",
+      "target": "transform_pose",
+      "type": "calls",
+      "label": "在 odom_callback 中调用 transform_pose 将里程计转换到目标坐标系"
+    },
+    {
+      "source": "RecordTeachingPath",
+      "target": "transform_pose",
+      "type": "calls",
+      "label": "在 odom_callback 中调用 transform_pose 将录制位姿转换到目标坐标系"
+    },
+    {
+      "source": "src/h1_2_nav_tools/h1_2_nav_tools/transform_utils.py",
+      "target": "quat_multiply",
+      "type": "defines",
+      "label": "定义四元数乘法函数"
+    },
+    {
+      "source": "src/h1_2_nav_tools/h1_2_nav_tools/transform_utils.py",
+      "target": "quat_conjugate",
+      "type": "defines",
+      "label": "定义四元数共轭函数"
+    },
+    {
+      "source": "src/h1_2_nav_tools/h1_2_nav_tools/transform_utils.py",
+      "target": "quat_normalize",
+      "type": "defines",
+      "label": "定义四元数归一化函数"
+    },
+    {
+      "source": "src/h1_2_nav_tools/h1_2_nav_tools/transform_utils.py",
+      "target": "rotate_vector",
+      "type": "defines",
+      "label": "定义向量旋转函数"
+    },
+    {
+      "source": "src/h1_2_nav_tools/h1_2_nav_tools/transform_utils.py",
+      "target": "transform_pose",
+      "type": "defines",
+      "label": "定义位姿变换核心函数"
+    }
+  ]
+}

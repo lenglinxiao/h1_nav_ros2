@@ -1,0 +1,76 @@
+{
+  "nodes": [
+    {
+      "id": "src/livox_ros_driver2/src/comm/ldq.cpp",
+      "type": "file",
+      "name": "ldq.cpp",
+      "filePath": "src/livox_ros_driver2/src/comm/ldq.cpp",
+      "summary": "Livox LiDAR 驱动数据队列(LDQ)的 C++ 实现文件。提供基于环形缓冲区（ring buffer）的点云数据队列操作，包括队列初始化、反初始化、重置、入队/出队、容量查询等核心函数。队列大小强制为 2 的幂次以利用位掩码优化索引计算。所有函数位于 livox_ros 命名空间内，用于点云数据的生产者-消费者模式缓冲。",
+      "tags": ["LiDAR", "队列", "环形缓冲区", "点云", "Livox", "ROS驱动", "生产者消费者", "数据缓冲"],
+      "complexity": "low",
+      "languageNotes": "C++ 实现，使用 memcpy 进行点云数据拷贝，通过 power-of-2 队列尺寸进行位掩码索引优化（wr_idx & mask），结合 resize + memcpy 模式管理 StoragePacket 中动态大小的点数组。"
+    },
+    {
+      "id": "src/livox_ros_driver2/src/comm/ldq.h",
+      "type": "file",
+      "name": "ldq.h",
+      "filePath": "src/livox_ros_driver2/src/comm/ldq.h",
+      "summary": "Livox LiDAR 数据队列(LDQ)的 C++ 头文件。声明了点云数据队列的全部操作函数接口，并内联实现了两个位运算工具函数 IsPowerOf2（判断是否为 2 的幂）和 RoundupPowerOf2（向上取整到最近的 2 的幂）。依赖 comm/comm.h 中的 LidarDataQueue、StoragePacket 等数据结构定义。",
+      "tags": ["LiDAR", "队列", "头文件", "Livox", "ROS驱动", "接口声明", "位运算"],
+      "complexity": "low",
+      "languageNotes": "C/C++ 头文件，使用 inline static 声明内联工具函数避免多重定义，包含防护宏为 LIVOX_ROS_DRIVER_LDQ_H_。依赖 stdint.h 和 vector 标准库。"
+    },
+    {
+      "id": "src/livox_ros_driver2/src/lds.cpp",
+      "type": "file",
+      "name": "lds.cpp",
+      "filePath": "src/livox_ros_driver2/src/lds.cpp",
+      "summary": "Livox LiDAR 数据源(LDS)抽象类的 C++ 实现文件。负责管理多台 LiDAR 设备的数据汇聚与分发：通过 CacheIndex 进行设备索引映射，将来自不同 LiDAR 的 IMU 数据(StorageImuData)、实时点云数据(StoragePointData)和 LVX 回放点云数据(StorageLvxPointData)推送到对应设备的队列中。使用 Semaphore 信号量进行线程同步，PushLidarData 在队列满时动态初始化队列大小。",
+      "tags": ["LiDAR", "数据源", "多设备管理", "点云", "IMU", "Livox", "ROS驱动", "信号量", "缓存索引", "LVX"],
+      "complexity": "medium",
+      "languageNotes": "C++ 实现，使用静态 CacheIndex 成员进行全局设备索引管理，通过 Semaphore（pcd_semaphore_/imu_semaphore_）进行跨线程通知。PushLidarData 中延迟初始化队列（首次调用时根据 publish_freq_ 计算队列大小），QueueIsFull 时仍触发信号量以通知消费者清空。"
+    },
+    {
+      "id": "src/livox_ros_driver2/src/lds.h",
+      "type": "file",
+      "name": "lds.h",
+      "filePath": "src/livox_ros_driver2/src/lds.h",
+      "summary": "Livox LiDAR 数据源(LDS)抽象类的 C++ 头文件。声明 Lds 类的完整接口：支持多台 LiDAR 的点云和 IMU 数据存储、设备重置与状态管理、队列状态查询、退出控制等功能。公开的成员变量包括 lidar_count_（设备数量）、lidars_ 数组（LidarDevice 实例数组）、pcd/imu 信号量以及静态的 cache_index_。作为 LiDAR 驱动中数据流的中心枢纽，被上层消费者（如 Lddc）调用。",
+      "tags": ["LiDAR", "数据源", "头文件", "Livox", "ROS驱动", "类接口", "信号量", "缓存索引"],
+      "complexity": "low",
+      "languageNotes": "C++ 头文件，类使用 virtual 析构函数支持多态继承，PrepareExit 为虚函数允许子类覆盖。包含防护宏为 LIVOX_ROS_DRIVER_LDS_H_。依赖 comm/semaphore.h、comm/comm.h、comm/cache_index.h 和 map 标准库。成员可见性分为 public/protected/private 三层，request_exit_ 为 volatile bool 类型以支持跨线程安全访问。"
+    }
+  ],
+  "edges": [
+    {
+      "source": "src/livox_ros_driver2/src/comm/ldq.cpp",
+      "target": "src/livox_ros_driver2/src/comm/ldq.h",
+      "type": "implements",
+      "summary": "ldq.cpp 实现 ldq.h 中声明的队列操作函数（InitQueue、DeInitQueue、ResetQueue、QueuePushAny、QueuePop 等），并内联使用 IsPowerOf2/RoundupPowerOf2"
+    },
+    {
+      "source": "src/livox_ros_driver2/src/lds.cpp",
+      "target": "src/livox_ros_driver2/src/lds.h",
+      "type": "implements",
+      "summary": "lds.cpp 实现 lds.h 中声明的 Lds 类构造函数、析构函数及所有成员函数（StorageImuData、StoragePointData、PushLidarData 等）"
+    },
+    {
+      "source": "src/livox_ros_driver2/src/lds.cpp",
+      "target": "src/livox_ros_driver2/src/comm/ldq.h",
+      "type": "includes",
+      "summary": "lds.cpp 包含 ldq.h 以使用 InitQueue、QueueIsFull、QueueIsEmpty、QueuePushAny 函数和 QueueUsedSize 等队列操作"
+    },
+    {
+      "source": "src/livox_ros_driver2/src/lddc.cpp",
+      "target": "src/livox_ros_driver2/src/comm/ldq.h",
+      "type": "includes",
+      "summary": "lddc.cpp（第 2 批次）依赖 ldq.h 中声明的队列操作函数，包括 QueuePrePop、QueuePop、QueueUsedSize、QueueIsEmpty 等，用于轮询和分发点云与 IMU 数据"
+    },
+    {
+      "source": "src/livox_ros_driver2/src/lddc.cpp",
+      "target": "src/livox_ros_driver2/src/lds.h",
+      "type": "uses",
+      "summary": "lddc.cpp 使用 Lds 类作为基类或组合成员，通过其公开接口访问 lidars_ 数组、信号量和 cache_index_ 以分发数据到上层 ROS 发布管道"
+    }
+  ]
+}

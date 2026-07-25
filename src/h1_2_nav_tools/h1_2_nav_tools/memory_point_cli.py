@@ -52,7 +52,10 @@ def run(args, node):
         print(response.message)
         if response.success:
             p = response.pose.pose.position
-            print(f"{args.name}: x={p.x:.3f}, y={p.y:.3f}, z={p.z:.3f}")
+            print(
+                f"{args.name}: x={p.x:.3f}, y={p.y:.3f}, z={p.z:.3f}, "
+                f"frame={response.pose.header.frame_id}"
+            )
         return 0 if response.success else 1
 
     if args.command == "delete":

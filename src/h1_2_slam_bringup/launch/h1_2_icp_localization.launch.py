@@ -2,6 +2,7 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 
 
 def generate_launch_description():
@@ -14,6 +15,7 @@ def generate_launch_description():
             DeclareLaunchArgument("cloud_topic", default_value="/cloud_registered_body"),
             DeclareLaunchArgument("odom_topic", default_value="/slam_odom"),
             DeclareLaunchArgument("status_topic", default_value="/icp_localization/status"),
+            DeclareLaunchArgument("use_sim_time", default_value="false"),
             DeclareLaunchArgument("refine_resolution", default_value="0.2"),
             DeclareLaunchArgument("rough_resolution", default_value="0.5"),
             DeclareLaunchArgument("refine_iter", default_value="5"),
@@ -38,6 +40,9 @@ def generate_launch_description():
                         "cloud_topic": LaunchConfiguration("cloud_topic"),
                         "odom_topic": LaunchConfiguration("odom_topic"),
                         "status_topic": "/icp_localization/status",
+                        "use_sim_time": ParameterValue(
+                            LaunchConfiguration("use_sim_time"), value_type=bool
+                        ),
                         "publish_tf": True,
                         "refine_resolution": LaunchConfiguration("refine_resolution"),
                         "rough_resolution": LaunchConfiguration("rough_resolution"),

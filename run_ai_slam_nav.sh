@@ -157,8 +157,7 @@ if [[ "${MODE}" == "navigation" && -n "${PCD_MAP_FILE}" && ! -f "${PCD_MAP_FILE}
 fi
 
 if [[ "${MODE}" == "save_map" ]]; then
-  source /opt/ros/foxy/setup.bash
-  source "$HOME/unitree_ros2/cyclonedds_ws/install/setup.bash"
+  source /opt/ros/humble/setup.bash
   source "$HOME/unitree_ros2/install/setup.bash"
   source "${WORKSPACE_DIR}/install/setup.bash"
 
@@ -188,8 +187,7 @@ if [[ "${MODE}" == "save_map" ]]; then
 fi
 
 if [[ "${MODE}" == "save_pcd_map" ]]; then
-  source /opt/ros/foxy/setup.bash
-  source "$HOME/unitree_ros2/cyclonedds_ws/install/setup.bash"
+  source /opt/ros/humble/setup.bash
   source "$HOME/unitree_ros2/install/setup.bash"
   source "${WORKSPACE_DIR}/install/setup.bash"
 
@@ -218,8 +216,7 @@ if ! flock -n 9; then
   exit 1
 fi
 
-source /opt/ros/foxy/setup.bash
-source "$HOME/unitree_ros2/cyclonedds_ws/install/setup.bash"
+source /opt/ros/humble/setup.bash
 source "$HOME/unitree_ros2/install/setup.bash"
 source "${WORKSPACE_DIR}/install/setup.bash"
 

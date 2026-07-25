@@ -16,6 +16,7 @@ def test_memory_point_cli_supports_save_delete_list_services():
     assert "delete_memory_point" in source
     assert "list_memory_points" in source
     assert "--overwrite" in source
+    assert "frame={response.pose.header.frame_id}" in source
 
 
 def test_route_runner_cli_supports_start_stop_status_services():

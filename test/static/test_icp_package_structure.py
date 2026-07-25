@@ -89,13 +89,22 @@ def test_global_relocalization_node_snapshots_map_resources_for_runtime_reload()
 def test_global_relocalization_tf_is_future_dated_for_nav2_transform_tolerance():
     node = read(PKG / "src" / "global_relocalization_node.cpp")
 
-    assert 'declare_parameter<double>("transform_tolerance_sec", 0.5)' in node
+    assert 'declare_parameter<double>("transform_tolerance_sec", 0.1)' in node
     assert "rclcpp::Duration::from_seconds(transform_tolerance_sec_)" in node
     assert "stamp = now() + rclcpp::Duration::from_seconds(transform_tolerance_sec_)" in node
     assert "stamp = latest_odom_stamp_" not in node
     assert "Publishing TF %s -> %s" in node
     assert "Stopped publishing TF %s -> %s" in node
     assert "tf_is_publishing_" in node
+
+
+def test_global_relocalization_tf_timer_is_not_blocked_by_registration():
+    node = read(PKG / "src" / "global_relocalization_node.cpp")
+
+    assert "tf_callback_group_" in node
+    tf_timer = node[node.index("tf_timer_ = create_wall_timer("):]
+    assert "tf_callback_group_" in tf_timer
+    assert "rclcpp::executors::MultiThreadedExecutor" in node
 
 
 def test_icp_cmake_exposes_optional_kiss_matcher_dependency_without_requiring_it():
@@ -174,12 +183,12 @@ def test_global_relocalization_launch_keeps_kiss_runtime_opt_in():
         / "h1_2_nav2_navigation.launch.py"
     )
 
-    assert 'DeclareLaunchArgument("use_kiss_matcher", default_value="false")' in global_launch
+    assert 'DeclareLaunchArgument("use_kiss_matcher", default_value="true")' in global_launch
     assert '"use_kiss_matcher": ParameterValue(' in global_launch
     assert 'DeclareLaunchArgument("use_small_gicp", default_value="true")' in global_launch
     assert '"use_small_gicp": ParameterValue(' in global_launch
 
-    assert 'DeclareLaunchArgument("global_use_kiss_matcher", default_value="false")' in navigation_launch
+    assert 'DeclareLaunchArgument("global_use_kiss_matcher", default_value="true")' in navigation_launch
     assert '"use_kiss_matcher": LaunchConfiguration("global_use_kiss_matcher")' in navigation_launch
     assert 'DeclareLaunchArgument("global_use_small_gicp", default_value="true")' in navigation_launch
     assert '"use_small_gicp": LaunchConfiguration("global_use_small_gicp")' in navigation_launch

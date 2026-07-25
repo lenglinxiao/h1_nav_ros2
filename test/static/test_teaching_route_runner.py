@@ -174,3 +174,10 @@ def test_rpp_config_is_additive_and_uses_regulated_pure_pursuit():
     assert "max_lookahead_dist: 0.35" in rpp
     assert "dwb_core::DWBLocalPlanner" in dwb
     assert "nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController" not in dwb
+
+
+def test_dwb_terminal_rotation_uses_a_practical_speed_and_timeout():
+    dwb = read(TOOLS / "config" / "nav2_h1_2.yaml")
+
+    assert "movement_time_allowance: 20.0" in dwb
+    assert "min_speed_theta: 0.0" in dwb

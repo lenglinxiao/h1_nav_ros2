@@ -1,0 +1,400 @@
+{
+  "nodes": [
+    {
+      "id": "src/livox_ros_driver2/launch_ROS2/rviz_HAP_launch.py",
+      "type": "launch",
+      "name": "rviz_HAP_launch.py (ROS2)",
+      "filePath": "src/livox_ros_driver2/launch_ROS2/rviz_HAP_launch.py",
+      "summary": "Livox HAP 激光雷达 ROS2 启动文件，同时启动 livox_ros_driver2_node 驱动节点和 rviz2 可视化节点。使用 PointCloud2 格式 (xfer_format=0)，加载 HAP_config.json 设备配置和 display_point_cloud_ROS2.rviz 可视化配置。用户可配置传输格式、多话题模式、数据源、发布频率、frame_id 和广播码等参数。",
+      "tags": ["Livox", "HAP", "激光雷达", "ROS2", "Launch", "RViz", "点云", "驱动启动"],
+      "complexity": "simple",
+      "languageNotes": "Python; 使用 launch 和 launch_ros 框架定义 ROS2 LaunchDescription；通过 generate_launch_description() 函数返回包含 livox_driver 和 livox_rviz 两个 Node 的启动描述。"
+    },
+    {
+      "id": "src/livox_ros_driver2/launch_ROS2/rviz_MID360_launch.py",
+      "type": "launch",
+      "name": "rviz_MID360_launch.py (ROS2)",
+      "filePath": "src/livox_ros_driver2/launch_ROS2/rviz_MID360_launch.py",
+      "summary": "Livox MID360 激光雷达 ROS2 启动文件，同时启动驱动节点和 rviz2 可视化节点。使用 PointCloud2 格式，加载 MID360_config.json 设备配置。结构与 rviz_HAP_launch.py 完全一致，仅设备配置文件不同。",
+      "tags": ["Livox", "MID360", "激光雷达", "ROS2", "Launch", "RViz", "点云", "驱动启动"],
+      "complexity": "simple",
+      "languageNotes": "Python; 与 rviz_HAP_launch.py 结构完全相同，区别仅在于 user_config_path 指向 MID360_config.json。"
+    },
+    {
+      "id": "src/livox_ros_driver2/launch_ROS2/rviz_mixed.py",
+      "type": "launch",
+      "name": "rviz_mixed.py (ROS2)",
+      "filePath": "src/livox_ros_driver2/launch_ROS2/rviz_mixed.py",
+      "summary": "Livox 混合部署 ROS2 启动文件，支持 HAP 和 MID360 同时使用。加载 mixed_HAP_MID360_config.json 混合设备配置，同时启动驱动节点和 rviz2 可视化。适用于多型号激光雷达联合工作场景。",
+      "tags": ["Livox", "HAP", "MID360", "混合部署", "ROS2", "Launch", "RViz", "多激光雷达"],
+      "complexity": "simple",
+      "languageNotes": "Python; 与单型号启动文件结构一致，区别在于使用 mixed_HAP_MID360_config.json 支持多设备配置。"
+    },
+    {
+      "id": "src/livox_ros_driver2/launch/msg_HAP_launch.py",
+      "type": "launch",
+      "name": "msg_HAP_launch.py",
+      "filePath": "src/livox_ros_driver2/launch/msg_HAP_launch.py",
+      "summary": "Livox HAP 自定义消息模式启动文件，使用 xfer_format=1（CustomMsg 自定义点云格式）启动驱动节点，不启动 RViz。适用于需要直接使用 Livox 自定义消息格式进行数据处理的后台运行场景。",
+      "tags": ["Livox", "HAP", "激光雷达", "ROS2", "Launch", "CustomMsg", "自定义消息", "驱动启动"],
+      "complexity": "simple",
+      "languageNotes": "Python; 仅启动 livox_driver 节点，不包含 rviz 节点；xfer_format 设为 1 使用自定义点云格式。"
+    },
+    {
+      "id": "src/livox_ros_driver2/launch/msg_MID360_launch.py",
+      "type": "launch",
+      "name": "msg_MID360_launch.py",
+      "filePath": "src/livox_ros_driver2/launch/msg_MID360_launch.py",
+      "summary": "Livox MID360 自定义消息模式启动文件，使用 xfer_format=1 启动驱动节点，不启动 RViz。加载 MID360_config.json 配置，适用于后台数据采集或自定义消息处理场景。",
+      "tags": ["Livox", "MID360", "激光雷达", "ROS2", "Launch", "CustomMsg", "自定义消息", "驱动启动"],
+      "complexity": "simple",
+      "languageNotes": "Python; 与 msg_HAP_launch.py 结构一致，区别在于 user_config_path 指向 MID360_config.json。"
+    },
+    {
+      "id": "src/livox_ros_driver2/launch/rviz_HAP_launch.py",
+      "type": "launch",
+      "name": "rviz_HAP_launch.py",
+      "filePath": "src/livox_ros_driver2/launch/rviz_HAP_launch.py",
+      "summary": "Livox HAP 带 RViz 启动文件，同时启动驱动节点和 rviz2 可视化节点。与 launch_ROS2 目录下的同名文件功能相同，使用 HAP_config.json 和 display_point_cloud_ROS2.rviz 配置。",
+      "tags": ["Livox", "HAP", "激光雷达", "ROS2", "Launch", "RViz", "驱动启动"],
+      "complexity": "simple",
+      "languageNotes": "Python; 与 launch_ROS2/rviz_HAP_launch.py 内容几乎完全相同。"
+    },
+    {
+      "id": "src/livox_ros_driver2/launch/rviz_MID360_launch.py",
+      "type": "launch",
+      "name": "rviz_MID360_launch.py",
+      "filePath": "src/livox_ros_driver2/launch/rviz_MID360_launch.py",
+      "summary": "Livox MID360 带 RViz 启动文件，同时启动驱动节点和 rviz2 可视化节点。使用 MID360_config.json 和 display_point_cloud_ROS2.rviz 配置。",
+      "tags": ["Livox", "MID360", "激光雷达", "ROS2", "Launch", "RViz", "驱动启动"],
+      "complexity": "simple",
+      "languageNotes": "Python; 与 launch_ROS2/rviz_MID360_launch.py 内容几乎完全相同。"
+    },
+    {
+      "id": "src/livox_ros_driver2/launch/rviz_mixed.py",
+      "type": "launch",
+      "name": "rviz_mixed.py",
+      "filePath": "src/livox_ros_driver2/launch/rviz_mixed.py",
+      "summary": "Livox 混合部署带 RViz 启动文件，支持 HAP 和 MID360 同时使用。使用 mixed_HAP_MID360_config.json 配置。与 launch_ROS2 目录下的同名文件功能相同。",
+      "tags": ["Livox", "HAP", "MID360", "混合部署", "ROS2", "Launch", "RViz", "多激光雷达"],
+      "complexity": "simple",
+      "languageNotes": "Python; 与 launch_ROS2/rviz_mixed.py 内容几乎完全相同。"
+    },
+    {
+      "id": "src/livox_ros_driver2/msg/CustomMsg.msg",
+      "type": "message",
+      "name": "CustomMsg.msg",
+      "filePath": "src/livox_ros_driver2/msg/CustomMsg.msg",
+      "summary": "Livox 自定义点云消息定义。包含标准 ROS 消息头 (Header)、首点时间戳 (timebase)、点云总数 (point_num)、激光雷达设备 ID (lidar_id)、保留字段 (rsvd) 以及 CustomPoint 类型点云数组 (points)。用于传输 Livox 私有格式的点云数据。",
+      "tags": ["ROS", "消息定义", "CustomMsg", "点云", "Livox", "自定义格式", "MSG"],
+      "complexity": "simple",
+      "languageNotes": "ROS .msg 格式; 引用了 CustomPoint 自定义消息类型作为点云元素。"
+    },
+    {
+      "id": "src/livox_ros_driver2/msg/CustomPoint.msg",
+      "type": "message",
+      "name": "CustomPoint.msg",
+      "filePath": "src/livox_ros_driver2/msg/CustomPoint.msg",
+      "summary": "Livox 自定义单点消息定义。包含相对时间偏移 (offset_time)、三维坐标 (x/y/z, 单位米)、反射率 (reflectivity, 0-255)、标签 (tag) 和激光线号 (line)。构成 Livox 私有点云格式的基本单元。",
+      "tags": ["ROS", "消息定义", "CustomPoint", "点云", "Livox", "自定义格式", "反射率", "MSG"],
+      "complexity": "simple",
+      "languageNotes": "ROS .msg 格式; 定义了 Livox 激光雷达特有的点云属性字段，包含 offset_time 用于精确时间对齐。"
+    },
+    {
+      "id": "src/livox_ros_driver2/src/comm/cache_index.cpp",
+      "type": "class",
+      "name": "CacheIndex 实现",
+      "filePath": "src/livox_ros_driver2/src/comm/cache_index.cpp",
+      "summary": "CacheIndex 类的实现，管理 Livox 激光雷达设备的索引分配与回收。提供 GetFreeIndex（分配空闲索引）、GetIndex（查询已有索引）、LvxGetIndex（先查询后分配）和 ResetIndex（释放设备索引）四个核心操作。使用 std::map 存储 handle->index 映射，std::array<bool> 管理索引位图，通过 std::mutex 保证线程安全。支持最多 kMaxSourceLidar 个设备。",
+      "tags": ["C++", "Livox", "索引管理", "设备管理", "线程安全", "CacheIndex", "mutex", "驱动通信"],
+      "complexity": "moderate",
+      "languageNotes": "C++; 实现了线程安全的索引缓存管理器；GenerateIndexKey 通过 lidar_type + handle 生成唯一 key；构造函数初始化索引位图为全零。"
+    },
+    {
+      "id": "src/livox_ros_driver2/src/comm/cache_index.h",
+      "type": "header",
+      "name": "CacheIndex 头文件",
+      "filePath": "src/livox_ros_driver2/src/comm/cache_index.h",
+      "summary": "CacheIndex 类声明，定义激光雷达设备索引缓存管理器的接口。包含 GetFreeIndex、GetIndex、LvxGetIndex 和 ResetIndex 四个公有方法，以及 index_mutex_（互斥锁）、map_index_（key到索引的映射表）和 index_cache_（索引位图数组）三个私有成员。",
+      "tags": ["C++", "Livox", "头文件", "索引管理", "设备管理", "线程安全", "CacheIndex", "接口定义"],
+      "complexity": "simple",
+      "languageNotes": "C++; 使用 std::mutex、std::map<std::string, uint8_t> 和 std::array<bool, kMaxSourceLidar> 管理设备索引；包含 MIT 许可证。"
+    },
+    {
+      "id": "src/livox_ros_driver2/src/comm/comm.cpp",
+      "type": "utility",
+      "name": "comm 通用工具函数",
+      "filePath": "src/livox_ros_driver2/src/comm/comm.cpp",
+      "summary": "Livox 驱动通用工具函数集合。包含：IsFilePathValid（文件路径长度校验，必须在 kPathStrMinSize 和 kPathStrMaxSize 之间）、CalculatePacketQueueSize（根据发布频率计算数据包队列大小，频率>10Hz时=频率+1）、IpNumToString（网络字节序IP转字符串）、IpStringToNum（IP字符串转网络字节序）、ReplacePeriodByUnderline（将字符串中的 '.' 替换为 '_'）。",
+      "tags": ["C++", "Livox", "工具函数", "通信", "IP转换", "路径校验", "队列大小", "驱动通信"],
+      "complexity": "simple",
+      "languageNotes": "C++; 使用 arpa/inet.h 进行网络地址转换 (inet_ntoa/inet_addr)；均为纯函数无状态依赖。"
+    },
+    {
+      "id": "src/livox_ros_driver2/src/comm/lidar_imu_data_queue.cpp",
+      "type": "class",
+      "name": "LidarImuDataQueue 实现",
+      "filePath": "src/livox_ros_driver2/src/comm/lidar_imu_data_queue.cpp",
+      "summary": "LidarImuDataQueue 类的实现，提供线程安全的 IMU 数据队列。Push 将 IMU 数据深拷贝后追加到队列尾部；Pop 从队列头部取出并移除数据（空队列返回 false）；Empty 检查队列是否为空；Clear 通过 swap 技巧原子清空队列。所有操作均使用 std::lock_guard<std::mutex> 保护。",
+      "tags": ["C++", "Livox", "IMU", "数据队列", "线程安全", "生产者消费者", "驱动通信", "mutex"],
+      "complexity": "simple",
+      "languageNotes": "C++; 基于 std::list<ImuData> 实现 FIFO 队列；Clear 使用 swap 惯用法避免在锁内逐个销毁元素。"
+    },
+    {
+      "id": "src/livox_ros_driver2/src/comm/lidar_imu_data_queue.h",
+      "type": "header",
+      "name": "LidarImuDataQueue 头文件",
+      "filePath": "src/livox_ros_driver2/src/comm/lidar_imu_data_queue.h",
+      "summary": "定义 Livox IMU 数据结构和线程安全队列接口。包含 RawImuPoint 结构体（原始陀螺仪+加速度计数据）、ImuData 结构体（含设备类型、handle、时间戳和完整 IMU 数据的综合结构）以及 LidarImuDataQueue 类（提供 Push/Pop/Empty/Clear 操作）。基于 Livox 通信协议中的 IMU 数据类型定义。",
+      "tags": ["C++", "Livox", "头文件", "IMU", "数据结构", "队列", "线程安全", "驱动通信", "接口定义"],
+      "complexity": "simple",
+      "languageNotes": "C++; ImuData 使用 typedef struct 定义；包含陀螺仪 (rad/s) 和加速度计 (g) 数据字段；队列基于 std::list<ImuData> + std::mutex。"
+    },
+    {
+      "id": "src/livox_ros_driver2/src/comm/semaphore.cpp",
+      "type": "class",
+      "name": "Semaphore 实现",
+      "filePath": "src/livox_ros_driver2/src/comm/semaphore.cpp",
+      "summary": "Semaphore 信号量类的实现，基于 C++11 标准库的 std::mutex 和 std::condition_variable。Signal 方法递增计数器并通知一个等待线程；Wait 方法阻塞直到计数器大于零然后递减。实现了经典的计数信号量语义。",
+      "tags": ["C++", "Livox", "信号量", "同步原语", "condition_variable", "mutex", "线程同步", "驱动通信"],
+      "complexity": "simple",
+      "languageNotes": "C++; Signal 使用 notify_one() 仅唤醒一个等待线程；Wait 使用条件变量的 predicate 等待形式 cv_.wait(lock, predicate)。"
+    },
+    {
+      "id": "src/livox_ros_driver2/src/comm/semaphore.h",
+      "type": "header",
+      "name": "Semaphore 头文件",
+      "filePath": "src/livox_ros_driver2/src/comm/semaphore.h",
+      "summary": "Semaphore 信号量类声明，提供 Signal、Wait 和 GetCount 三个公有方法。内部使用 std::mutex 和 std::condition_variable 实现，count_ 标记为 volatile 以确保多线程可见性。构造函数接受初始计数值（默认为 0）。",
+      "tags": ["C++", "Livox", "头文件", "信号量", "同步原语", "接口定义", "线程同步", "驱动通信"],
+      "complexity": "simple",
+      "languageNotes": "C++; count_ 使用 volatile int 声明以保证跨线程可见性；构造函数使用 explicit 防止隐式转换。"
+    },
+    {
+      "id": "src/livox_ros_driver2/src/include/ros1_headers.h",
+      "type": "header",
+      "name": "ROS1 兼容头文件",
+      "filePath": "src/livox_ros_driver2/src/include/ros1_headers.h",
+      "summary": "Livox 驱动的 ROS1 编译兼容层头文件。统一引用 ROS1 相关依赖库（ros/ros.h、rosbag、pcl_ros、sensor_msgs/Imu、sensor_msgs/PointCloud2），并导入 Livox 自定义消息 CustomMsg 和 CustomPoint。定义 DRIVER_DEBUG/INFO/WARN/ERROR/FATAL 等日志宏，映射到 ROS1 的 ROS_DEBUG/INFO/WARN/ERROR/FATAL 日志体系，实现 ROS1/ROS2 双版本共用的代码抽象。",
+      "tags": ["C++", "Livox", "ROS1", "头文件", "兼容层", "日志宏", "pcl_ros", "sensor_msgs", "跨版本兼容"],
+      "complexity": "simple",
+      "languageNotes": "C++; 通过条件编译宏实现 ROS1/ROS2 日志接口统一；包含 <ros/ros.h>、<rosbag/bag.h>、<pcl_ros/point_cloud.h> 等 ROS1 特有头文件。"
+    },
+    {
+      "id": "src/livox_ros_driver2/src/include/ros2_headers.h",
+      "type": "header",
+      "name": "ROS2 兼容头文件",
+      "filePath": "src/livox_ros_driver2/src/include/ros2_headers.h",
+      "summary": "Livox 驱动的 ROS2 编译兼容层头文件。统一引用 ROS2 相关依赖库（rclcpp、pcl_conversions、sensor_msgs/msg/point_cloud2、sensor_msgs/msg/imu），并导入 Livox 自定义消息的 ROS2 版本（custom_msg、custom_point）。定义 DRIVER_DEBUG/INFO/WARN/ERROR/FATAL 等日志宏，映射到 ROS2 的 RCLCPP_DEBUG/INFO/WARN/ERROR/FATAL 日志体系，包含 rclcpp::Node 的 get_logger() 调用。",
+      "tags": ["C++", "Livox", "ROS2", "头文件", "兼容层", "日志宏", "rclcpp", "sensor_msgs", "跨版本兼容"],
+      "complexity": "simple",
+      "languageNotes": "C++; 使用 RCLCPP_* 宏替代 ROS1 的 ROS_* 宏，并通过 (node).get_logger() 获取节点日志器；包含 rclcpp/rclcpp.hpp 和 pcl_conversions/pcl_conversions.h。"
+    },
+    {
+      "id": "test/manual/README.md",
+      "type": "documentation",
+      "name": "人工验收测试文档",
+      "filePath": "test/manual/README.md",
+      "summary": "ICP 离线定位人工验收清单。定义了完整的实机测试流程：在线建图（online 模式） -> 保存 2D 栅格地图和 3D PCD 点云 -> 启动 ICP 离线导航 -> RViz 可视化确认点云重合 -> 检查 /icp_localization/status 状态 -> 发送 Nav2 Goal 验证规划避障 -> 记忆点路线测试。覆盖地图保存、初始位姿设置、记忆点记录、路线循环、动态障碍物处理和停止/恢复行为。",
+      "tags": ["测试", "人工验收", "ICP", "离线定位", "Nav2", "地图保存", "记忆点", "实机测试", "文档"],
+      "complexity": "simple",
+      "languageNotes": "Markdown; 提供完整的 shell 命令示例和分步骤验收标准，强调 ICP 就绪后才能自动巡航的安全要求。"
+    },
+    {
+      "id": "test/README.md",
+      "type": "documentation",
+      "name": "测试目录总览文档",
+      "filePath": "test/README.md",
+      "summary": "测试目录架构说明文档。按运行风险将测试分为三类：static/ 离线静态测试（只读仓库文件，不启动 ROS/Nav2/硬件）、ros_integration/ ROS 图集成测试（允许本地 mock 节点）、manual/ 实机人工验收清单。Todo 1 的测试放在 static/ 目录，用于锁定在线/离线工作流约定。",
+      "tags": ["测试", "目录结构", "文档", "static测试", "集成测试", "人工验收", "测试策略"],
+      "complexity": "simple",
+      "languageNotes": "Markdown; 定义了测试分层策略，按风险等级隔离测试类型，避免离线测试误触发 ROS 或实机链路。"
+    },
+    {
+      "id": "test/ros_integration/global_relocalization_real_map_smoke.py",
+      "type": "test",
+      "name": "真实地图全局重定位冒烟测试",
+      "filePath": "test/ros_integration/global_relocalization_real_map_smoke.py",
+      "summary": "使用真实 H1 实验室 PCD 地图对 global_relocalization_node 进行集成冒烟测试。从 maps/h1_2_lab.pcd 读取二进 PCD 点云，在地图中部裁剪出局部扫描点云（半径 7.5m，最多 5500 点），转为 body 坐标系后通过 /cloud_registered_body 话题发布，同时发布 /slam_odom。启动 C++ 重定位节点（传入真实 PCD 路径及调优参数），检测 /icp_localization/status 是否依次达到全局初始化成功和 GICP 追踪成功状态，30 秒超时。",
+      "tags": ["测试", "冒烟测试", "全局重定位", "ICP", "GICP", "PCD", "真实地图", "ROS2", "集成测试", "h1_2_icp_localization"],
+      "complexity": "moderate",
+      "languageNotes": "Python; 作为 ROS2 节点运行 (RealMapSmokeDriver)；使用 struct 解析二进制 PCD 格式；通过 subprocess 启动 C++ 节点并传入 ROS 参数；使用 signal.SIGINT 安全终止子进程。"
+    },
+    {
+      "id": "test/ros_integration/global_relocalization_service_smoke.py",
+      "type": "test",
+      "name": "全局重定位服务冒烟测试",
+      "filePath": "test/ros_integration/global_relocalization_service_smoke.py",
+      "summary": "对 global_relocalization_node 的 icp_relocalize 服务进行冒烟测试。启动 C++ 重定位节点，创建 ROS2 服务客户端等待服务就绪（8秒超时），发送包含手动初始位姿 (x=1.0, y=2.0) 的 Relocalize 请求，验证服务返回 success=true 且 message 为 \"manual relocalize pose accepted\"。同时持续发布 /slam_odom 以维持节点运行。",
+      "tags": ["测试", "冒烟测试", "全局重定位", "ROS2服务", "Relocalize", "ICP", "h1_2_icp_localization", "集成测试"],
+      "complexity": "simple",
+      "languageNotes": "Python; 使用 h1_2_icp_localization.srv.Relocalize 服务类型；通过 subprocess 启动 C++ 节点；测试服务调用和响应验证。"
+    },
+    {
+      "id": "test/ros_integration/global_relocalization_smoke.py",
+      "type": "test",
+      "name": "合成数据全局重定位冒烟测试",
+      "filePath": "test/ros_integration/global_relocalization_smoke.py",
+      "summary": "使用合成点云数据对 global_relocalization_node 进行冒烟测试。生成网格+环形布局的合成点云（约 250 点），写入临时 ASCII PCD 文件 (/tmp/h1_global_relocalization_smoke_map.pcd)，启动 C++ 重定位节点，发布相同的合成点云作为 body 帧点云和 slam_odom，检测重定位状态是否依次达到全局初始化和 GICP 追踪成功。不依赖任何硬件或真实地图数据。",
+      "tags": ["测试", "冒烟测试", "全局重定位", "合成数据", "ICP", "GICP", "h1_2_icp_localization", "集成测试"],
+      "complexity": "moderate",
+      "languageNotes": "Python; 自行生成合成点云（网格点+圆环点）；写入标准 ASCII PCD v0.7 格式文件；通过 subprocess 启动 C++ 节点并传入低阈值参数以便快速收敛。"
+    },
+    {
+      "id": "test/ros_integration/README.md",
+      "type": "documentation",
+      "name": "ROS 集成测试文档",
+      "filePath": "test/ros_integration/README.md",
+      "summary": "ROS 集成测试目录说明文档。规定此类测试可以启动本地 mock ROS 节点，但不能依赖 Livox 硬件、实机 Nav2、Unitree 运动命令或机器人网络连接。将集成测试与硬件依赖测试明确隔离。",
+      "tags": ["测试", "ROS", "集成测试", "文档", "测试规范", "mock节点", "测试隔离"],
+      "complexity": "simple",
+      "languageNotes": "Markdown; 明确界定了 ROS 集成测试的边界约束，禁止依赖硬件和网络，保证测试的独立性和可重复性。"
+    }
+  ],
+  "edges": [
+    {
+      "sourceId": "src/livox_ros_driver2/src/comm/cache_index.cpp",
+      "targetId": "src/livox_ros_driver2/src/comm/cache_index.h",
+      "type": "imports",
+      "label": "包含头文件"
+    },
+    {
+      "sourceId": "src/livox_ros_driver2/src/comm/cache_index.h",
+      "targetId": "src/livox_ros_driver2/src/comm/comm.cpp",
+      "type": "imports",
+      "label": "包含 comm/comm.h"
+    },
+    {
+      "sourceId": "src/livox_ros_driver2/src/comm/lidar_imu_data_queue.cpp",
+      "targetId": "src/livox_ros_driver2/src/comm/lidar_imu_data_queue.h",
+      "type": "imports",
+      "label": "包含头文件"
+    },
+    {
+      "sourceId": "src/livox_ros_driver2/src/comm/semaphore.cpp",
+      "targetId": "src/livox_ros_driver2/src/comm/semaphore.h",
+      "type": "imports",
+      "label": "包含头文件"
+    },
+    {
+      "sourceId": "src/livox_ros_driver2/msg/CustomMsg.msg",
+      "targetId": "src/livox_ros_driver2/msg/CustomPoint.msg",
+      "type": "uses",
+      "label": "CustomMsg 引用 CustomPoint 数组"
+    },
+    {
+      "sourceId": "src/livox_ros_driver2/src/include/ros1_headers.h",
+      "targetId": "src/livox_ros_driver2/msg/CustomMsg.msg",
+      "type": "imports",
+      "label": "ROS1 版本包含 livox_ros_driver2/CustomMsg.h"
+    },
+    {
+      "sourceId": "src/livox_ros_driver2/src/include/ros1_headers.h",
+      "targetId": "src/livox_ros_driver2/msg/CustomPoint.msg",
+      "type": "imports",
+      "label": "ROS1 版本包含 livox_ros_driver2/CustomPoint.h"
+    },
+    {
+      "sourceId": "src/livox_ros_driver2/src/include/ros2_headers.h",
+      "targetId": "src/livox_ros_driver2/msg/CustomMsg.msg",
+      "type": "imports",
+      "label": "ROS2 版本包含 livox_ros_driver2/msg/custom_msg.hpp"
+    },
+    {
+      "sourceId": "src/livox_ros_driver2/src/include/ros2_headers.h",
+      "targetId": "src/livox_ros_driver2/msg/CustomPoint.msg",
+      "type": "imports",
+      "label": "ROS2 版本包含 livox_ros_driver2/msg/custom_point.hpp"
+    },
+    {
+      "sourceId": "src/livox_ros_driver2/launch_ROS2/rviz_HAP_launch.py",
+      "targetId": "src/livox_ros_driver2/launch/rviz_HAP_launch.py",
+      "type": "related",
+      "label": "功能相同的变体启动文件"
+    },
+    {
+      "sourceId": "src/livox_ros_driver2/launch_ROS2/rviz_MID360_launch.py",
+      "targetId": "src/livox_ros_driver2/launch/rviz_MID360_launch.py",
+      "type": "related",
+      "label": "功能相同的变体启动文件"
+    },
+    {
+      "sourceId": "src/livox_ros_driver2/launch_ROS2/rviz_mixed.py",
+      "targetId": "src/livox_ros_driver2/launch/rviz_mixed.py",
+      "type": "related",
+      "label": "功能相同的变体启动文件"
+    },
+    {
+      "sourceId": "src/livox_ros_driver2/launch_ROS2/rviz_HAP_launch.py",
+      "targetId": "src/livox_ros_driver2/launch_ROS2/rviz_MID360_launch.py",
+      "type": "related",
+      "label": "同结构变体，仅设备配置文件不同"
+    },
+    {
+      "sourceId": "src/livox_ros_driver2/launch/msg_HAP_launch.py",
+      "targetId": "src/livox_ros_driver2/launch/rviz_HAP_launch.py",
+      "type": "related",
+      "label": "同一设备的自定义消息模式 vs RViz 模式启动"
+    },
+    {
+      "sourceId": "src/livox_ros_driver2/launch/msg_MID360_launch.py",
+      "targetId": "src/livox_ros_driver2/launch/rviz_MID360_launch.py",
+      "type": "related",
+      "label": "同一设备的自定义消息模式 vs RViz 模式启动"
+    },
+    {
+      "sourceId": "src/livox_ros_driver2/src/include/ros1_headers.h",
+      "targetId": "src/livox_ros_driver2/src/include/ros2_headers.h",
+      "type": "related",
+      "label": "ROS1/ROS2 双版本兼容层对偶头文件"
+    },
+    {
+      "sourceId": "test/ros_integration/global_relocalization_real_map_smoke.py",
+      "targetId": "test/ros_integration/global_relocalization_smoke.py",
+      "type": "related",
+      "label": "真实地图版本 vs 合成数据版本的冒烟测试"
+    },
+    {
+      "sourceId": "test/ros_integration/global_relocalization_service_smoke.py",
+      "targetId": "test/ros_integration/global_relocalization_smoke.py",
+      "type": "related",
+      "label": "服务接口测试 vs 状态话题测试"
+    },
+    {
+      "sourceId": "test/ros_integration/global_relocalization_real_map_smoke.py",
+      "targetId": "test/manual/README.md",
+      "type": "related",
+      "label": "集成测试覆盖人工验收文档中的 ICP 离线定位场景"
+    },
+    {
+      "sourceId": "test/ros_integration/README.md",
+      "targetId": "test/README.md",
+      "type": "related",
+      "label": "子目录文档遵守根目录测试分层策略"
+    },
+    {
+      "sourceId": "test/manual/README.md",
+      "targetId": "test/README.md",
+      "type": "related",
+      "label": "人工验收类别属于根目录定义的 manual/ 层"
+    },
+    {
+      "sourceId": "src/livox_ros_driver2/src/comm/cache_index.cpp",
+      "targetId": "src/livox_ros_driver2/src/comm/semaphore.h",
+      "type": "related",
+      "label": "同属 comm 通信模块，共享线程安全基础设施"
+    },
+    {
+      "sourceId": "src/livox_ros_driver2/src/comm/lidar_imu_data_queue.h",
+      "targetId": "src/livox_ros_driver2/src/comm/semaphore.h",
+      "type": "related",
+      "label": "同属 comm 通信模块的线程安全组件"
+    },
+    {
+      "sourceId": "src/livox_ros_driver2/src/comm/comm.cpp",
+      "targetId": "src/livox_ros_driver2/src/comm/cache_index.h",
+      "type": "related",
+      "label": "同属 comm 通信模块"
+    }
+  ]
+}

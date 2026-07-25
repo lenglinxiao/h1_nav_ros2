@@ -1,0 +1,72 @@
+{
+  "batchIndex": 6,
+  "files": [
+    {
+      "path": "src/livox_ros_driver2/src/comm/ldq.cpp",
+      "language": "cpp",
+      "sizeLines": 150,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/src/comm/ldq.h",
+      "language": "c",
+      "sizeLines": 66,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/src/lds.cpp",
+      "language": "cpp",
+      "sizeLines": 200,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/src/lds.h",
+      "language": "c",
+      "sizeLines": 83,
+      "fileCategory": "code"
+    }
+  ],
+  "batchImportData": {
+    "src/livox_ros_driver2/src/comm/ldq.cpp": [
+      "src/livox_ros_driver2/src/comm/ldq.h"
+    ],
+    "src/livox_ros_driver2/src/comm/ldq.h": [],
+    "src/livox_ros_driver2/src/lds.cpp": [
+      "src/livox_ros_driver2/src/comm/ldq.h",
+      "src/livox_ros_driver2/src/lds.h"
+    ],
+    "src/livox_ros_driver2/src/lds.h": []
+  },
+  "neighborMap": {
+    "src/livox_ros_driver2/src/comm/ldq.h": [
+      {
+        "path": "src/livox_ros_driver2/src/lddc.cpp",
+        "batchIndex": 2,
+        "symbols": [
+          "~Lddc",
+          "RegisterLds",
+          "DistributePointCloudData",
+          "DistributeImuData",
+          "PollingLidarPointCloudData",
+          "PollingLidarImuData",
+          "PrepareExit",
+          "PublishPointcloud2",
+          "PublishCustomPointcloud",
+          "PublishPclMsg",
+          "InitPointcloud2MsgHeader",
+          "InitPointcloud2Msg",
+          "PublishPointcloud2Data",
+          "InitCustomMsg",
+          "FillPointsToCustomMsg",
+          "PublishCustomPointData",
+          "InitPclMsg",
+          "FillPointsToPclMsg",
+          "PublishPclData",
+          "InitImuMsg",
+          "PublishImuData",
+          "CreateBagFile"
+        ]
+      }
+    ]
+  }
+}

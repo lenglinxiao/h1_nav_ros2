@@ -1,0 +1,183 @@
+{
+  "batchIndex": 29,
+  "files": [
+    {
+      "path": "src/h1_2_voice_control/setup.py",
+      "language": "python",
+      "sizeLines": 26,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/3rdparty/rapidjson/allocators.h",
+      "language": "c",
+      "sizeLines": 308,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/3rdparty/rapidjson/cursorstreamwrapper.h",
+      "language": "c",
+      "sizeLines": 81,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/3rdparty/rapidjson/document.h",
+      "language": "c",
+      "sizeLines": 3309,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/3rdparty/rapidjson/encodedstream.h",
+      "language": "c",
+      "sizeLines": 407,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/3rdparty/rapidjson/encodings.h",
+      "language": "c",
+      "sizeLines": 816,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/3rdparty/rapidjson/error/en.h",
+      "language": "c",
+      "sizeLines": 104,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/3rdparty/rapidjson/error/error.h",
+      "language": "c",
+      "sizeLines": 186,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/3rdparty/rapidjson/filereadstream.h",
+      "language": "c",
+      "sizeLines": 123,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/3rdparty/rapidjson/filewritestream.h",
+      "language": "c",
+      "sizeLines": 128,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/3rdparty/rapidjson/fwd.h",
+      "language": "c",
+      "sizeLines": 170,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/3rdparty/rapidjson/internal/biginteger.h",
+      "language": "c",
+      "sizeLines": 295,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/3rdparty/rapidjson/internal/clzll.h",
+      "language": "c",
+      "sizeLines": 76,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/3rdparty/rapidjson/internal/diyfp.h",
+      "language": "c",
+      "sizeLines": 305,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/3rdparty/rapidjson/internal/dtoa.h",
+      "language": "c",
+      "sizeLines": 269,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/3rdparty/rapidjson/internal/ieee754.h",
+      "language": "c",
+      "sizeLines": 100,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/3rdparty/rapidjson/internal/itoa.h",
+      "language": "c",
+      "sizeLines": 288,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/3rdparty/rapidjson/internal/meta.h",
+      "language": "c",
+      "sizeLines": 243,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/3rdparty/rapidjson/internal/pow10.h",
+      "language": "c",
+      "sizeLines": 77,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/3rdparty/rapidjson/internal/regex.h",
+      "language": "c",
+      "sizeLines": 753,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/3rdparty/rapidjson/internal/stack.h",
+      "language": "c",
+      "sizeLines": 245,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/3rdparty/rapidjson/internal/strfunc.h",
+      "language": "c",
+      "sizeLines": 74,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/3rdparty/rapidjson/internal/strtod.h",
+      "language": "c",
+      "sizeLines": 303,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/3rdparty/rapidjson/internal/swap.h",
+      "language": "c",
+      "sizeLines": 50,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/livox_ros_driver2/3rdparty/rapidjson/istreamwrapper.h",
+      "language": "c",
+      "sizeLines": 161,
+      "fileCategory": "code"
+    }
+  ],
+  "batchImportData": {
+    "src/h1_2_voice_control/setup.py": [],
+    "src/livox_ros_driver2/3rdparty/rapidjson/allocators.h": [],
+    "src/livox_ros_driver2/3rdparty/rapidjson/cursorstreamwrapper.h": [],
+    "src/livox_ros_driver2/3rdparty/rapidjson/document.h": [],
+    "src/livox_ros_driver2/3rdparty/rapidjson/encodedstream.h": [],
+    "src/livox_ros_driver2/3rdparty/rapidjson/encodings.h": [],
+    "src/livox_ros_driver2/3rdparty/rapidjson/error/en.h": [],
+    "src/livox_ros_driver2/3rdparty/rapidjson/error/error.h": [],
+    "src/livox_ros_driver2/3rdparty/rapidjson/filereadstream.h": [],
+    "src/livox_ros_driver2/3rdparty/rapidjson/filewritestream.h": [],
+    "src/livox_ros_driver2/3rdparty/rapidjson/fwd.h": [],
+    "src/livox_ros_driver2/3rdparty/rapidjson/internal/biginteger.h": [],
+    "src/livox_ros_driver2/3rdparty/rapidjson/internal/clzll.h": [],
+    "src/livox_ros_driver2/3rdparty/rapidjson/internal/diyfp.h": [],
+    "src/livox_ros_driver2/3rdparty/rapidjson/internal/dtoa.h": [],
+    "src/livox_ros_driver2/3rdparty/rapidjson/internal/ieee754.h": [],
+    "src/livox_ros_driver2/3rdparty/rapidjson/internal/itoa.h": [],
+    "src/livox_ros_driver2/3rdparty/rapidjson/internal/meta.h": [],
+    "src/livox_ros_driver2/3rdparty/rapidjson/internal/pow10.h": [],
+    "src/livox_ros_driver2/3rdparty/rapidjson/internal/regex.h": [],
+    "src/livox_ros_driver2/3rdparty/rapidjson/internal/stack.h": [],
+    "src/livox_ros_driver2/3rdparty/rapidjson/internal/strfunc.h": [],
+    "src/livox_ros_driver2/3rdparty/rapidjson/internal/strtod.h": [],
+    "src/livox_ros_driver2/3rdparty/rapidjson/internal/swap.h": [],
+    "src/livox_ros_driver2/3rdparty/rapidjson/istreamwrapper.h": []
+  },
+  "neighborMap": {}
+}

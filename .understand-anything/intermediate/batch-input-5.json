@@ -1,0 +1,40 @@
+{
+  "batchIndex": 5,
+  "files": [
+    {
+      "path": "src/h1_2_nav_tools/h1_2_nav_tools/pointcloud_to_occupancy_grid.py",
+      "language": "python",
+      "sizeLines": 415,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_tools/h1_2_nav_tools/simple_grid_navigator.py",
+      "language": "python",
+      "sizeLines": 496,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_tools/h1_2_nav_tools/slam_grid_navigator.py",
+      "language": "python",
+      "sizeLines": 82,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/h1_2_nav_tools/h1_2_nav_tools/velocity_smoother_ema.py",
+      "language": "python",
+      "sizeLines": 142,
+      "fileCategory": "code"
+    }
+  ],
+  "batchImportData": {
+    "src/h1_2_nav_tools/h1_2_nav_tools/pointcloud_to_occupancy_grid.py": [],
+    "src/h1_2_nav_tools/h1_2_nav_tools/simple_grid_navigator.py": [],
+    "src/h1_2_nav_tools/h1_2_nav_tools/slam_grid_navigator.py": [
+      "src/h1_2_nav_tools/h1_2_nav_tools/pointcloud_to_occupancy_grid.py",
+      "src/h1_2_nav_tools/h1_2_nav_tools/simple_grid_navigator.py",
+      "src/h1_2_nav_tools/h1_2_nav_tools/velocity_smoother_ema.py"
+    ],
+    "src/h1_2_nav_tools/h1_2_nav_tools/velocity_smoother_ema.py": []
+  },
+  "neighborMap": {}
+}
