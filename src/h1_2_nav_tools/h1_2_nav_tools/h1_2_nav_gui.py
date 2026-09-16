@@ -403,10 +403,6 @@ class H12NavGui(QtWidgets.QMainWindow):
                 background: #0b1220;
                 color: #dbeafe;
             }
-            QPlainTextEdit#commandText {
-                background: #f8fafc;
-                color: #334155;
-            }
             """
         )
 
@@ -540,7 +536,6 @@ class H12NavGui(QtWidgets.QMainWindow):
         self.route_table.horizontalHeader().setSectionResizeMode(1, QtWidgets.QHeaderView.ResizeToContents)
         self.route_table.horizontalHeader().setSectionResizeMode(2, QtWidgets.QHeaderView.ResizeToContents)
         self.route_table.horizontalHeader().setSectionResizeMode(3, QtWidgets.QHeaderView.Stretch)
-        self.route_table.itemChanged.connect(lambda *_: self.update_command_preview())
         route_layout.addWidget(self.route_table)
         route_buttons = QtWidgets.QHBoxLayout()
         self.reload_points_button = self.make_button("Reload Points")
@@ -656,16 +651,6 @@ class H12NavGui(QtWidgets.QMainWindow):
         log_layout.addWidget(self.log_text)
         bottom_layout.addWidget(log_panel, 1)
 
-        command_panel, command_body = self.make_panel("SH", "Generated Command")
-        command_layout = QtWidgets.QVBoxLayout(command_body)
-        command_layout.setContentsMargins(0, 0, 0, 0)
-        self.command_text = QtWidgets.QPlainTextEdit()
-        self.command_text.setObjectName("commandText")
-        self.command_text.setReadOnly(True)
-        self.command_text.setMinimumWidth(390)
-        self.command_text.setMinimumHeight(170)
-        command_layout.addWidget(self.command_text)
-        bottom_layout.addWidget(command_panel)
 
         self.top_start_nav_button.clicked.connect(self.start_navigation)
         self.top_stop_all_button.clicked.connect(self.stop_all)
@@ -685,16 +670,6 @@ class H12NavGui(QtWidgets.QMainWindow):
         self.refresh_status_button.clicked.connect(self.ros.call_status)
         self.wave_button.clicked.connect(lambda: self.ros.call_gesture("wave_hand"))
         self.shake_button.clicked.connect(lambda: self.ros.call_gesture("shake_hand"))
-        for widget in [
-            self.map_edit,
-            self.pcd_edit,
-            self.initial_pose_edit,
-        ]:
-            widget.textChanged.connect(self.update_command_preview)
-        self.localization_combo.currentTextChanged.connect(self.update_command_preview)
-        self.auto_start_check.toggled.connect(self.update_command_preview)
-        self.return_to_start_check.toggled.connect(self.update_command_preview)
-
     def make_button(self, text, style_class=None):
         button = QtWidgets.QPushButton(text)
         if style_class:
@@ -748,7 +723,6 @@ class H12NavGui(QtWidgets.QMainWindow):
         path, _ = QtWidgets.QFileDialog.getOpenFileName(self, title, str(self.workspace_root), filter_text)
         if path:
             target.setText(path)
-            self.update_command_preview()
 
     def load_config(self):
         try:
@@ -789,7 +763,7 @@ class H12NavGui(QtWidgets.QMainWindow):
         self.auto_start_check.setChecked(bool(self.config.get("auto_start_route", False)))
         self.return_to_start_check.setChecked(bool(self.config.get("return_to_start", False)))
         self.apply_saved_route(self.config.get("memory_route", "A,B,C"), self.config.get("gesture_route", ""))
-        self.update_command_preview()
+
 
     def load_memory_points(self):
         try:
@@ -820,7 +794,6 @@ class H12NavGui(QtWidgets.QMainWindow):
                 self.route_table.setItem(row, 1, name_item)
                 combo = QtWidgets.QComboBox()
                 combo.addItems(GESTURE_OPTIONS)
-                combo.currentTextChanged.connect(self.update_command_preview)
                 self.route_table.setCellWidget(row, 2, combo)
                 position = record.get("position", {})
                 summary = "x={:.3f}, y={:.3f}, z={:.3f}".format(
@@ -835,7 +808,7 @@ class H12NavGui(QtWidgets.QMainWindow):
             self.route_table.blockSignals(False)
         self.apply_saved_route(self.config.get("memory_route", "A,B,C"), self.config.get("gesture_route", ""))
         self.append_log(f"Loaded {self.route_table.rowCount()} memory points from {self.points_file}")
-        self.update_command_preview()
+
 
     def apply_saved_route(self, memory_route, gesture_route):
         route_names = [
@@ -856,7 +829,6 @@ class H12NavGui(QtWidgets.QMainWindow):
             gesture = gestures.get(name, "")
             index = combo.findText(gesture)
             combo.setCurrentIndex(index if index >= 0 else 0)
-        self.update_command_preview()
 
     @staticmethod
     def parse_gesture_route(gesture_route):
@@ -875,12 +847,10 @@ class H12NavGui(QtWidgets.QMainWindow):
         for row in range(self.route_table.rowCount()):
             name = self.route_table.item(row, 1).text()
             self.route_table.item(row, 0).setCheckState(QtCore.Qt.Unchecked if name == "START" else QtCore.Qt.Checked)
-        self.update_command_preview()
 
     def clear_route_points(self):
         for row in range(self.route_table.rowCount()):
             self.route_table.item(row, 0).setCheckState(QtCore.Qt.Unchecked)
-        self.update_command_preview()
 
     def selected_route_rows(self):
         rows = []
@@ -927,13 +897,6 @@ class H12NavGui(QtWidgets.QMainWindow):
             f"return_to_start={str(self.return_to_start_check.isChecked()).lower()}",
         ]
 
-    def update_command_preview(self):
-        if not hasattr(self, "command_text"):
-            return
-        script = self.workspace_root / "run_ai_slam_nav.sh"
-        command = " \\\n  ".join([str(script), *self.build_navigation_args()])
-        self.command_text.setPlainText(command)
-
     def start_navigation(self):
         ok, message = self.validate_navigation_inputs()
         if not ok:
@@ -949,7 +912,6 @@ class H12NavGui(QtWidgets.QMainWindow):
         self.nav_process = self.make_process("nav")
         self.nav_process.start(str(script), args)
         self.append_log("$ " + " ".join([str(script), *args]))
-        self.update_command_preview()
 
     def stop_all(self):
         self.stop_voice_control()

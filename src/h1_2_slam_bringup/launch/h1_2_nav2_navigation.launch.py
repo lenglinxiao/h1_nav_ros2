@@ -100,8 +100,10 @@ def generate_launch_description():
             DeclareLaunchArgument("memory_points_file", default_value="maps/memory_points.json"),
             DeclareLaunchArgument("memory_route", default_value="A,B,C"),
             DeclareLaunchArgument("gesture_route", default_value=""),
+            DeclareLaunchArgument("turn_route", default_value=""),
             DeclareLaunchArgument("gesture_service_name", default_value="/h1_2_loco/execute_gesture"),
             DeclareLaunchArgument("gesture_timeout_sec", default_value="20.0"),
+            DeclareLaunchArgument("gesture_hold_sec", default_value="3.0"),
             DeclareLaunchArgument("shake_hand_duration", default_value="10.0"),
             DeclareLaunchArgument("arrival_wait_sec", default_value="2.0"),
             DeclareLaunchArgument("blocked_retry_wait_sec", default_value="5.0"),
@@ -119,6 +121,7 @@ def generate_launch_description():
             DeclareLaunchArgument("required_tf_max_age_sec", default_value="0.25"),
             DeclareLaunchArgument("localization_timeout_sec", default_value="15.0"),
             DeclareLaunchArgument("return_to_start", default_value="false"),
+            DeclareLaunchArgument("start_at_first_route_point", default_value="false"),
             DeclareLaunchArgument("global_voxel_resolution", default_value="0.35"),
             DeclareLaunchArgument("tracking_voxel_resolution", default_value="0.20"),
             DeclareLaunchArgument("global_normal_radius", default_value="0.8"),
@@ -421,15 +424,22 @@ def generate_launch_description():
                         "points_file": LaunchConfiguration("memory_points_file"),
                         "route_names": LaunchConfiguration("memory_route"),
                         "gesture_route": LaunchConfiguration("gesture_route"),
+                        "turn_route": LaunchConfiguration("turn_route"),
                         "gesture_service_name": LaunchConfiguration("gesture_service_name"),
                         "gesture_timeout_sec": ParameterValue(
                             LaunchConfiguration("gesture_timeout_sec"), value_type=float
+                        ),
+                        "gesture_hold_sec": ParameterValue(
+                            LaunchConfiguration("gesture_hold_sec"), value_type=float
                         ),
                         "arrival_wait_sec": LaunchConfiguration("arrival_wait_sec"),
                         "blocked_retry_wait_sec": LaunchConfiguration("blocked_retry_wait_sec"),
                         "max_retries_per_goal": LaunchConfiguration("max_retries_per_goal"),
                         "action_name": "navigate_to_pose",
                         "return_to_start": ParameterValue(LaunchConfiguration("return_to_start"), value_type=bool),
+                        "start_at_first_route_point": ParameterValue(
+                            LaunchConfiguration("start_at_first_route_point"), value_type=bool
+                        ),
                         "start_point_name": LaunchConfiguration("initial_pose_name"),
                         "required_tf_target_frame": "map",
                         "required_tf_source_frame": LaunchConfiguration("odom_frame"),

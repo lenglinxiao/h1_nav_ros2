@@ -2,7 +2,8 @@
 set -eo pipefail
 
 WORKSPACE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CYCLONEDDS_CONFIG="${WORKSPACE_DIR}/config/cyclonedds_enp45s0.xml"
+NETWORK_INTERFACE="enp43s0"
+CYCLONEDDS_CONFIG="${WORKSPACE_DIR}/config/cyclonedds_enp43s0.xml"
 LOCK_FILE="/tmp/h1_2_ai_slam_nav.lock"
 MODE="online"
 MAP_FILE=""
@@ -11,11 +12,15 @@ PCD_SAVE_PREFIX="maps/h1_2_lab"
 LOCALIZATION_BACKEND="global_gicp"
 PCD_MAP_FILE=""
 INITIAL_POSE_NAME="START"
-MEMORY_ROUTE="A,B,C"
+MEMORY_ROUTE="A,B"
+TURN_ROUTE="B:ccw,A:cw"
+START_AT_FIRST_ROUTE_POINT="true"
 GESTURE_ROUTE=""
+GESTURE_HOLD_SEC="3.0"
 AUTO_START_ROUTE="false"
 RETURN_TO_START="false"
 NAV2_PARAMS_FILE=""
+MEMORY_POINTS_FILE="${WORKSPACE_DIR}/maps/memory_points.json"
 
 print_usage() {
   cat <<'EOF'
@@ -39,8 +44,11 @@ Modes:
   localization=... Offline localization backend: global_gicp or icp. Default: global_gicp.
   pcd=...          3D PCD map for offline localization.
   initial_pose=... START memory point used for automatic PCD localization initialization. Default: START.
-  memory_route=... Route names for memory route runner. Default: A,B,C.
-  gesture_route=... Optional per-point gestures, for example B:wave_hand,C:shake_hand.
+  memory_route=... Route names for memory route runner. Default: A,B.
+  memory_points_file=... JSON file used to save and load points for this task.
+  turn_route=...   Arrival turns, using cw/ccw, for example B:ccw,A:cw.
+  gesture_route=... Optional per-point gestures; use + to sequence actions, for example A:reach_hand+retract_hand.
+  gesture_hold_sec=... Hold time between sequenced gestures (seconds). Default: 3.0.
   auto_start_route=true|false Start memory route after localization TF is available. Default: false.
   return_to_start=true|false Navigate to initial_pose before looping memory_route. Default: false.
   params_file=...  Optional Nav2 params file. Leave empty to use launch defaults.
@@ -87,8 +95,20 @@ for arg in "$@"; do
     memory_route=*)
       MEMORY_ROUTE="${arg#memory_route=}"
       ;;
+    memory_points_file=*)
+      MEMORY_POINTS_FILE="${arg#memory_points_file=}"
+      ;;
     gesture_route=*)
       GESTURE_ROUTE="${arg#gesture_route=}"
+      ;;
+    gesture_hold_sec=*)
+      GESTURE_HOLD_SEC="${arg#gesture_hold_sec=}"
+      ;;
+    turn_route=*)
+      TURN_ROUTE="${arg#turn_route=}"
+      ;;
+    start_at_first_route_point=*)
+      START_AT_FIRST_ROUTE_POINT="${arg#start_at_first_route_point=}"
       ;;
     auto_start_route=*)
       AUTO_START_ROUTE="${arg#auto_start_route=}"
@@ -261,10 +281,21 @@ if [[ "${MODE}" == "online" ]]; then
     "start_livox_driver:=false"
     map_file_path:="${PCD_SAVE_PREFIX}.pcd"
     "enable_sport_bridge:=true"
-    "network_interface:=enp45s0"
+    "network_interface:=${NETWORK_INTERFACE}"
+    "memory_points_file:=${MEMORY_POINTS_FILE}"
+    "start_at_first_route_point:=${START_AT_FIRST_ROUTE_POINT}"
     "max_linear_speed:=0.12"
     "max_angular_speed:=0.50"
   )
+  if [[ -n "${MEMORY_ROUTE}" ]]; then
+    ONLINE_LAUNCH_ARGS+=("memory_route:=${MEMORY_ROUTE}")
+  fi
+  if [[ -n "${TURN_ROUTE}" ]]; then
+    ONLINE_LAUNCH_ARGS+=("turn_route:=${TURN_ROUTE}")
+  fi
+  if [[ -n "${GESTURE_ROUTE}" ]]; then
+    ONLINE_LAUNCH_ARGS+=("gesture_route:=${GESTURE_ROUTE}")
+  fi
   if [[ -n "${NAV2_PARAMS_FILE}" ]]; then
     ONLINE_LAUNCH_ARGS+=("params_file:=${NAV2_PARAMS_FILE}")
   fi
@@ -279,19 +310,28 @@ NAV_LAUNCH_ARGS=(
   "start_livox_driver:=false"
   "map_file_path:=${PCD_SAVE_PREFIX}.pcd"
   "enable_sport_bridge:=true"
-  "network_interface:=enp45s0"
+  "network_interface:=${NETWORK_INTERFACE}"
+  "start_at_first_route_point:=${START_AT_FIRST_ROUTE_POINT}"
   "max_linear_speed:=0.12"
   "max_angular_speed:=0.50"
   "odom_yaw_offset:=3.141592653589793"
   "initial_pose_name:=${INITIAL_POSE_NAME}"
-  "memory_route:=${MEMORY_ROUTE}"
+  "memory_points_file:=${MEMORY_POINTS_FILE}"
   "auto_start_route:=${AUTO_START_ROUTE}"
   "return_to_start:=${RETURN_TO_START}"
 )
 
+if [[ -n "${MEMORY_ROUTE}" ]]; then
+  NAV_LAUNCH_ARGS+=("memory_route:=${MEMORY_ROUTE}")
+fi
+if [[ -n "${TURN_ROUTE}" ]]; then
+  NAV_LAUNCH_ARGS+=("turn_route:=${TURN_ROUTE}")
+fi
+
 if [[ -n "${GESTURE_ROUTE}" ]]; then
   NAV_LAUNCH_ARGS+=("gesture_route:=${GESTURE_ROUTE}")
 fi
+NAV_LAUNCH_ARGS+=("gesture_hold_sec:=${GESTURE_HOLD_SEC}")
 
 if [[ -n "${NAV2_PARAMS_FILE}" ]]; then
   NAV_LAUNCH_ARGS+=("params_file:=${NAV2_PARAMS_FILE}")

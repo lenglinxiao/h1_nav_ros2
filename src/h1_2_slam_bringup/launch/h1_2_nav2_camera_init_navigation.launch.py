@@ -88,7 +88,11 @@ def generate_launch_description():
             DeclareLaunchArgument("max_angular_speed", default_value="0.5"),
             DeclareLaunchArgument("robot_pelvis_z", default_value="-0.22"),
             DeclareLaunchArgument("memory_points_file", default_value="maps/memory_points.json"),
-            DeclareLaunchArgument("memory_route", default_value="A,B,C"),
+            DeclareLaunchArgument("memory_route", default_value=""),
+            DeclareLaunchArgument("turn_route", default_value=""),
+            DeclareLaunchArgument("gesture_route", default_value=""),
+            DeclareLaunchArgument("gesture_hold_sec", default_value="3.0"),
+            DeclareLaunchArgument("start_at_first_route_point", default_value="false"),
             DeclareLaunchArgument("arrival_wait_sec", default_value="2.0"),
             DeclareLaunchArgument("blocked_retry_wait_sec", default_value="5.0"),
             DeclareLaunchArgument("max_retries_per_goal", default_value="3"),
@@ -223,6 +227,14 @@ def generate_launch_description():
                     {
                         "points_file": LaunchConfiguration("memory_points_file"),
                         "route_names": LaunchConfiguration("memory_route"),
+                        "turn_route": LaunchConfiguration("turn_route"),
+                        "gesture_route": LaunchConfiguration("gesture_route"),
+                        "gesture_hold_sec": ParameterValue(
+                            LaunchConfiguration("gesture_hold_sec"), value_type=float
+                        ),
+                        "start_at_first_route_point": ParameterValue(
+                            LaunchConfiguration("start_at_first_route_point"), value_type=bool
+                        ),
                         "arrival_wait_sec": ParameterValue(
                             LaunchConfiguration("arrival_wait_sec"), value_type=float
                         ),

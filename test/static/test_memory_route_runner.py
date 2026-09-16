@@ -102,3 +102,59 @@ def test_memory_route_runner_executes_configured_gestures_after_arrival():
     assert "gesture_route=*" in script
     assert 'if [[ -n "${GESTURE_ROUTE}" ]]' in script
     assert 'NAV_LAUNCH_ARGS+=("gesture_route:=${GESTURE_ROUTE}")' in script
+
+
+def test_memory_route_runner_supports_directional_turns_after_arrival():
+    source = RUNNER.read_text(encoding="utf-8")
+    launch = (ROOT / "src" / "h1_2_slam_bringup" / "launch" / "h1_2_nav2_navigation.launch.py").read_text(encoding="utf-8")
+    script = (ROOT / "run_ai_slam_nav.sh").read_text(encoding="utf-8")
+
+    assert "from nav2_msgs.action import NavigateToPose, Spin" in source
+    assert 'self.declare_parameter("turn_route", "")' in source
+    assert 'direction == "ccw"' in source
+    assert "self.turn_angle_rad if direction" in source
+    assert "self.spin_action_client.send_goal_async(goal)" in source
+    assert 'DeclareLaunchArgument("turn_route"' in launch
+    assert '"turn_route": LaunchConfiguration("turn_route")' in launch
+    assert 'MEMORY_ROUTE="A,B"' in script
+    assert 'TURN_ROUTE="B:ccw,A:cw"' in script
+
+
+def test_memory_route_can_start_from_first_point_and_send_second_point_first():
+    source = RUNNER.read_text(encoding="utf-8")
+    launch = (ROOT / "src" / "h1_2_slam_bringup" / "launch" / "h1_2_nav2_navigation.launch.py").read_text(encoding="utf-8")
+    script = (ROOT / "run_ai_slam_nav.sh").read_text(encoding="utf-8")
+
+    assert 'self.declare_parameter("start_at_first_route_point", False)' in source
+    assert "1 if self.start_at_first_route_point and not self.return_to_start" in source
+    assert 'DeclareLaunchArgument("start_at_first_route_point"' in launch
+    assert '"start_at_first_route_point": ParameterValue(' in launch
+    assert 'START_AT_FIRST_ROUTE_POINT="true"' in script
+    assert '"start_at_first_route_point:=${START_AT_FIRST_ROUTE_POINT}"' in script
+
+
+def test_turn_route_uses_travel_direction_as_nav2_arrival_orientation():
+    source = RUNNER.read_text(encoding="utf-8")
+
+    assert "if not self.returning_to_start and name in self.turn_route:" in source
+    assert "self.set_route_arrival_orientation(goal.pose, name)" in source
+    assert "previous_name = self.route_names[(self.current_index - 1) % len(self.route_names)]" in source
+    assert "arrival_yaw = math.atan2(dy, dx)" in source
+    assert "pose.pose.orientation.z = math.sin(arrival_yaw / 2.0)" in source
+    assert "pose.pose.orientation.w = math.cos(arrival_yaw / 2.0)" in source
+
+
+def test_sequenced_gestures_hold_before_retracting():
+    source = RUNNER.read_text(encoding="utf-8")
+    launch = (ROOT / "src" / "h1_2_slam_bringup" / "launch" / "h1_2_nav2_navigation.launch.py").read_text(encoding="utf-8")
+    script = (ROOT / "run_ai_slam_nav.sh").read_text(encoding="utf-8")
+
+    assert 'self.declare_parameter("gesture_hold_sec", 3.0)' in source
+    assert "self.gesture_hold_sec = max(0.0" in source
+    assert "self.schedule_timer(" in source
+    assert "self.gesture_hold_sec," in source
+    assert 'DeclareLaunchArgument("gesture_hold_sec", default_value="3.0")' in launch
+    assert '"gesture_hold_sec": ParameterValue(' in launch
+    assert 'GESTURE_HOLD_SEC="3.0"' in script
+    assert 'gesture_hold_sec=*)' in script
+    assert 'NAV_LAUNCH_ARGS+=("gesture_hold_sec:=${GESTURE_HOLD_SEC}")' in script

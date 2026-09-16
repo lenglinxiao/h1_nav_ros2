@@ -14,8 +14,13 @@ from urllib.parse import parse_qs, urlparse
 
 import rclpy
 from cv_bridge import CvBridge
-from h1_2_icp_localization.msg import LocalizationStatus
-from h1_2_nav_msgs.srv import ExecuteGesture, RouteStatus, StartRoute, StopRoute
+try:
+    from h1_2_icp_localization.msg import LocalizationStatus
+    from h1_2_nav_msgs.srv import ExecuteGesture, RouteStatus, StartRoute, StopRoute, SaveMemoryPoint
+    ROS_CUSTOM_MESSAGES_AVAILABLE = True
+except ModuleNotFoundError:
+    LocalizationStatus = ExecuteGesture = RouteStatus = StartRoute = StopRoute = SaveMemoryPoint = None
+    ROS_CUSTOM_MESSAGES_AVAILABLE = False
 from sensor_msgs.msg import CameraInfo, Image
 from std_srvs.srv import Trigger
 
@@ -52,7 +57,9 @@ def configure_ros_environment():
     os.environ["RMW_IMPLEMENTATION"] = "rmw_cyclonedds_cpp"
     os.environ.pop("ROS_HOSTNAME", None)
     os.environ.pop("ROS_IP", None)
-    dds_config = find_workspace_root() / "config" / "cyclonedds_enp45s0.xml"
+    workspace_root = find_workspace_root()
+    configured_dds = os.environ.get("H1_2_DDS_CONFIG", "").strip()
+    dds_config = Path(configured_dds).expanduser() if configured_dds else workspace_root / "config" / "cyclonedds_enp43s0.xml"
     if not dds_config.is_file():
         raise RuntimeError(f"Cyclone DDS config does not exist: {dds_config}")
     os.environ["CYCLONEDDS_URI"] = f"file://{dds_config}"
@@ -89,6 +96,91 @@ def normalize_memory_route(value):
         for name in (str(item).strip() for item in names)
         if name and name != "START"
     )
+
+
+def task_points_file(workspace_root, profile):
+    """Return a readable per-task point file path."""
+    if profile.get("id") == "default":
+        return workspace_root / "maps" / "memory_points.json"
+    name = str(profile.get("name") or profile.get("id") or "task").strip()
+    safe_name = "".join("_" if char in '/\\:*?\"<>|' else char for char in name).strip(" .")
+    return workspace_root / "maps" / "tasks" / f"{safe_name or 'task'}.json"
+
+
+def normalize_task_profiles(config):
+    """Migrate the single route and derive launch arguments from the selected task."""
+    # Older GUI versions omitted this argument and inherited the shell default.
+    legacy_turns = {}
+    for entry in str(config.get("turn_route", "B:ccw,A:cw")).split(","):
+        if ":" in entry:
+            point, direction = (part.strip() for part in entry.split(":", 1))
+            if point and direction.lower() in ("cw", "ccw"):
+                legacy_turns[point] = direction.lower()
+    profiles = config.get("task_profiles")
+    if profiles is None:
+        names = list(dict.fromkeys(normalize_memory_route(config.get("memory_route", "")).split(",")))
+        gestures = {}
+        for entry in str(config.get("gesture_route", "")).split(","):
+            if ":" in entry:
+                name, gesture = entry.split(":", 1)
+                gestures[name.strip()] = gesture.strip()
+        profiles = [{"id": "default", "name": "默认任务", "steps": [
+            {"point": name, "gesture": gestures.get(name, "")} for name in names if name
+        ]}]
+    if not isinstance(profiles, list) or not 1 <= len(profiles) <= 100:
+        raise ValueError("请保留 1 到 100 个任务。")
+    cleaned, ids, names = [], set(), set()
+    for profile in profiles:
+        if not isinstance(profile, dict):
+            raise ValueError("任务格式无效。")
+        task_id = profile.get("id", "")
+        name = profile.get("name", "")
+        if not isinstance(task_id, str) or not task_id or len(task_id) > 80 or task_id in ids:
+            raise ValueError("任务标识无效或重复。")
+        if not isinstance(name, str) or not name.strip() or len(name.strip()) > 80 or name.strip() in names:
+            raise ValueError("任务名称不能为空、重复或超过 80 个字符。")
+        steps = profile.get("steps", [])
+        if not isinstance(steps, list):
+            raise ValueError("任务点位格式无效。")
+        points, cleaned_steps = set(), []
+        for step in steps:
+            if not isinstance(step, dict):
+                raise ValueError("任务点位格式无效。")
+            point, gesture = step.get("point", ""), step.get("gesture", "")
+            if not isinstance(point, str) or not point.strip() or any(c in point for c in ",:\n\r"):
+                raise ValueError("任务中的点位名称无效。")
+            point = point.strip()
+            if point == "START" or point in points:
+                raise ValueError("START 不能作为巡航点，同一任务不能重复选择同一个点位。")
+            if not isinstance(gesture, str) or any(c in gesture for c in ",:\n\r"):
+                raise ValueError("任务中的动作格式无效。")
+            turn = step.get("turn", legacy_turns.get(point, ""))
+            if not isinstance(turn, str) or turn not in ("", "cw", "ccw"):
+                raise ValueError("到点转向只能为不转向、cw（顺时针）或 ccw（逆时针）。")
+            points.add(point)
+            cleaned_steps.append({"point": point, "gesture": gesture.strip(), "turn": turn})
+        ids.add(task_id)
+        names.add(name.strip())
+        cleaned_profile = {"id": task_id, "name": name.strip(), "steps": cleaned_steps}
+        if "memory_points_file" in profile:
+            cleaned_profile["memory_points_file"] = str(profile.get("memory_points_file", "")).strip()
+        cleaned.append(cleaned_profile)
+    selected_id = config.get("selected_task_id", cleaned[0]["id"])
+    selected = next((task for task in cleaned if task["id"] == selected_id), None)
+    if selected is None:
+        raise ValueError("所选任务不存在，请重新选择。")
+    config["task_profiles"] = cleaned
+    config["selected_task_id"] = selected["id"]
+    config["memory_route"] = ",".join(step["point"] for step in selected["steps"])
+    config["gesture_route"] = ",".join(f'{step["point"]}:{step["gesture"]}' for step in selected["steps"] if step["gesture"])
+    config["turn_route"] = ",".join(f'{step["point"]}:{step["turn"]}' for step in selected["steps"] if step["turn"])
+    return selected
+
+
+def task_execution_snapshot(config):
+    selected = normalize_task_profiles(config)
+    return {"id": selected["id"], "name": selected["name"],
+            "memory_route": config["memory_route"], "gesture_route": config["gesture_route"], "turn_route": config["turn_route"]}
 
 
 def bind_http_server(host, port, handler, port_tries):
@@ -259,6 +351,7 @@ class RosServiceBridge:
         self.teaching_record_start_client = self.node.create_client(Trigger, "start_teaching_path_recording")
         self.teaching_record_stop_save_client = self.node.create_client(Trigger, "stop_and_save_teaching_path")
         self.gesture_client = self.node.create_client(ExecuteGesture, "/h1_2_loco/execute_gesture")
+        self.save_point_client = self.node.create_client(SaveMemoryPoint, "save_memory_point")
         self.localization_sub = self.node.create_subscription(
             LocalizationStatus,
             "/icp_localization/status",
@@ -278,6 +371,12 @@ class RosServiceBridge:
         if not localization["ready"]:
             return {"success": False, "message": localization["message"]}
         return self._call_simple("start_memory_route", self.start_client, StartRoute.Request())
+
+    def save_memory_point(self, name, overwrite=False):
+        request = SaveMemoryPoint.Request()
+        request.name = str(name).strip()
+        request.overwrite = bool(overwrite)
+        return self._call_simple("save_memory_point", self.save_point_client, request, include_pose=True)
 
     def route_stop(self):
         return self._call_simple("stop_memory_route", self.stop_client, StopRoute.Request())
@@ -355,7 +454,7 @@ class RosServiceBridge:
         }
 
     def execute_gesture(self, name):
-        if name not in ("wave_hand", "shake_hand"):
+        if name not in ("wave_hand", "shake_hand", "reach_hand", "retract_hand"):
             return {"success": False, "message": f"unsupported gesture: {name}", "sdk_ret": -1}
         if not self.gesture_client.wait_for_service(timeout_sec=0.2):
             return {"success": False, "message": "/h1_2_loco/execute_gesture is not available", "sdk_ret": -1}
@@ -573,13 +672,25 @@ class RosServiceBridge:
     def _on_camera_info(self, message):
         self.camera_frames.update_camera_info(message.width, message.height)
 
-    def _call_simple(self, label, client, request):
-        if not client.wait_for_service(timeout_sec=0.2):
+    def _call_simple(self, label, client, request, include_pose=False):
+        wait_timeout = 3.0 if label == "save_memory_point" else 0.2
+        if not client.wait_for_service(timeout_sec=wait_timeout):
+            if label == "save_memory_point":
+                return {"success": False, "message": "存点服务尚未就绪。请先启动当前模式，等待在线导航启动完成后再记录点位。"}
             return {"success": False, "message": f"{label} is not available"}
         ok, result = self._wait_future(client.call_async(request))
         if not ok:
             return {"success": False, "message": str(result)}
-        return {"success": bool(result.success), "message": result.message}
+        response = {"success": bool(result.success), "message": result.message}
+        if include_pose and response["success"]:
+            pose = result.pose
+            response["pose"] = {
+                "frame_id": pose.header.frame_id,
+                "position": {"x": pose.pose.position.x, "y": pose.pose.position.y, "z": pose.pose.position.z},
+                "orientation": {"x": pose.pose.orientation.x, "y": pose.pose.orientation.y,
+                                 "z": pose.pose.orientation.z, "w": pose.pose.orientation.w},
+            }
+        return response
 
     def _wait_future(self, future, timeout=5.0):
         done = threading.Event()
@@ -615,6 +726,9 @@ class UiOnlyRosBridge:
         }
 
     def route_start(self):
+        return self._blocked()
+
+    def save_memory_point(self, _name, _overwrite=False):
         return self._blocked()
 
     def route_stop(self):
@@ -714,11 +828,15 @@ class ProcessManager:
 
     def start_navigation(self, args):
         with self.lock:
-            if self._is_running(self.nav_process):
-                return {"success": False, "message": "navigation is already running"}
             script = self.workspace_root / "run_ai_slam_nav.sh"
             if not script.is_file():
                 return {"success": False, "message": f"missing script: {script}"}
+            if args and args[0] in ("mode=save_map", "mode=save_pcd_map"):
+                label = "map-save" if args[0] == "mode=save_map" else "pcd-save"
+                self._start(label, [str(script), *args])
+                return {"success": True, "message": f"{label} process started"}
+            if self._is_running(self.nav_process):
+                return {"success": False, "message": "navigation is already running"}
             self.nav_process = self._start("nav", [str(script), *args])
             return {"success": True, "message": "navigation process started"}
 
@@ -986,9 +1104,19 @@ class ProcessManager:
 
 
 class WebGuiApp:
+    @staticmethod
+    def _task_points_file(workspace_root, profile):
+        if profile.get("id") == "default":
+            return workspace_root / "maps" / "memory_points.json"
+        name = str(profile.get("name") or profile.get("id") or "task").strip()
+        safe_name = "".join("_" if char in '/\\:*?\"<>|' else char for char in name).strip(" .")
+        return workspace_root / "maps" / "tasks" / f"{safe_name or 'task'}.json"
+
     def __init__(self, workspace_root, ui_only=False):
         self.workspace_root = workspace_root
         self.ui_only = bool(ui_only)
+        self.loaded_task = None
+        self.task_lock = threading.RLock()
         self.points_file = workspace_root / "maps" / "memory_points.json"
         self.logs = LogStore()
         self.processes = ProcessManager(workspace_root, self.logs)
@@ -1014,6 +1142,8 @@ class WebGuiApp:
             "pcd_prefix": "maps/h1_2_lab",
             "localization": "global_gicp",
             "initial_pose": "START",
+            "start_gesture": "",
+            "start_turn": "",
             "auto_start_route": False,
             "return_to_start": False,
             "memory_route": "A,B,C",
@@ -1082,9 +1212,27 @@ class WebGuiApp:
             config.get("vision_workspace", "~/ros2_ws")
         )
         config["ui_only"] = self.ui_only
+        normalize_task_profiles(config)
         return config
 
     def save_config(self, config):
+        normalize_task_profiles(config)
+        for profile in config["task_profiles"]:
+            new_task = "memory_points_file" in profile and not str(profile["memory_points_file"]).strip()
+            previous_file = Path(str(profile.get("memory_points_file", ""))).expanduser() if str(profile.get("memory_points_file", "")).strip() else None
+            points_file = self._task_points_file(self.workspace_root, profile)
+            if not points_file.is_absolute():
+                points_file = self.workspace_root / points_file
+            profile["memory_points_file"] = str(points_file)
+            if not points_file.exists():
+                points_file.parent.mkdir(parents=True, exist_ok=True)
+                legacy_points = getattr(self, "points_file", self.workspace_root / "maps" / "memory_points.json")
+                if previous_file and previous_file.exists():
+                    points_file.write_text(previous_file.read_text(encoding="utf-8"), encoding="utf-8")
+                elif not new_task and legacy_points.exists():
+                    points_file.write_text(legacy_points.read_text(encoding="utf-8"), encoding="utf-8")
+                else:
+                    points_file.write_text(json.dumps({"frame_id": "map", "points": {}}, ensure_ascii=False, indent=2), encoding="utf-8")
         config["memory_route"] = normalize_memory_route(
             config.get("memory_route", "A,B,C")
         )
@@ -1112,7 +1260,32 @@ class WebGuiApp:
         if "nav2_params_file" in config:
             config["nav2_params_file"] = str(config["nav2_params_file"]).strip()
         CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
-        CONFIG_PATH.write_text(json.dumps(config, indent=2, sort_keys=True), encoding="utf-8")
+        with self.task_lock:
+            temporary = CONFIG_PATH.with_suffix(".json.tmp")
+            temporary.write_text(json.dumps(config, indent=2, sort_keys=True), encoding="utf-8")
+            temporary.replace(CONFIG_PATH)
+
+    def start_navigation_task(self, payload):
+        with self.task_lock:
+            ok, message = self.validate_navigation(payload)
+            if not ok:
+                return {"success": False, "message": message}
+            result = self.processes.start_navigation(self.navigation_args(payload))
+            if result.get("success"):
+                self.loaded_task = task_execution_snapshot(payload) if payload.get("run_mode") == "navigation" else None
+                if payload.get("run_mode") not in ("save_map", "save_pcd_map"):
+                    self.save_config(payload)
+            return result
+
+    def start_selected_task(self, payload):
+        with self.task_lock:
+            selected = task_execution_snapshot(payload)
+            if self.loaded_task is None or not self.processes.status()["navigation"]["running"]:
+                return {"success": False, "message": "请先启动导航，载入当前任务。"}
+            keys = ("id", "memory_route", "gesture_route", "turn_route")
+            if any(selected[key] != self.loaded_task[key] for key in keys):
+                return {"success": False, "message": "当前任务或编排与已加载的任务不同。请停止全部后重新启动导航，载入所选任务。"}
+            return self.ros.route_start()
 
     def reconnect_camera(self, config):
         config["camera_preview_enabled"] = True
@@ -1179,17 +1352,33 @@ class WebGuiApp:
         return status
 
     def memory_points(self):
+        return self.memory_points_for_task(None)
+
+    def memory_points_for_task(self, task_id, task_name=""):
+        workspace_root = getattr(self, "workspace_root", Path("."))
+        points_file = getattr(self, "points_file", workspace_root / "maps" / "memory_points.json")
+        if task_id:
+            config = self.default_config()
+            profile = next((item for item in config["task_profiles"] if item["id"] == task_id), None)
+            resolved_profile = profile or {"id": task_id, "name": task_name}
+            points_file = self._task_points_file(self.workspace_root, resolved_profile)
+            configured = Path(str(resolved_profile.get("memory_points_file", ""))).expanduser() if str(resolved_profile.get("memory_points_file", "")).strip() else None
+            if not points_file.exists() and configured and configured.exists():
+                points_file = configured
         try:
-            data = json.loads(self.points_file.read_text(encoding="utf-8"))
+            data = json.loads(points_file.read_text(encoding="utf-8"))
             points = data.get("points", {})
             if not isinstance(points, dict):
                 raise ValueError("points object is invalid")
+        except FileNotFoundError:
+            points = {}
         except Exception as exc:
-            self.logs.add("web", f"failed to load memory points: {exc}")
+            self.logs.add("web", f"failed to load memory points from {points_file}: {exc}")
             points = {}
         rows = []
         for name in sorted(points.keys(), key=point_sort_key):
             position = points[name].get("position", {})
+            orientation = points[name].get("orientation", {})
             rows.append(
                 {
                     "name": name,
@@ -1198,11 +1387,67 @@ class WebGuiApp:
                         "y": float(position.get("y", 0.0)),
                         "z": float(position.get("z", 0.0)),
                     },
+                    "orientation": {
+                        "x": float(orientation.get("x", 0.0)),
+                        "y": float(orientation.get("y", 0.0)),
+                        "z": float(orientation.get("z", 0.0)),
+                        "w": float(orientation.get("w", 1.0)),
+                    },
                 }
             )
         return rows
 
+    def save_task_point(self, task_id, task_name, name, overwrite=False):
+        name = str(name or "").strip()
+        if not name or any(c in name for c in ",:\n\r"):
+            return {"success": False, "message": "点位名称无效。"}
+        result = self.ros.save_memory_point(name, overwrite)
+        if not result.get("success"):
+            return result
+        config = self.default_config()
+        profile = next((item for item in config["task_profiles"] if item["id"] == task_id), None)
+        if not profile:
+            profile = {"id": task_id, "name": task_name}
+        target = self._task_points_file(self.workspace_root, profile)
+        try:
+            configured = Path(str(profile.get("memory_points_file", ""))).expanduser() if str(profile.get("memory_points_file", "")).strip() else None
+            source = target if target.exists() else configured if configured and configured.exists() else None
+            data = json.loads(source.read_text(encoding="utf-8")) if source else {"frame_id": "map", "points": {}}
+            points = data.setdefault("points", {})
+            pose = result.get("pose")
+            if not pose:
+                return {"success": False, "message": "ROS 未返回当前位姿。"}
+            record = points.get(name, {})
+            record.update({"position": pose["position"], "orientation": pose["orientation"]})
+            points[name] = record
+            data["frame_id"] = pose.get("frame_id", "map")
+            data["updated_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        except (OSError, ValueError) as exc:
+            return {"success": False, "message": f"点位已保存到 ROS，但写入任务文件失败：{exc}"}
+        return {"success": True, "message": f"已记录点位：{name}"}
+
+    def delete_task_points(self, task_id, task_name, configured_file=""):
+        if str(task_id) == "default":
+            return {"success": False, "message": "默认任务不能删除。"}
+        target = self._task_points_file(self.workspace_root, {"id": str(task_id), "name": str(task_name or "")})
+        configured = Path(str(configured_file)).expanduser() if configured_file else None
+        tasks_root = (self.workspace_root / "maps" / "tasks").resolve()
+        if configured:
+            try:
+                if configured.resolve().parent == tasks_root:
+                    target = configured
+            except OSError:
+                pass
+        try:
+            target.unlink(missing_ok=True)
+        except OSError as exc:
+            return {"success": False, "message": f"删除任务点位文件失败：{exc}"}
+        return {"success": True, "message": "任务点位文件已删除。"}
+
     def validate_navigation(self, payload):
+        normalize_task_profiles(payload)
         mode = str(payload.get("run_mode", "online"))
         map_path = Path(str(payload.get("map", ""))).expanduser()
         pcd_path = Path(str(payload.get("pcd", ""))).expanduser()
@@ -1218,6 +1463,15 @@ class WebGuiApp:
             return False, f"Nav2 params file does not exist: {params_file}"
         if mode == "navigation" and not memory_route:
             return False, "Select at least one route point."
+        if mode == "navigation":
+            selected = next(item for item in payload["task_profiles"] if item["id"] == payload["selected_task_id"])
+            if not hasattr(self, "points_file"):
+                available_points = {point["name"] for point in self.memory_points()}
+            else:
+                available_points = {point["name"] for point in self.memory_points_for_task(selected["id"])}
+            missing = [name for name in memory_route.split(",") if name not in available_points]
+            if missing:
+                return False, "当前任务包含不存在的点位：" + ", ".join(missing)
         if mode == "save_map" and not str(payload.get("map_prefix", "")).strip():
             return False, "Save map mode requires map_prefix."
         if mode == "save_pcd_map" and not str(payload.get("pcd_prefix", "")).strip():
@@ -1225,10 +1479,34 @@ class WebGuiApp:
         return True, ""
 
     def navigation_args(self, payload):
+        normalize_task_profiles(payload)
         mode = str(payload.get("run_mode", "online"))
         args = [f"mode={mode}"]
+        selected = next(item for item in payload["task_profiles"] if item["id"] == payload["selected_task_id"])
+        task_args = [
+            f"memory_route={normalize_memory_route(payload.get('memory_route', ''))}",
+            f"gesture_route={payload.get('gesture_route', '')}",
+            f"turn_route={payload.get('turn_route', '')}",
+            f"memory_points_file={self._task_points_file(getattr(self, 'workspace_root', Path('.')), selected)}",
+            f"auto_start_route={str(bool(payload.get('auto_start_route', False))).lower()}",
+            f"return_to_start={str(bool(payload.get('return_to_start', False))).lower()}",
+        ]
+        def mode_params_path(value):
+            path = Path(value).expanduser()
+            # The two bundled Nav2 profiles use different global frames:
+            # online mapping publishes camera_init, while offline navigation
+            # relies on localization to publish map.
+            if mode == "online" and path.name == "nav2_h1_2_rpp.yaml":
+                return path.with_name("nav2_h1_2.yaml")
+            if mode == "navigation" and path.name == "nav2_h1_2.yaml":
+                return path.with_name("nav2_h1_2_rpp.yaml")
+            return path
         if mode == "online":
             args.append(f"pcd_prefix={payload.get('pcd_prefix', 'maps/h1_2_lab')}")
+            args.extend(task_args)
+            params_file = str(payload.get("nav2_params_file", "")).strip()
+            if params_file:
+                args.append(f"params_file={mode_params_path(params_file)}")
             return args
         if mode == "save_map":
             args.append(f"map_prefix={payload.get('map_prefix', 'maps/h1_2_lab')}")
@@ -1242,16 +1520,12 @@ class WebGuiApp:
             f"localization={payload.get('localization', 'global_gicp')}",
             f"pcd={Path(str(payload.get('pcd', ''))).expanduser()}",
             f"initial_pose={payload.get('initial_pose') or 'START'}",
-            f"memory_route={normalize_memory_route(payload.get('memory_route', ''))}",
-            f"gesture_route={payload.get('gesture_route', '')}",
-            f"auto_start_route={str(bool(payload.get('auto_start_route', False))).lower()}",
-            f"return_to_start={str(bool(payload.get('return_to_start', False))).lower()}",
             ]
         )
+        args.extend(task_args)
         params_file = str(payload.get("nav2_params_file", "")).strip()
         if params_file:
-            params_path = Path(params_file).expanduser()
-            args.append(f"params_file={params_path}")
+            args.append(f"params_file={mode_params_path(params_file)}")
         return args
 
 class RequestHandler(BaseHTTPRequestHandler):
@@ -1264,13 +1538,16 @@ class RequestHandler(BaseHTTPRequestHandler):
         elif parsed.path == "/api/config":
             self._send_json(self.app.default_config())
         elif parsed.path == "/api/points":
-            self._send_json({"points": self.app.memory_points(), "gestures": GESTURE_OPTIONS})
+            task_id = parse_qs(parsed.query).get("task_id", [None])[0]
+            task_name = parse_qs(parsed.query).get("task_name", [""])[0]
+            self._send_json({"points": self.app.memory_points_for_task(task_id, task_name), "gestures": GESTURE_OPTIONS})
         elif parsed.path == "/api/status":
             route = self.app.ros.route_status()
             teaching_route = self.app.ros.teaching_route_status()
             self._send_json(
                 {
                     "route": route,
+                    "loaded_task": self.app.loaded_task if self.app.processes.status()["navigation"]["running"] else None,
                     "teaching_route": teaching_route,
                     "localization": self.app.ros.localization_status(),
                     "processes": self.app.processes.status(),
@@ -1300,6 +1577,15 @@ class RequestHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         parsed = urlparse(self.path)
         payload = self._read_json()
+        if not isinstance(payload, dict):
+            self._send_json({"success": False, "message": "请求配置必须是对象。"})
+            return
+        if parsed.path in ("/api/config", "/api/navigation/start", "/api/route/start") or "task_profiles" in payload:
+            try:
+                normalize_task_profiles(payload)
+            except ValueError as exc:
+                self._send_json({"success": False, "message": str(exc)})
+                return
         if self.app.ui_only and parsed.path != "/api/config":
             self.app.logs.add("ui-only", f"blocked control request: {parsed.path}")
             self._send_json(
@@ -1312,13 +1598,18 @@ class RequestHandler(BaseHTTPRequestHandler):
         if parsed.path == "/api/config":
             self.app.save_config(payload)
             self._send_json({"success": True, "message": "config saved"})
+        elif parsed.path == "/api/task/delete":
+            self._send_json(
+                self.app.delete_task_points(
+                    payload.get("task_id", ""),
+                    payload.get("task_name", ""),
+                    payload.get("memory_points_file", ""),
+                )
+            )
+        elif parsed.path == "/api/points/save":
+            self._send_json(self.app.save_task_point(payload.get("task_id", ""), payload.get("task_name", ""), payload.get("name", ""), payload.get("overwrite", False)))
         elif parsed.path == "/api/navigation/start":
-            ok, message = self.app.validate_navigation(payload)
-            if not ok:
-                self._send_json({"success": False, "message": message})
-                return
-            self.app.save_config(payload)
-            self._send_json(self.app.processes.start_navigation(self.app.navigation_args(payload)))
+            self._send_json(self.app.start_navigation_task(payload))
         elif parsed.path == "/api/navigation/stop_all":
             self.app.ros.teaching_route_stop()
             self._send_json(self.app.processes.stop_all(payload))
@@ -1356,7 +1647,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                 )
             )
         elif parsed.path == "/api/route/start":
-            self._send_json(self.app.ros.route_start())
+            self._send_json(self.app.start_selected_task(payload))
         elif parsed.path == "/api/route/stop":
             self._send_json(self.app.ros.route_stop())
         elif parsed.path == "/api/teaching_route/process/start":
@@ -1472,20 +1763,20 @@ INDEX_HTML = r"""<!doctype html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>H1-2 Offline Navigation</title>
+  <title>Jarvis机器人控制平台</title>
   <style>
     :root {
-      --bg: #070b0f;
-      --panel: #0d151a;
-      --panel-2: #101d24;
-      --panel-3: #13252e;
-      --text: #e5f3f6;
-      --muted: #82a3ad;
-      --line: #1f343c;
-      --accent: #22d3ee;
-      --accent-2: #34d399;
-      --danger: #f87171;
-      --warn: #fbbf24;
+      --bg: #f4f6f8;
+      --panel: #ffffff;
+      --panel-2: #f8fafc;
+      --panel-3: #eef2f6;
+      --text: #17202a;
+      --muted: #687386;
+      --line: #d8e0ea;
+      --accent: #2463eb;
+      --accent-2: #0f766e;
+      --danger: #b42318;
+      --warn: #a15c00;
       --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       --sans: Inter, "Noto Sans SC", "Microsoft YaHei", Arial, sans-serif;
     }
@@ -1501,9 +1792,9 @@ INDEX_HTML = r"""<!doctype html>
     }
     button, input, select { font: inherit; }
     .app {
-      min-height: 100vh;
+      height: 100vh;
       display: grid;
-      grid-template-rows: 108px minmax(0, 1fr) 190px;
+      grid-template-rows: 108px minmax(0, 1fr) 290px;
     }
     header {
       min-height: 108px;
@@ -1513,7 +1804,7 @@ INDEX_HTML = r"""<!doctype html>
       gap: 16px;
       padding: 0 16px;
       border-bottom: 1px solid var(--line);
-      background: #091016;
+      background: #ffffff;
       position: sticky;
       top: 0;
       z-index: 3;
@@ -1553,30 +1844,32 @@ INDEX_HTML = r"""<!doctype html>
       border: 1px solid var(--line);
       border-radius: 6px;
       padding: 0 12px;
-      background: #132229;
+      background: #ffffff;
       color: var(--text);
       font-weight: 750;
       cursor: pointer;
     }
-    .btn:hover { background: #18313a; border-color: #2c5663; }
-    .btn.primary { background: #0891b2; border-color: #22d3ee; color: #ecfeff; }
-    .btn.soft { background: #0f2c2a; border-color: #176a62; color: #86efac; }
-    .btn.danger { background: #3b1217; border-color: #7f1d1d; color: #fecaca; }
-    .btn:disabled { opacity: .55; cursor: not-allowed; }
+    .btn:hover { background: #f1f5f9; border-color: #aeb9c8; }
+    .btn.primary { background: #eff6ff; border-color: #bfdbfe; color: #1d4ed8; }
+    .btn.primary:hover { background: #dbeafe; border-color: #93c5fd; }
+    .btn.soft { background: #e9f7f5; border-color: #bdd7d4; color: #0f766e; }
+    .btn.danger { background: #fff1f0; border-color: #f3b8b2; color: #b42318; }
+    .btn:disabled { background: #f8fafc; border-color: #e2e8f0; color: #64748b; cursor: not-allowed; }
+    .btn:focus-visible { outline: 2px solid #93c5fd; outline-offset: 2px; }
     .ui-only-badge {
       display: none;
       padding: 7px 10px;
-      border: 1px solid #a16207;
+      border: 1px solid #f1d49a;
       border-radius: 999px;
-      background: #422006;
-      color: #fde68a;
+      background: #fffbeb;
+      color: #92400e;
       font-size: 12px;
       font-weight: 850;
     }
-    body.ui-only .ui-only-badge { display: inline-flex; }
+    body.ui-only .ui-only-badge { display: none; }
     main {
       display: grid;
-      grid-template-columns: 300px minmax(540px, 1fr) 340px;
+      grid-template-columns: 290px minmax(480px, 1fr) 320px;
       gap: 10px;
       padding: 10px;
       min-height: 0;
@@ -1608,7 +1901,7 @@ INDEX_HTML = r"""<!doctype html>
       height: 32px;
       border: 1px solid var(--line);
       border-radius: 6px;
-      background: #081116;
+      background: #ffffff;
       padding: 0 10px;
       color: var(--text);
       outline: none;
@@ -1621,7 +1914,7 @@ INDEX_HTML = r"""<!doctype html>
     .check input { width: 15px; height: 15px; }
     table { width: 100%; border-collapse: collapse; table-layout: fixed; }
     th, td { height: 38px; border-bottom: 1px solid var(--line); padding: 7px 8px; text-align: left; }
-    th { color: var(--muted); background: #0a1217; font-size: 12px; font-weight: 850; }
+    th { color: var(--muted); background: #f3f6fa; font-size: 12px; font-weight: 850; }
     th:first-child, td:first-child { width: 44px; text-align: center; }
     th:nth-child(2), td:nth-child(2) { width: 72px; }
     th:nth-child(3), td:nth-child(3) { width: 118px; }
@@ -1629,8 +1922,8 @@ INDEX_HTML = r"""<!doctype html>
     .point {
       display: inline-flex; min-width: 32px; height: 24px;
       align-items: center; justify-content: center;
-      background: #073344; color: #67e8f9;
-      border: 1px solid #155e75;
+      background: #eff6ff; color: #1d4ed8;
+      border: 1px solid #bfdbfe;
       border-radius: 6px; font-weight: 900;
     }
     .pos { color: var(--muted); font-family: var(--mono); font-size: 12px; }
@@ -1641,10 +1934,10 @@ INDEX_HTML = r"""<!doctype html>
     .pill {
       display: inline-flex; align-items: center; width: fit-content;
       min-height: 23px; padding: 3px 9px; border-radius: 999px;
-      background: #15252d; color: #bad6dc; font-weight: 850; font-size: 12px;
+      background: #f1f5f9; color: #475569; font-weight: 850; font-size: 12px;
     }
-    .pill.ok { background: #063f32; color: #86efac; }
-    .pill.warn { background: #3d2a08; color: #fcd34d; }
+    .pill.ok { background: #ecfdf5; color: #166534; }
+    .pill.warn { background: #fffbeb; color: #92400e; }
     .localization-indicator {
       width: 100%;
       min-height: 52px;
@@ -1658,19 +1951,19 @@ INDEX_HTML = r"""<!doctype html>
       transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
     }
     .localization-indicator.waiting {
-      background: #111c23;
-      border-color: #314751;
-      color: #9bb3bb;
+      background: #f1f5f9;
+      border-color: #d8e0ea;
+      color: #64748b;
     }
     .localization-indicator.checking {
-      background: #312308;
-      border-color: #b45309;
-      color: #fbbf24;
+      background: #fffbeb;
+      border-color: #f1d49a;
+      color: #92400e;
     }
     .localization-indicator.ready {
-      background: #073b2d;
-      border-color: #22c55e;
-      color: #bbf7d0;
+      background: #ecfdf5;
+      border-color: #86cda5;
+      color: #166534;
       box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.15);
     }
     .robot-overview {
@@ -1689,7 +1982,7 @@ INDEX_HTML = r"""<!doctype html>
       overflow: hidden;
       border: 1px solid var(--line);
       border-radius: 8px;
-      background: #081116;
+      background: #f8fafc;
     }
     .robot-figure img {
       width: 100%;
@@ -1711,7 +2004,7 @@ INDEX_HTML = r"""<!doctype html>
       padding: 12px 14px;
       border: 1px solid var(--line);
       border-radius: 8px;
-      background: #091218;
+      background: #ffffff;
       text-align: left;
       cursor: default;
       align-content: center;
@@ -1730,26 +2023,26 @@ INDEX_HTML = r"""<!doctype html>
       word-break: break-word;
     }
     .status-metric.ready {
-      background: #063f32;
-      border-color: #22c55e;
-      box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.14);
+      background: #ecfdf5;
+      border-color: #86cda5;
+      box-shadow: none;
     }
-    .status-metric.ready .metric-value { color: #bbf7d0; }
+    .status-metric.ready .metric-value { color: #166534; }
     .status-metric.waiting {
-      background: #312308;
-      border-color: #b45309;
+      background: #fffbeb;
+      border-color: #f1d49a;
     }
-    .status-metric.waiting .metric-value { color: #fbbf24; }
+    .status-metric.waiting .metric-value { color: #92400e; }
     .status-metric.motion {
-      background: #0b171d;
-      border-color: #274955;
+      background: #f8fafc;
+      border-color: #d8e0ea;
     }
     .status-metric.motion.active {
-      background: #073344;
-      border-color: #0891b2;
-      box-shadow: 0 0 0 3px rgba(8, 145, 178, 0.12);
+      background: #eff6ff;
+      border-color: #bfdbfe;
+      box-shadow: none;
     }
-    .status-metric.motion.active .metric-value { color: #67e8f9; }
+    .status-metric.motion.active .metric-value { color: #1d4ed8; }
     .runtime-panel {
       padding-top: 12px;
       border-top: 1px solid var(--line);
@@ -1777,7 +2070,7 @@ INDEX_HTML = r"""<!doctype html>
       display: grid;
       place-items: center;
       border-radius: 50%;
-      background: conic-gradient(#22c55e var(--percent), #20323a 0);
+      background: conic-gradient(#86cda5 var(--percent), #e2e8f0 0);
       box-shadow: inset 0 0 0 1px rgba(255,255,255,.06);
       position: relative;
     }
@@ -1786,7 +2079,7 @@ INDEX_HTML = r"""<!doctype html>
       position: absolute;
       inset: 8px;
       border-radius: 50%;
-      background: #091218;
+      background: #ffffff;
       border: 1px solid var(--line);
     }
     .runtime-ring span {
@@ -1818,137 +2111,80 @@ INDEX_HTML = r"""<!doctype html>
       justify-content: center;
       padding: 2px 8px;
       border-radius: 999px;
-      background: #15252d;
-      color: #bad6dc;
+      background: #f1f5f9;
+      color: #475569;
       font-size: 12px;
       font-weight: 900;
     }
-    .runtime-dot.ok { background: #063f32; color: #86efac; }
-    .runtime-dot.warn { background: #3d2a08; color: #fcd34d; }
+    .runtime-dot.ok { background: #ecfdf5; color: #166534; }
+    .runtime-dot.warn { background: #fffbeb; color: #92400e; }
     .runtime-hidden { display: none; }
     .left-rail, .center-stage, .right-rail { min-height: 0; overflow: auto; }
-    .center-stage { display: grid; grid-template-rows: minmax(300px, 46vh) auto minmax(0, 1fr); gap: 10px; overflow: hidden; }
+    .left-rail > .panel, .center-stage > .panel { min-height: 100%; }
+    .center-stage { display: block; }
     .center-controls .body { padding: 10px; }
     .control-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+      grid-template-columns: 1fr 1fr;
       gap: 8px;
     }
     .control-grid .btn {
       width: 100%;
-      min-height: 32px;
-      padding: 6px 10px;
+      min-height: 36px;
+      padding: 7px 10px;
+      background: #eff6ff;
+      border-color: #bfdbfe;
+      color: #1d4ed8;
+      font-weight: 800;
     }
-    .setup-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .advanced-config { max-height: 230px; overflow: auto; }
+    .control-grid .btn:hover { background: #dbeafe; border-color: #93c5fd; }
+    .control-grid .btn:disabled { background: #f3f7fd; border-color: #d7e3f4; color: #7890b4; }
+    .setup-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
+    .setup-grid > div { min-width: 0; }
+    .left-rail .two { grid-template-columns: 1fr; }
+    .advanced-config { max-height: none; overflow: visible; }
     .route-panel { min-height: 0; overflow: auto; }
-    .camera-section { margin: 0; }
-    .camera-config {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 10px;
-      align-items: end;
-      padding: 12px;
-      border-bottom: 1px solid var(--line);
-    }
-    .camera-grid {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 10px;
-      padding: 12px;
-    }
-    .vision-config {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 10px;
-      align-items: end;
-      padding: 12px;
-      border-bottom: 1px solid var(--line);
-      background: #0a1217;
-    }
-    .camera-view {
-      position: relative;
-      min-height: 138px;
-      display: grid;
-      place-items: center;
-      overflow: hidden;
-      border: 1px solid var(--line);
-      border-radius: 7px;
-      background: #020608;
-    }
-    .camera-view img { width: 100%; height: auto; display: none; }
-    .camera-view.online img { display: block; }
-    .camera-placeholder {
-      position: absolute;
-      color: #cbd5e1;
-      font-weight: 750;
-    }
-    .camera-view.online .camera-placeholder { display: none; }
-    .camera-caption {
-      display: flex;
-      justify-content: space-between;
-      gap: 10px;
-      padding: 7px 9px;
-      color: var(--muted);
-      background: #0a1217;
-      font-size: 12px;
-    }
-    .rviz-stage {
-      min-height: 0;
-      display: grid;
-      grid-template-rows: auto minmax(0, 1fr);
-      background: #020608;
-    }
-    .rviz-toolbar { display: none; }
-    .rviz-url-row { display: grid; grid-template-columns: 140px minmax(0, 1fr); gap: 8px; align-items: end; }
-    .rviz-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
-    .rviz-frame-wrap {
-      position: relative;
-      min-height: 0;
-      overflow: hidden;
-      background: #020608;
-    }
-    #rviz_embed_frame {
-      width: 100%;
-      height: 100%;
-      min-height: 100%;
-      border: 0;
-      display: none;
-      background: #020608;
-    }
-    .rviz-frame-wrap.online #rviz_embed_frame { display: block; }
-    .rviz-placeholder {
-      position: absolute;
-      inset: 0;
-      display: grid;
-      place-items: center;
-      padding: 24px;
-      color: var(--muted);
-      text-align: center;
-      background:
-        linear-gradient(transparent 31px, rgba(34, 211, 238, .08) 32px),
-        linear-gradient(90deg, transparent 31px, rgba(34, 211, 238, .08) 32px),
-        #020608;
-      background-size: 32px 32px;
-    }
-    .rviz-frame-wrap.online .rviz-placeholder { display: none; }
-    .rviz-placeholder strong {
-      display: block;
-      color: var(--text);
-      font-size: 20px;
-      margin-bottom: 8px;
-    }
+    .route-panel .body { min-height: 0; overflow: auto; }
+    .route-intro, #task_count { display: none; }
+    .task-toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .task-toolbar .route-intro { margin: 0; margin-right: auto; }
+    .task-name { display: flex; gap: 8px; }
+    .task-name input { min-width: 0; }
+    .task-name .btn { flex-shrink: 0; white-space: nowrap; }
+    #task_feedback:empty { display: none; }
+    #task_feedback { color: #166534; font-size: 13px; overflow-wrap: anywhere; }
+    #task_feedback.error { color: #b42318; }
+    .modal-backdrop { position: fixed; inset: 0; z-index: 20; display: none; place-items: center; padding: 20px; background: rgba(15, 23, 42, .28); }
+    .modal-backdrop.open { display: grid; }
+    .modal { width: min(420px, 100%); background: #fff; border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 18px 50px rgba(15,23,42,.18); padding: 20px; }
+    .modal h3 { margin: 0 0 16px; font-size: 18px; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+    .route-table { overflow-x: auto; }
+    .route-table table { min-width: 820px; }
+    .route-table th:nth-child(2), .route-table td:nth-child(2) { width: 72px; overflow-wrap: anywhere; }
+    .route-table th:nth-child(3), .route-table td:nth-child(3) { width: 105px; }
+    .route-table th:nth-child(4), .route-table td:nth-child(4) { width: 125px; }
+    .route-table th:nth-child(5), .route-table td:nth-child(5) { width: 90px; }
+    .route-table th:nth-child(6), .route-table td:nth-child(6) { width: 330px; }
+    .pose-values { display: grid; gap: 3px; white-space: nowrap; line-height: 1.35; }
+    .route-table td input { width: 16px; height: 16px; }
+    .route-table .btn { padding: 3px 8px; min-height: 28px; margin-right: 3px; }
+    .route-table .missing { color: #b42318; }
+    .route-table tr.selected { background: #f8fbff; }
+    #loaded_task_hint { padding: 9px; background: #f8fafc; border-radius: 6px; margin: 0; }
     footer {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 420px;
+      grid-template-columns: minmax(0, 1fr);
       gap: 10px;
       padding: 0 10px 10px;
       min-height: 0;
     }
+    footer > .panel { min-height: 0; display: flex; flex-direction: column; }
     pre {
       margin: 0;
-      min-height: 130px;
-      max-height: 148px;
+      flex: 1;
+      min-height: 0;
+      max-height: none;
       overflow: auto;
       padding: 12px;
       font-family: var(--mono);
@@ -1957,21 +2193,22 @@ INDEX_HTML = r"""<!doctype html>
       white-space: pre-wrap;
       word-break: break-word;
     }
-    #logs { background: #020608; color: #d3eef5; }
+    #logs { background: #f8fafc; color: #334155; }
     #logs { user-select: text; }
-    #command { background: #081116; color: #bad6dc; }
     @media (max-width: 1220px) {
-      .app { grid-template-rows: auto auto auto; }
-      main, footer, .setup-grid, .rviz-toolbar, .rviz-url-row { grid-template-columns: 1fr; }
+      .app { height: auto; min-height: 100vh; grid-template-rows: auto auto 260px; }
+      main, footer, .setup-grid { grid-template-columns: 1fr; }
       header { height: auto; padding: 12px 14px; align-items: flex-start; flex-direction: column; }
       .actions { justify-content: flex-start; }
       .left-rail, .center-stage, .right-rail { overflow: visible; }
+      .advanced-config { max-height: none; }
     }
   </style>
 </head>
 <body>
   <div class="app">
     <header>
+      <!-- UI ONLY · 未连接 ROS 状态不在界面展示。 -->
       <div class="brand">
         <div class="logo" aria-label="引望 工具装备团队">
           <div class="logo-main">引望</div>
@@ -1980,7 +2217,6 @@ INDEX_HTML = r"""<!doctype html>
         </div>
       </div>
       <div class="actions">
-        <span class="ui-only-badge">UI ONLY · 未连接 ROS</span>
         <button class="btn primary" onclick="startNavigation()">启动当前模式</button>
         <button class="btn danger" onclick="postAction('/api/navigation/stop_all')">停止全部</button>
         <button id="native_rviz_button" class="btn soft" onclick="openNativeRviz()">打开原生 RViz</button>
@@ -1990,6 +2226,80 @@ INDEX_HTML = r"""<!doctype html>
     <main>
       <aside class="left-rail stack">
         <section class="panel">
+          <div class="panel-head">设置</div>
+          <div class="body stack advanced-config">
+            <div class="setup-grid">
+              <div><label>Run Mode</label><select id="run_mode" onchange="onModeChanged()"><option value="online">在线建图导航</option><option value="navigation">离线地图导航</option></select></div>
+              <div><label>RViz Mode</label><select id="rviz_mode"><option value="auto">跟随 Run Mode</option><option value="online">在线 RViz</option><option value="offline">离线 RViz</option></select></div>
+              <div><label>Map YAML</label><input id="map"></div>
+              <div><label>PCD Map</label><input id="pcd"></div>
+              <div><label>Localization</label><select id="localization"><option>global_gicp</option><option>icp</option></select></div>
+              <div><label>Initial Pose</label><input id="initial_pose" value="START"></div>
+              <div><label>Nav2 Params</label><input id="nav2_params_file" placeholder="/home/llx/h1_nav2_ros2_ws/src/h1_2_nav_tools/config/nav2_h1_2_rpp.yaml"></div>
+              <div class="runtime-hidden"><label>Teaching Path</label><input id="teaching_path_file"></div>
+              <div class="runtime-hidden"><label>Teaching Events</label><input id="teaching_events_file"></div>
+              <div><label>Voice SSH</label><input id="voice_remote_host" placeholder="unitree@192.168.x.x"></div>
+              <div><label>Voice Workspace</label><input id="voice_workspace" value="~/ros2_ws"></div>
+              <div><label>Voice ROS setup</label><input id="voice_ros_setup" value="/opt/ros/humble/setup.bash"></div>
+            </div>
+            <div class="two">
+              <label class="check"><input id="auto_start_route" type="checkbox"> auto_start_route</label>
+              <label class="check"><input id="return_to_start" type="checkbox"> return_to_start</label>
+            </div>
+            <label class="check runtime-hidden"><input id="teaching_loop" type="checkbox"> teaching_loop</label>
+            <button class="btn" onclick="saveConfig()">保存配置</button>
+          </div>
+        </section>
+      </aside>
+      <section class="center-stage">
+        <section class="panel route-panel">
+          <div class="panel-head"><span>任务与动作编排</span><span id="save_state" class="pill">已保存</span></div>
+          <!-- 任务 · 点位与动作编排 -->
+          <div class="body stack">
+            <div><label for="task_select">当前任务</label><select id="task_select" onchange="switchTask(this.value)"></select></div>
+            <div class="task-toolbar">
+              <button class="btn primary" onclick="openNewTaskModal()">新建任务</button>
+              <button class="btn" onclick="createTask(true)">复制任务</button>
+              <button id="delete_task" class="btn" onclick="deleteTask()">删除任务</button>
+              <button id="save_tasks" class="btn primary" onclick="saveConfig()">保存任务与设置</button>
+            </div>
+            <div class="task-name"><input id="task_name" maxlength="80" aria-label="任务名称"><button class="btn" onclick="renameTask()">重命名</button></div>
+            <div id="task_feedback" role="status" aria-live="polite"></div>
+            <div id="loaded_task_hint"></div>
+            <div class="task-toolbar">
+              <span id="task_count" class="route-intro"></span>
+              <input id="point_name" placeholder="点位名称" maxlength="40" style="max-width:150px">
+              <button class="btn primary" onclick="saveCurrentPoint()">记录当前位置</button>
+              <button class="btn" onclick="selectAll(true)">全选点位</button>
+              <button class="btn" onclick="selectAll(false)">清空</button>
+              <button class="btn" onclick="loadPoints().catch(showError)">刷新点位</button>
+            </div>
+            <div class="route-table"><table>
+              <thead><tr><th>启用</th><th>点位</th><th>动作</th><th>到点转向</th><th>顺序</th><th>位置与姿态</th></tr></thead>
+              <tbody id="routeBody"></tbody>
+            </table></div>
+          </div>
+        </section>
+      </section>
+      <aside class="right-rail stack">
+        <section class="panel center-controls">
+          <div class="panel-head">主控制</div>
+          <div class="body control-grid">
+            <button id="start_route_button" class="btn primary" onclick="startRoute()" disabled>开始巡航</button>
+            <button id="start_teaching_route_button" class="runtime-hidden" disabled></button>
+            <button class="btn primary" onclick="postAction('/api/voice/start', true)">启动语音控制</button>
+            <button class="btn primary" onclick="postAction('/api/voice/stop', true)">停止语音控制</button>
+            <button class="btn soft" onclick="saveSnapshot('save_map')">保存 2D 地图</button>
+            <button class="btn soft" onclick="saveSnapshot('save_pcd_map')">保存 3D 点云</button>
+            <button class="btn primary" onclick="gesture('wave_hand')">测试挥手</button>
+            <button id="shake_hand_button" class="btn primary" onclick="toggleShakeHand()">出手 / 收手</button>
+            <button class="btn primary" onclick="openNativeRviz()">打开原生 RViz</button>
+            <button class="btn primary" onclick="postAction('/api/rviz/close')">关闭 RViz</button>
+            <button class="btn primary" onclick="postAction('/api/rviz/restart', true)">重启 RViz</button>
+            <button class="btn primary" onclick="refreshStatus()">刷新状态</button>
+          </div>
+        </section>
+        <section class="panel">
           <div class="panel-head">机器人状态</div>
           <div class="body">
             <div class="robot-overview">
@@ -1997,9 +2307,11 @@ INDEX_HTML = r"""<!doctype html>
                 <img id="robot_status_image" src="/assets/h1_2_status.png" alt="H1-2 Robot">
               </div>
               <div class="robot-summary">
-                <button id="cruise_ready_card" class="status-metric waiting" type="button" disabled>
-                  <div id="cruise_ready_text" class="metric-value">等待定位</div>
-                </button>
+                <div class="runtime-hidden">
+                  <button id="cruise_ready_card" class="status-metric waiting" type="button" disabled>
+                    <div id="cruise_ready_text" class="metric-value">等待定位</div>
+                  </button>
+                </div>
                 <button id="motion_state_card" class="status-metric motion" type="button" disabled>
                   <div class="metric-label">当前运动状态</div>
                   <div id="motion_state" class="metric-value">待机</div>
@@ -2035,193 +2347,67 @@ INDEX_HTML = r"""<!doctype html>
             </div>
           </div>
         </section>
-
-        <section class="panel camera-section">
-          <div class="panel-head">
-            <span>Camera Preview</span>
-            <span id="camera_state" class="pill warn">等待相机话题</span>
-          </div>
-          <div class="camera-grid">
-            <div>
-              <div id="camera_rgb_view" class="camera-view">
-                <img id="camera_rgb" alt="RealSense RGB">
-                <div class="camera-placeholder">等待 RGB 相机话题</div>
-              </div>
-              <div class="camera-caption"><strong>RGB</strong><span id="camera_rgb_meta">-</span></div>
-            </div>
-            <div>
-              <div id="camera_depth_view" class="camera-view">
-                <img id="camera_depth" alt="RealSense aligned depth">
-                <div class="camera-placeholder">等待对齐深度话题</div>
-              </div>
-              <div class="camera-caption"><strong>Aligned Depth</strong><span id="camera_depth_meta">-</span></div>
-            </div>
-            <div>
-              <div id="vision_annotated_view" class="camera-view">
-                <img id="vision_annotated" alt="YOLO detection">
-                <div class="camera-placeholder">等待 YOLO 检测话题</div>
-              </div>
-              <div class="camera-caption">
-                <strong>YOLO Detection</strong>
-                <span><span id="vision_state">waiting</span> · <span id="vision_annotated_meta">-</span></span>
-              </div>
-            </div>
-          </div>
-        </section>
-      </aside>
-
-      <section class="center-stage">
-        <section class="panel rviz-stage">
-          <div class="panel-head">
-            <span>RViz 监控大屏</span>
-            <span id="rviz_embed_state" class="pill warn">等待 RViz Web 地址</span>
-          </div>
-          <div id="rviz_frame_wrap" class="rviz-frame-wrap">
-            <iframe id="rviz_embed_frame" title="RViz Web View" referrerpolicy="no-referrer"></iframe>
-            <div class="rviz-placeholder">
-              <div>
-                <strong>RViz Web 画面未加载</strong>
-                <span>启动 noVNC/xpra 后填写地址，或直接打开原生 RViz 调试。</span>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section class="panel center-controls">
-          <div class="panel-head">主控制</div>
-          <div class="body control-grid">
-            <button id="start_route_button" class="btn primary" onclick="startRoute()" disabled>开始巡航</button>
-            <button class="btn" onclick="postAction('/api/route/stop')">停止巡航</button>
-            <button id="start_teaching_record_button" class="btn primary" onclick="postAction('/api/teaching_record/start', true)" disabled>启动示教录制</button>
-            <button class="btn" onclick="postAction('/api/teaching_record/process/stop')">结束示教录制</button>
-            <button id="start_teaching_route_button" class="btn primary" onclick="startTeachingRoute()" disabled>启动示教巡航</button>
-            <button class="btn" onclick="postAction('/api/teaching_route/process/stop')">结束示教巡航</button>
-            <button class="btn soft" onclick="postAction('/api/voice/start', true)">启动语音控制</button>
-            <button class="btn" onclick="postAction('/api/voice/stop', true)">停止语音控制</button>
-            <button class="btn" onclick="gesture('wave_hand')">测试挥手</button>
-            <button class="btn" onclick="gesture('shake_hand')">测试出手</button>
-            <button class="btn soft" onclick="loadRvizEmbed()">加载中间 RViz</button>
-            <button class="btn" onclick="reloadRvizEmbed()">刷新嵌入画面</button>
-            <button class="btn" onclick="openRvizEmbedWindow()">新窗口打开</button>
-            <button class="btn soft" onclick="openNativeRviz()">打开原生 RViz</button>
-            <button class="btn" onclick="postAction('/api/rviz/close')">关闭 RViz</button>
-            <button class="btn" onclick="postAction('/api/rviz/restart', true)">重启 RViz</button>
-            <button class="btn" onclick="refreshStatus()">刷新状态</button>
-          </div>
-        </section>
-
-        <section class="panel">
-          <div class="panel-head">Setup</div>
-          <div class="body stack advanced-config">
-            <div class="setup-grid">
-              <div><label>Run Mode</label><select id="run_mode" onchange="onModeChanged()"><option value="online">在线建图导航</option><option value="navigation">离线地图导航</option><option value="save_map">保存 2D 地图</option><option value="save_pcd_map">保存 3D PCD</option></select></div>
-              <div><label>RViz Mode</label><select id="rviz_mode"><option value="auto">跟随 Run Mode</option><option value="online">在线 RViz</option><option value="offline">离线 RViz</option></select></div>
-              <label class="check"><input id="rviz_embed_enabled" type="checkbox"> 启用中间 RViz 嵌入</label>
-              <div><label>RViz Web URL</label><input id="rviz_embed_url" placeholder="http://127.0.0.1:6080/vnc.html?autoconnect=1&resize=remote"></div>
-              <div><label>Map YAML</label><input id="map"></div>
-              <div><label>PCD Map</label><input id="pcd"></div>
-              <div><label>Map Prefix</label><input id="map_prefix" value="maps/h1_2_lab"></div>
-              <div><label>PCD Prefix</label><input id="pcd_prefix" value="maps/h1_2_lab"></div>
-              <div><label>Localization</label><select id="localization"><option>global_gicp</option><option>icp</option></select></div>
-              <div><label>Initial Pose</label><input id="initial_pose" value="START"></div>
-              <div><label>Nav2 Params</label><input id="nav2_params_file" placeholder="/home/llx/h1_nav2_ros2_ws/src/h1_2_nav_tools/config/nav2_h1_2_rpp.yaml"></div>
-              <div><label>Teaching Path</label><input id="teaching_path_file"></div>
-              <div><label>Teaching Events</label><input id="teaching_events_file"></div>
-              <div><label>Voice SSH</label><input id="voice_remote_host" placeholder="unitree@192.168.x.x"></div>
-              <div><label>Voice Workspace</label><input id="voice_workspace" value="~/ros2_ws"></div>
-              <div><label>Voice ROS setup</label><input id="voice_ros_setup" value="/opt/ros/humble/setup.bash"></div>
-            </div>
-            <div class="two">
-              <label class="check"><input id="auto_start_route" type="checkbox"> auto_start_route</label>
-              <label class="check"><input id="return_to_start" type="checkbox"> return_to_start</label>
-            </div>
-            <label class="check"><input id="teaching_loop" type="checkbox"> teaching_loop</label>
-            <button class="btn" onclick="saveConfig()">保存配置</button>
-          </div>
-        </section>
-      </section>
-
-      <aside class="right-rail stack">
-        <section class="panel route-panel">
-          <div class="panel-head">
-            <span>Route</span>
-            <span>
-              <button class="btn" onclick="selectAll(true)">全选</button>
-              <button class="btn" onclick="selectAll(false)">清空</button>
-              <button class="btn" onclick="loadPoints()">刷新点位</button>
-            </span>
-          </div>
-          <div class="body">
-            <table>
-              <thead><tr><th>启用</th><th>点位</th><th>动作</th><th>位置</th></tr></thead>
-              <tbody id="routeBody"></tbody>
-            </table>
-          </div>
-        </section>
-
-        <section class="panel">
-          <div class="panel-head">Camera / Vision Control</div>
-          <div class="body stack">
-            <div><label>RGB Topic</label><input id="camera_rgb_topic"></div>
-            <div><label>Aligned Depth Topic</label><input id="camera_depth_topic"></div>
-            <div><label>CameraInfo Topic</label><input id="camera_info_topic"></div>
-            <div class="two">
-              <button class="btn soft" onclick="startCameraPreview()">开启相机预览</button>
-              <button class="btn" onclick="stopCameraPreview()">关闭相机预览</button>
-            </div>
-            <button class="btn" onclick="reconnectCamera()">重新连接</button>
-            <div><label>YOLO Annotated Topic</label><input id="vision_annotated_topic"></div>
-            <div><label>Vision SSH</label><input id="vision_remote_host" placeholder="unitree@192.168.x.x"></div>
-            <div><label>Vision Workspace</label><input id="vision_workspace" value="~/ros2_ws"></div>
-            <div><label>Vision ROS setup</label><input id="vision_ros_setup" value="/opt/ros/humble/setup.bash"></div>
-            <div class="two">
-              <button class="btn soft" onclick="postAction('/api/vision/start', true)">启动识别</button>
-              <button class="btn" onclick="postAction('/api/vision/stop', true)">停止识别</button>
-            </div>
-          </div>
-        </section>
       </aside>
     </main>
+
+    <div id="new_task_modal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="new_task_title" onclick="closeNewTaskModal(event)">
+      <div class="modal" onclick="event.stopPropagation()">
+        <h3 id="new_task_title">新建任务</h3>
+        <label for="new_task_name">任务名称</label>
+        <input id="new_task_name" maxlength="80" placeholder="请输入任务名称">
+        <div class="modal-actions">
+          <button class="btn" onclick="closeNewTaskModal()">取消</button>
+          <button class="btn primary" onclick="confirmNewTask()">创建任务</button>
+        </div>
+      </div>
+    </div>
 
     <footer>
       <section class="panel">
         <div class="panel-head">Logs</div>
         <pre id="logs"></pre>
       </section>
-      <section class="panel">
-        <div class="panel-head">Generated Command</div>
-        <pre id="command"></pre>
-      </section>
     </footer>
   </div>
 
   <script>
     let points = [];
-    let routeState = {};
+    let taskProfiles = [];
+    let selectedTaskId = "";
+    let baseConfig = {};
+    let latestStatus = {};
+    let connected = false;
+    let revision = 0;
+    let savedRevision = 0;
+    let saving = false;
+    let starting = false;
     let lastLogSeq = 0;
     let logsAutoFollow = true;
     let logsSelecting = false;
-    let cameraPreviewEnabled = false;
-    let rvizEmbedLoaded = false;
+    let startGesture = "";
+    let startTurn = "";
+    let shakeHandExtended = false;
 
     const $ = (id) => document.getElementById(id);
 
     function payload() {
-      const selected = points.filter((p) => p.name !== "START" && routeState[p.name]?.use).map((p) => p.name);
-      const gestures = points
-        .filter((p) => routeState[p.name]?.use && routeState[p.name]?.gesture)
-        .map((p) => `${p.name}:${routeState[p.name].gesture}`);
+      const steps = currentTask()?.steps || [];
+      const selected = steps.map(step => step.point);
+      const gestures = steps.filter(step => step.gesture).map(step => `${step.point}:${step.gesture}`);
       return {
+        ...baseConfig,
+        task_profiles: structuredClone(taskProfiles),
+        selected_task_id: selectedTaskId,
         run_mode: $("run_mode").value,
         rviz_mode: $("rviz_mode").value,
-        rviz_embed_url: $("rviz_embed_url").value.trim(),
-        rviz_embed_enabled: $("rviz_embed_enabled").checked,
         map: $("map").value.trim(),
         pcd: $("pcd").value.trim(),
-        map_prefix: $("map_prefix").value.trim(),
-        pcd_prefix: $("pcd_prefix").value.trim(),
+        map_prefix: baseConfig.map_prefix || "maps/h1_2_lab",
+        pcd_prefix: baseConfig.pcd_prefix || "maps/h1_2_lab",
         localization: $("localization").value,
         initial_pose: $("initial_pose").value.trim() || "START",
+        start_gesture: startGesture,
+        start_turn: startTurn,
         nav2_params_file: $("nav2_params_file").value.trim(),
         auto_start_route: $("auto_start_route").checked,
         return_to_start: $("return_to_start").checked,
@@ -2230,69 +2416,35 @@ INDEX_HTML = r"""<!doctype html>
         teaching_loop: $("teaching_loop").checked,
         memory_route: selected.join(","),
         gesture_route: gestures.join(","),
+        turn_route: steps.filter(step => step.turn).map(step => `${step.point}:${step.turn}`).join(","),
         voice_remote_host: $("voice_remote_host").value.trim(),
         voice_workspace: $("voice_workspace").value.trim() || "~/ros2_ws",
         voice_ros_setup: $("voice_ros_setup").value.trim() || "/opt/ros/humble/setup.bash",
-        camera_rgb_topic: $("camera_rgb_topic").value.trim(),
-        camera_depth_topic: $("camera_depth_topic").value.trim(),
-        camera_info_topic: $("camera_info_topic").value.trim(),
-        camera_preview_enabled: cameraPreviewEnabled,
-        vision_annotated_topic: $("vision_annotated_topic").value.trim(),
-        vision_remote_host: $("vision_remote_host").value.trim(),
-        vision_workspace: $("vision_workspace").value.trim() || "~/ros2_ws",
-        vision_ros_setup: $("vision_ros_setup").value.trim() || "/opt/ros/humble/setup.bash"
+        camera_preview_enabled: false
       };
     }
 
-    function updateCommand() {
-      const p = payload();
-      const command = [`./run_ai_slam_nav.sh mode=${p.run_mode}`];
-      if (p.run_mode === "online") {
-        command.push(`pcd_prefix=${p.pcd_prefix}`);
-      } else if (p.run_mode === "save_map") {
-        command.push(`map_prefix=${p.map_prefix}`);
-      } else if (p.run_mode === "save_pcd_map") {
-        command.push(`pcd_prefix=${p.pcd_prefix}`);
-      } else {
-        command.push(
-          `map=${p.map}`,
-          `localization=${p.localization}`,
-          `pcd=${p.pcd}`,
-          ...(p.nav2_params_file ? [`params_file=${p.nav2_params_file}`] : []),
-          `initial_pose=${p.initial_pose}`,
-          `memory_route=${p.memory_route}`,
-          `gesture_route=${p.gesture_route}`,
-          `auto_start_route=${p.auto_start_route}`,
-          `return_to_start=${p.return_to_start}`
-        );
-      }
-      command.push(
-        "",
-        "ros2 launch h1_2_nav_tools teaching_route_runner.launch.py",
-        `  path_file:=${p.teaching_path_file}`,
-        `  events_file:=${p.teaching_events_file}`,
-        `  loop:=${p.teaching_loop}`
-      );
-      $("command").textContent = command.join(" \\\n  ");
-    }
     async function api(path, options = {}) {
       const response = await fetch(path, options);
+      if (!response.ok) throw new Error(`请求失败 (${response.status})`);
       return response.json();
     }
 
     async function loadConfig() {
       const config = await api("/api/config");
+      baseConfig = config;
+      taskProfiles = structuredClone(config.task_profiles);
+      selectedTaskId = config.selected_task_id;
+      revision = savedRevision = 0;
       document.body.classList.toggle("ui-only", config.ui_only === true);
       $("run_mode").value = config.run_mode || "online";
       $("rviz_mode").value = config.rviz_mode || "auto";
-      $("rviz_embed_url").value = config.rviz_embed_url || "http://127.0.0.1:6080/vnc.html?autoconnect=1&resize=remote";
-      $("rviz_embed_enabled").checked = config.rviz_embed_enabled !== false;
       $("map").value = config.map || "";
       $("pcd").value = config.pcd || "";
-      $("map_prefix").value = config.map_prefix || "maps/h1_2_lab";
-      $("pcd_prefix").value = config.pcd_prefix || "maps/h1_2_lab";
       $("localization").value = config.localization || "global_gicp";
       $("initial_pose").value = config.initial_pose || "START";
+      startGesture = config.start_gesture || "";
+      startTurn = config.start_turn || "";
       $("nav2_params_file").value = config.nav2_params_file || "";
       $("voice_remote_host").value = config.voice_remote_host || "";
       $("voice_workspace").value = config.voice_workspace || "~/ros2_ws";
@@ -2300,164 +2452,335 @@ INDEX_HTML = r"""<!doctype html>
       $("teaching_path_file").value = config.teaching_path_file || "";
       $("teaching_events_file").value = config.teaching_events_file || "";
       $("teaching_loop").checked = config.teaching_loop !== false;
-      $("camera_rgb_topic").value = config.camera_rgb_topic || "/camera/camera/color/image_raw";
-      $("camera_depth_topic").value = config.camera_depth_topic || "/camera/camera/aligned_depth_to_color/image_raw";
-      $("camera_info_topic").value = config.camera_info_topic || "/camera/camera/color/camera_info";
-      cameraPreviewEnabled = false;
-      $("vision_annotated_topic").value = config.vision_annotated_topic || "/h1_2/vision/annotated_image";
-      $("vision_remote_host").value = config.vision_remote_host || config.voice_remote_host || "";
-      $("vision_workspace").value = config.vision_workspace || config.voice_workspace || "~/ros2_ws";
-      $("vision_ros_setup").value = config.vision_ros_setup || config.voice_ros_setup || "/opt/ros/humble/setup.bash";
       $("auto_start_route").checked = config.auto_start_route === true;
       $("return_to_start").checked = !!config.return_to_start;
-      routeState.__memory_route = config.memory_route || "A,B,C";
-      routeState.__gesture_route = config.gesture_route || "";
+      renderTasks();
       onModeChanged();
-      updateRvizEmbedState();
-      updateCommand();
     }
 
     function onModeChanged() {
       const mode = $("run_mode").value;
       document.body.dataset.mode = mode;
-      updateCommand();
     }
 
-    async function loadPoints() {
-      const data = await api("/api/points");
-      points = data.points || [];
-      const route = new Set((routeState.__memory_route || "A,B,C").split(",").filter((name) => name && name !== "START"));
-      const gestures = Object.fromEntries((routeState.__gesture_route || "").split(",").filter((x) => x.includes(":")).map((x) => x.split(":")));
-      for (const point of points) {
-        if (!routeState[point.name]) {
-          routeState[point.name] = { use: point.name !== "START" && route.has(point.name), gesture: gestures[point.name] || "" };
-        }
+    function currentTask() { return taskProfiles.find(task => task.id === selectedTaskId); }
+    function showError(error) { showResult({success: false, message: error.message || String(error)}); }
+    async function preserveScroll(action) {
+      const scrollables = [document.documentElement, document.body, ...document.querySelectorAll(".left-rail, .center-stage, .right-rail, .advanced-config, #logs")];
+      const positions = scrollables.map(element => ({element, left: element.scrollLeft, top: element.scrollTop}));
+      const x = window.scrollX, y = window.scrollY;
+      try { return await action(); }
+      finally {
+        const restore = () => {
+          window.scrollTo(x, y);
+          for (const position of positions) {
+            if (position.element.isConnected) {
+              position.element.scrollLeft = position.left;
+              position.element.scrollTop = position.top;
+            }
+          }
+        };
+        restore();
+        requestAnimationFrame(restore);
       }
+    }
+    function showResult(result) {
+      $("task_feedback").textContent = result.message || (result.success ? "操作成功" : "操作失败");
+      $("task_feedback").className = result.success ? "" : "error";
+    }
+    function markDirty() { revision++; updateSaveState(); updateTaskReadiness(); }
+    function updateSaveState() {
+      $("save_state").textContent = saving ? "保存中…" : revision === savedRevision ? "已保存" : "有未保存更改";
+      $("save_tasks").disabled = saving;
+    }
+    function renderTasks() {
+      $("task_select").replaceChildren(...taskProfiles.map(task => new Option(task.name, task.id)));
+      $("task_select").value = selectedTaskId;
+      $("task_name").value = currentTask().name;
+      $("delete_task").disabled = taskProfiles.length <= 1;
+      updateSaveState();
       renderRoute();
     }
-
-    function renderRoute() {
-      $("routeBody").innerHTML = "";
-      for (const point of points) {
-        const state = routeState[point.name] || { use: false, gesture: "" };
-        const tr = document.createElement("tr");
-        const pos = point.position || {x: 0, y: 0, z: 0};
-        tr.innerHTML = `
-          <td><input type="checkbox" ${state.use ? "checked" : ""} ${point.name === "START" ? "disabled" : ""} onchange="setUse('${point.name}', this.checked)"></td>
-          <td><span class="point">${point.name}</span></td>
-          <td>
-            <select onchange="setGesture('${point.name}', this.value)">
-              <option value="" ${state.gesture === "" ? "selected" : ""}>无动作</option>
-              <option value="wave_hand" ${state.gesture === "wave_hand" ? "selected" : ""}>wave_hand</option>
-              <option value="shake_hand" ${state.gesture === "shake_hand" ? "selected" : ""}>shake_hand</option>
-            </select>
-          </td>
-          <td class="pos">x=${pos.x.toFixed(3)}, y=${pos.y.toFixed(3)}, z=${pos.z.toFixed(3)}</td>
-        `;
-        $("routeBody").appendChild(tr);
-      }
-      updateCommand();
+    function switchTask(id) {
+      if (!taskProfiles.some(task => task.id === id)) return;
+      selectedTaskId = id;
+      markDirty();
+      renderTasks();
+      loadPoints().catch(showError);
     }
-
+    function uniqueTaskName(base) {
+      let name = base, i = 2;
+      while (taskProfiles.some(task => task.name === name)) name = `${base} ${i++}`;
+      return name;
+    }
+    function openNewTaskModal() {
+      if (taskProfiles.length >= 100) { showError(new Error("最多可保存 100 个任务。")); return; }
+      $("new_task_name").value = uniqueTaskName("新任务");
+      $("new_task_modal").classList.add("open");
+      requestAnimationFrame(() => { $("new_task_name").focus(); $("new_task_name").select(); });
+    }
+    function closeNewTaskModal(event) {
+      if (event && event.target !== $("new_task_modal")) return;
+      $("new_task_modal").classList.remove("open");
+    }
+    function confirmNewTask() {
+      const name = $("new_task_name").value.trim();
+      if (!name || name.length > 80) { showError(new Error("任务名不能为空或超过 80 个字符。")); return; }
+      const existing = taskProfiles.find(task => task.name === name);
+      if (existing) {
+        if (!confirm(`任务“${name}”已存在，是否覆盖？`)) return;
+        taskProfiles = taskProfiles.filter(task => task.id !== existing.id);
+      }
+      createTask(false, name);
+      closeNewTaskModal();
+    }
+    function createTask(copy = false, taskName = "") {
+      if (taskProfiles.length >= 100) { showError(new Error("最多可保存 100 个任务。")); return; }
+      const task = {id: crypto.randomUUID(), name: taskName || uniqueTaskName(copy ? `${currentTask().name.slice(0, 65)} 副本` : "新任务"),
+        steps: copy ? structuredClone(currentTask().steps) : [], memory_points_file: ""};
+      taskProfiles.push(task);
+      selectedTaskId = task.id;
+      markDirty(); renderTasks();
+      loadPoints().catch(showError);
+      $("task_name").focus(); $("task_name").select();
+    }
+    function renameTask() {
+      const name = $("task_name").value.trim();
+      if (!name || name.length > 80 || taskProfiles.some(task => task.id !== selectedTaskId && task.name === name)) {
+        showError(new Error("任务名不能为空、重复或超过 80 个字符。")); return;
+      }
+      currentTask().name = name;
+      markDirty(); renderTasks(); showResult({success:true, message:"已重命名，请保存更改。"});
+    }
+    $("new_task_name").addEventListener("keydown", event => {
+      if (event.key === "Enter") { event.preventDefault(); confirmNewTask(); }
+      if (event.key === "Escape") closeNewTaskModal();
+    });
+    async function deleteTask() {
+      if (taskProfiles.length <= 1 || !confirm(`删除任务“${currentTask().name}”？其点位和动作编排也会删除。`)) return;
+      const deleted = await api("/api/task/delete", {
+        method: "POST",
+        body: JSON.stringify({task_id: selectedTaskId, task_name: currentTask().name, memory_points_file: currentTask().memory_points_file || ""}),
+      });
+      if (!deleted.success) { showResult(deleted); return; }
+      taskProfiles = taskProfiles.filter(task => task.id !== selectedTaskId);
+      selectedTaskId = taskProfiles[0].id;
+      markDirty(); renderTasks();
+      await saveConfig();
+      showResult({success:true, message:"任务及其点位文件已删除。"});
+    }
+    async function loadPoints() {
+      const data = await api(`/api/points?task_id=${encodeURIComponent(selectedTaskId)}&task_name=${encodeURIComponent(currentTask()?.name || "")}`);
+      points = data.points || [];
+      renderRoute();
+    }
+    async function saveCurrentPoint() {
+      const name = $("point_name").value.trim();
+      if (!name) { showError(new Error("请输入点位名称。")); return; }
+      try {
+        let overwrite = points.some(point => point.name === name);
+        if (overwrite && !confirm(`点位“${name}”已存在，是否用机器人当前位置覆盖？`)) return;
+        let result = await api("/api/points/save", {method:"POST", body:JSON.stringify({task_id:selectedTaskId, task_name:currentTask()?.name || "", name, overwrite})});
+        if (!result.success && /already exists|已存在/i.test(result.message || "") && confirm(`点位“${name}”已存在，是否覆盖？`)) {
+          result = await api("/api/points/save", {method:"POST", body:JSON.stringify({task_id:selectedTaskId, task_name:currentTask()?.name || "", name, overwrite:true})});
+        }
+        showResult(result);
+        if (result.success) { $("point_name").value = ""; await loadPoints(); }
+      } catch (error) { showError(error); }
+    }
+    function renderRoute() {
+      const task = currentTask();
+      if (!task) return;
+      const library = new Map(points.map(point => [point.name, point]));
+      const selected = new Set(task.steps.map(step => step.point));
+      const ordered = [...task.steps.map(step => library.get(step.point) || {name: step.point}), ...points.filter(point => !selected.has(point.name))];
+      $("routeBody").replaceChildren();
+      for (const point of ordered) {
+        const index = task.steps.findIndex(step => step.point === point.name);
+        const step = task.steps[index];
+        const tr = document.createElement("tr");
+        tr.className = step ? "selected" : "";
+        const cells = Array.from({length:6}, () => tr.appendChild(document.createElement("td")));
+        const check = document.createElement("input"); check.type = "checkbox";
+        check.checked = !!step; check.disabled = point.name === "START";
+        check.setAttribute("aria-label", `启用 ${point.name}`);
+        check.onchange = () => setUse(point.name, check.checked); cells[0].append(check);
+        const name = document.createElement("span"); name.className = "point"; name.textContent = point.name;
+        cells[1].append(name);
+        const action = document.createElement("select"); action.setAttribute("aria-label", `${point.name} 到达后动作`);
+        const options = [["", "无动作"], ["wave_hand", "挥手"], ["shake_hand", "出手"]];
+        if (step?.gesture && !options.some(([value]) => value === step.gesture)) options.push([step.gesture, step.gesture]);
+        action.replaceChildren(...options.map(([value,label]) => new Option(label, value)));
+        action.value = point.name === "START" ? startGesture : (step?.gesture || "");
+        action.disabled = false;
+        action.title = point.name === "START" ? "配置初始位姿动作" : "选择动作后会自动启用该点位";
+        action.onchange = () => setGesture(point.name, action.value); cells[2].append(action);
+        const turn = document.createElement("select"); turn.setAttribute("aria-label", `${point.name} 到点转向`);
+        turn.replaceChildren(...[["", "不转向"], ["cw", "顺时针"], ["ccw", "逆时针"]].map(([value,label]) => new Option(label,value)));
+        turn.value = point.name === "START" ? startTurn : (step?.turn || "");
+        turn.disabled = false;
+        turn.title = point.name === "START" ? "配置初始位姿转向" : "选择转向后会自动启用该点位";
+        turn.onchange = () => setTurn(point.name, turn.value); cells[3].append(turn);
+        if (step) {
+          for (const [offset, label] of [[-1,"上移"],[1,"下移"]]) {
+            const button = document.createElement("button"); button.className = "btn"; button.textContent = label;
+            button.setAttribute("aria-label", `${label} ${point.name}`);
+            button.disabled = index + offset < 0 || index + offset >= task.steps.length;
+            button.onclick = () => movePoint(point.name, offset); cells[4].append(button);
+          }
+        }
+        cells[5].className = "pos";
+        if (point.position) {
+          const pose = document.createElement("div"); pose.className = "pose-values";
+          const position = document.createElement("span");
+          position.textContent = `X ${Number(point.position.x || 0).toFixed(3)}   Y ${Number(point.position.y || 0).toFixed(3)}   Z ${Number(point.position.z || 0).toFixed(3)}`;
+          const orientation = point.orientation || {};
+          const quaternion = document.createElement("span");
+          quaternion.textContent = `qx ${Number(orientation.x || 0).toFixed(4)}   qy ${Number(orientation.y || 0).toFixed(4)}   qz ${Number(orientation.z || 0).toFixed(4)}   qw ${Number(orientation.w ?? 1).toFixed(4)}`;
+          pose.append(position, quaternion); cells[5].append(pose);
+        } else {
+          cells[5].textContent = "点位不存在，请取消或刷新";
+        }
+        if (!point.position) cells[5].classList.add("missing");
+        $("routeBody").append(tr);
+      }
+      $("task_count").textContent = `已选 ${task.steps.length} 个点位`;
+      updateTaskReadiness();
+    }
     function setUse(name, use) {
       if (name === "START") return;
-      routeState[name] = routeState[name] || { use: false, gesture: "" };
-      routeState[name].use = use;
-      updateCommand();
+      const task = currentTask();
+      if (use && !task.steps.some(step => step.point === name)) task.steps.push({point:name, gesture:"", turn:""});
+      if (!use) task.steps = task.steps.filter(step => step.point !== name);
+      markDirty(); renderRoute();
     }
-
     function setGesture(name, gesture) {
-      routeState[name] = routeState[name] || { use: false, gesture: "" };
-      routeState[name].gesture = gesture;
-      updateCommand();
-    }
-
-    function selectAll(enabled) {
-      for (const point of points) {
-        routeState[point.name] = routeState[point.name] || { use: false, gesture: "" };
-        routeState[point.name].use = enabled && point.name !== "START";
+      if (name === "START") {
+        startGesture = gesture;
+        markDirty();
+        return;
       }
+      const task = currentTask();
+      let step = task.steps.find(step => step.point === name);
+      if (!step && gesture) {
+        step = {point: name, gesture: "", turn: ""};
+        task.steps.push(step);
+      }
+      if (!step) return;
+      step.gesture = gesture;
+      markDirty();
       renderRoute();
     }
-
+    function setTurn(name, turn) {
+      if (name === "START") {
+        startTurn = turn;
+        markDirty();
+        return;
+      }
+      const task = currentTask();
+      let step = task.steps.find(step => step.point === name);
+      if (!step && turn) {
+        step = {point: name, gesture: "", turn: ""};
+        task.steps.push(step);
+      }
+      if (!step) return;
+      step.turn = turn;
+      markDirty();
+      renderRoute();
+    }
+    function movePoint(name, offset) {
+      const steps = currentTask().steps, index = steps.findIndex(step => step.point === name);
+      if (index < 0 || index + offset < 0 || index + offset >= steps.length) return;
+      [steps[index], steps[index + offset]] = [steps[index + offset], steps[index]];
+      markDirty(); renderRoute();
+    }
+    function selectAll(enabled) {
+      const task = currentTask();
+      if (!enabled) task.steps = [];
+      else for (const point of points) {
+        if (point.name !== "START" && !task.steps.some(step => step.point === point.name)) task.steps.push({point:point.name, gesture:"", turn:""});
+      }
+      markDirty(); renderRoute();
+    }
+    function taskMatchesLoaded() {
+      const loaded = latestStatus.loaded_task, task = currentTask();
+      if (!loaded || !task || !latestStatus.processes?.navigation?.running) return false;
+      const config = payload();
+      return loaded.id === task.id && loaded.memory_route === config.memory_route && loaded.gesture_route === config.gesture_route && loaded.turn_route === config.turn_route;
+    }
+    function canStartTask() {
+      return connected && !baseConfig.ui_only && latestStatus.localization?.ready && taskMatchesLoaded();
+    }
+    function updateTaskReadiness() {
+      const loaded = latestStatus.loaded_task;
+      $("start_route_button").disabled = !canStartTask();
+      const hint = !connected ? "等待连接状态…" : baseConfig.ui_only ? "界面预览模式 · 未连接 ROS" :
+        !loaded || !latestStatus.processes?.navigation?.running ? "尚未加载任务。选择离线地图导航，点击“启动当前模式”加载当前任务。" :
+        taskMatchesLoaded() ? `已加载：${loaded.name} · ${latestStatus.localization?.ready ? "定位就绪，可开始巡航" : "等待定位稳定"}` :
+        `已加载：${loaded.name}；当前编排尚未加载。请停止全部，再启动当前模式以加载所选任务。`;
+      $("loaded_task_hint").textContent = hint;
+      $("start_route_button").title = hint;
+      if (latestStatus.localization?.ready || !connected) {
+        $("cruise_ready_card").className = "status-metric " + (canStartTask() ? "ready" : "waiting");
+        $("cruise_ready_card").title = hint;
+        $("cruise_ready_text").textContent = !connected ? "● 连接未就绪" : canStartTask() ? "● 可开始巡航" : "● 任务未加载";
+      }
+    }
     async function saveConfig() {
-      const result = await api("/api/config", { method: "POST", body: JSON.stringify(payload()) });
-      appendLog("web", result.message || "config saved");
+      if (saving) return;
+      saving = true; const version = revision; const config = payload(); updateSaveState();
+      try {
+        const result = await api("/api/config", {method:"POST", body:JSON.stringify(config)});
+        if (result.success) { savedRevision = version; baseConfig = config; }
+        showResult({...result, message: result.success ? "任务与设置已保存。" : result.message});
+      } catch (error) { showError(error); }
+      finally { saving = false; updateSaveState(); }
+    }
+    async function startNavigation() {
+      if (starting) return;
+      starting = true; const version = revision; const config = payload();
+      try { await preserveScroll(async () => {
+        const result = await api("/api/navigation/start", {method:"POST", body:JSON.stringify(config)});
+        if (result.success) { savedRevision = version; baseConfig = config; updateSaveState(); }
+        showResult(result); appendLog("web", result.message); await refreshStatus();
+      }); } catch (error) { showError(error); }
+      finally { starting = false; }
     }
 
-    async function startNavigation() {
-      const result = await api("/api/navigation/start", { method: "POST", body: JSON.stringify(payload()) });
-      appendLog("web", result.message);
-      refreshStatus();
+    async function saveSnapshot(mode) {
+      if (starting) return;
+      starting = true;
+      const config = payload();
+      config.run_mode = mode;
+      try { await preserveScroll(async () => {
+        const result = await api("/api/navigation/start", {method:"POST", body:JSON.stringify(config)});
+        showResult(result);
+        appendLog("web", result.message || (mode === "save_map" ? "2D 地图保存请求已发送" : "3D 点云保存请求已发送"));
+        await refreshStatus();
+      }); } catch (error) { showError(error); }
+      finally { starting = false; }
     }
 
     async function postAction(path, includePayload = false) {
-      const result = await api(path, { method: "POST", body: JSON.stringify(includePayload ? payload() : {}) });
-      appendLog("web", result.message || JSON.stringify(result));
-      refreshStatus();
+      await preserveScroll(async () => {
+        const result = await api(path, { method: "POST", body: JSON.stringify(includePayload ? payload() : {}) });
+        appendLog("web", result.message || JSON.stringify(result));
+        await refreshStatus();
+      });
     }
 
     async function openNativeRviz() {
       await postAction("/api/rviz/open", true);
     }
 
-    function updateRvizEmbedState(message = null, state = null) {
-      const enabled = $("rviz_embed_enabled").checked;
-      const url = $("rviz_embed_url").value.trim();
-      const badge = $("rviz_embed_state");
-      const wrap = $("rviz_frame_wrap");
-      wrap.classList.toggle("online", enabled && rvizEmbedLoaded && !!url);
-      if (!enabled) {
-        badge.textContent = "嵌入已关闭";
-        badge.className = "pill warn";
-        return;
-      }
-      if (!url) {
-        badge.textContent = "等待 RViz Web 地址";
-        badge.className = "pill warn";
-        return;
-      }
-      badge.textContent = message || (rvizEmbedLoaded ? "RViz Web 已加载" : "可加载 RViz Web");
-      badge.className = "pill " + (state || (rvizEmbedLoaded ? "ok" : ""));
-    }
-
-    function loadRvizEmbed() {
-      const url = $("rviz_embed_url").value.trim();
-      if (!$("rviz_embed_enabled").checked || !url) {
-        rvizEmbedLoaded = false;
-        $("rviz_embed_frame").removeAttribute("src");
-        updateRvizEmbedState();
-        return;
-      }
-      $("rviz_embed_frame").src = url;
-      rvizEmbedLoaded = true;
-      updateRvizEmbedState("RViz Web 已加载", "ok");
-    }
-
-    function reloadRvizEmbed() {
-      const url = $("rviz_embed_url").value.trim();
-      if (!url) {
-        updateRvizEmbedState();
-        return;
-      }
-      $("rviz_embed_frame").src = `${url}${url.includes("?") ? "&" : "?"}t=${Date.now()}`;
-      rvizEmbedLoaded = true;
-      updateRvizEmbedState("RViz Web 已刷新", "ok");
-    }
-
-    function openRvizEmbedWindow() {
-      const url = $("rviz_embed_url").value.trim();
-      if (!url) {
-        updateRvizEmbedState();
-        return;
-      }
-      window.open(url, "_blank", "noopener,noreferrer");
-    }
-
     async function startRoute() {
-      const result = await api("/api/route/start", { method: "POST", body: "{}" });
-      appendLog("route", result.message || JSON.stringify(result));
-      refreshStatus();
+      if (!canStartTask()) { showError(new Error($("loaded_task_hint").textContent)); return; }
+      await preserveScroll(async () => {
+        const result = await api("/api/route/start", { method: "POST", body: JSON.stringify(payload()) });
+        showResult(result);
+        appendLog("route", result.message || JSON.stringify(result));
+        await refreshStatus();
+      });
     }
 
     async function startTeachingRoute() {
@@ -2471,75 +2794,20 @@ INDEX_HTML = r"""<!doctype html>
       appendLog("gesture", `${name}: ${result.success ? "ok" : "failed"} ${result.message || ""}`);
     }
 
-    function restartCameraImages() {
-      const stamp = Date.now();
-      $("camera_rgb").src = `/api/camera/rgb.mjpg?t=${stamp}`;
-      $("camera_depth").src = `/api/camera/depth.mjpg?t=${stamp}`;
-      $("vision_annotated").src = `/api/vision/annotated.mjpg?t=${stamp}`;
-    }
-
-    function stopCameraImages() {
-      $("camera_rgb").removeAttribute("src");
-      $("camera_depth").removeAttribute("src");
-      $("vision_annotated").removeAttribute("src");
-    }
-
-    async function startCameraPreview() {
-      const request = payload();
-      request.camera_preview_enabled = true;
-      const result = await api("/api/camera/start", { method: "POST", body: JSON.stringify(request) });
-      cameraPreviewEnabled = true;
-      appendLog("camera", result.message || JSON.stringify(result));
-      restartCameraImages();
-      await refreshCameraStatus();
-    }
-
-    async function stopCameraPreview() {
-      const request = payload();
-      request.camera_preview_enabled = false;
-      const result = await api("/api/camera/stop", { method: "POST", body: JSON.stringify(request) });
-      cameraPreviewEnabled = false;
-      appendLog("camera", result.message || JSON.stringify(result));
-      stopCameraImages();
-      await refreshCameraStatus();
-    }
-
-    async function reconnectCamera() {
-      const request = payload();
-      request.camera_preview_enabled = true;
-      const result = await api("/api/camera/reconnect", { method: "POST", body: JSON.stringify(request) });
-      cameraPreviewEnabled = true;
-      appendLog("camera", result.message || JSON.stringify(result));
-      restartCameraImages();
-      await refreshCameraStatus();
-    }
-
-    function renderCameraStream(name, stream) {
-      const view = $(`camera_${name}_view`);
-      const meta = $(`camera_${name}_meta`);
-      view.classList.toggle("online", !!stream.online);
-      const age = stream.age_sec == null ? "-" : `${stream.age_sec.toFixed(1)}s`;
-      meta.textContent = `${stream.resolution || "-"} · ${stream.encoding || "-"} · age ${age}`;
-    }
-
-    async function refreshCameraStatus(cameraData = null) {
-      const camera = cameraData || await api("/api/camera/status");
-      const state = $("camera_state");
-      state.textContent = camera.message || "等待相机话题";
-      state.className = "pill " + (camera.state === "online" ? "ok" : "warn");
-      renderCameraStream("rgb", camera.rgb || {});
-      renderCameraStream("depth", camera.depth || {});
-    }
-
-    async function refreshVisionStatus(visionData = null) {
-      const vision = visionData || await api("/api/vision/status");
-      const stream = vision.annotated || {};
-      $("vision_state").textContent = vision.state || "waiting";
-      $("vision_annotated_view").classList.toggle("online", !!stream.online);
-      const age = stream.age_sec == null ? "-" : `${stream.age_sec.toFixed(1)}s`;
-      const fps = stream.fps == null ? "0.0" : stream.fps.toFixed(1);
-      $("vision_annotated_meta").textContent =
-        `${stream.resolution || "-"} · ${fps} FPS · age ${age}`;
+    async function toggleShakeHand() {
+      const name = shakeHandExtended ? "retract_hand" : "reach_hand";
+      const button = $("shake_hand_button");
+      button.disabled = true;
+      try {
+        const result = await api("/api/gesture", {method:"POST", body:JSON.stringify({name})});
+        appendLog("gesture", `${name}: ${result.success ? "ok" : "failed"} ${result.message || ""}`);
+        if (result.success) {
+          shakeHandExtended = !shakeHandExtended;
+          button.textContent = shakeHandExtended ? "收手" : "出手";
+        }
+        await refreshStatus();
+      } catch (error) { showError(error); }
+      finally { button.disabled = false; }
     }
 
     function formatBatteryMetric(value, unit) {
@@ -2549,7 +2817,10 @@ INDEX_HTML = r"""<!doctype html>
     }
 
     async function refreshStatus() {
-      const data = await api("/api/status");
+      let data;
+      try { data = await api("/api/status"); connected = true; }
+      catch (error) { connected = false; updateTaskReadiness(); showError(error); return; }
+      latestStatus = data;
       const route = data.route || {};
       const teachingRoute = data.teaching_route || {};
       $("state").textContent = route.state || "-";
@@ -2576,14 +2847,11 @@ INDEX_HTML = r"""<!doctype html>
           ? "● 定位确认中"
           : "● 不可开始巡航";
       const startButton = $("start_route_button");
-      startButton.disabled = !localization.ready;
+      startButton.disabled = !localization.ready || !canStartTask();
       startButton.title = localization.message || "定位未稳定";
       const startTeachingButton = $("start_teaching_route_button");
       startTeachingButton.disabled = !localization.ready;
       startTeachingButton.title = localization.message || "定位未稳定";
-      const startTeachingRecordButton = $("start_teaching_record_button");
-      startTeachingRecordButton.disabled = !localization.ready;
-      startTeachingRecordButton.title = localization.message || "定位未稳定";
       const processes = data.processes || {};
       const motionState = processes.teaching_route?.running
         ? `示教巡航 ${teachingRoute.state || "running"}`
@@ -2609,8 +2877,7 @@ INDEX_HTML = r"""<!doctype html>
       $("battery_charge_state").className = "runtime-dot " + (battery.charge_state ? "ok" : "");
       $("battery_cycles").textContent = battery.cycles == null ? "--" : String(battery.cycles);
       $("processes").textContent = `nav=${processes.navigation?.running ? "running" : "idle"}, rviz=${processes.rviz?.running ? "running" : "idle"}, teaching_record=${processes.teaching_record?.running ? "running" : "idle"}, teaching=${processes.teaching_route?.running ? "running" : "idle"}, voice_reader=${processes.voice?.running ? "running" : "idle"}, voice_bridge=${processes.voice_bridge?.running ? "running" : "idle"}, vision=${processes.vision?.running ? "running" : "idle"}`;
-      await refreshCameraStatus(data.camera || null);
-      await refreshVisionStatus(data.vision || null);
+      updateTaskReadiness();
     }
 
     function appendLog(source, message) {
@@ -2668,27 +2935,20 @@ INDEX_HTML = r"""<!doctype html>
       });
     }
 
-    for (const id of ["run_mode", "rviz_mode", "rviz_embed_url", "rviz_embed_enabled", "map", "pcd", "map_prefix", "pcd_prefix", "localization", "initial_pose", "nav2_params_file", "voice_remote_host", "voice_workspace", "voice_ros_setup", "teaching_path_file", "teaching_events_file", "camera_rgb_topic", "camera_depth_topic", "camera_info_topic", "vision_annotated_topic", "vision_remote_host", "vision_workspace", "vision_ros_setup", "auto_start_route", "return_to_start", "teaching_loop"]) {
-      document.addEventListener("input", (event) => { if (event.target.id === id) updateCommand(); });
-      document.addEventListener("change", (event) => { if (event.target.id === id) updateCommand(); });
-    }
-    document.addEventListener("input", (event) => {
-      if (event.target.id === "rviz_embed_url") updateRvizEmbedState();
-    });
-    document.addEventListener("change", (event) => {
-      if (event.target.id === "rviz_embed_url" || event.target.id === "rviz_embed_enabled") updateRvizEmbedState();
-    });
-
     (async function boot() {
       await loadConfig();
-      stopCameraImages();
       await loadPoints();
       await refreshStatus();
       await pollLogs();
       setupLogScrollLock();
       setInterval(refreshStatus, 1200);
-      setInterval(pollLogs, 700);
-    })();
+      setInterval(() => pollLogs().catch(() => {}), 700);
+      document.querySelectorAll(".left-rail input, .left-rail select").forEach(el => el.addEventListener("change", markDirty));
+    })().catch(showError);
+    window.addEventListener("beforeunload", event => {
+      if (revision !== savedRevision) { event.preventDefault(); event.returnValue = ""; }
+    });
+    window.addEventListener("unhandledrejection", event => { showError(event.reason); event.preventDefault(); });
   </script>
 </body>
 </html>
@@ -2709,6 +2969,8 @@ def main():
     args = parser.parse_args()
     if args.port_tries < 1:
         parser.error("--port-tries must be >= 1")
+    if not args.ui_only and not ROS_CUSTOM_MESSAGES_AVAILABLE:
+        parser.error("缺少 ROS 自定义消息包，请先 source 工作区 install；仅预览界面可使用 --ui-only。")
 
     if not args.no_single_instance:
         stop_existing_web_guis()

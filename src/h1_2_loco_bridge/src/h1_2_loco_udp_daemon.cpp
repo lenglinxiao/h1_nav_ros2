@@ -52,6 +52,7 @@ int main(int argc, char** argv) {
   double shake_hand_duration = 10.0;
   bool auto_start = false;
   bool started = false;
+  bool shake_hand_extended = false;
 
   for (int i = 1; i < argc; ++i) {
     std::string arg = argv[i];
@@ -163,22 +164,12 @@ int main(int argc, char** argv) {
         ret = client.WaveHand();
         message = "wave_hand sent";
       } else if (name == "shake_hand") {
-        double duration = shake_hand_duration;
-        in >> duration;
-        if (duration < 0.0) {
-          duration = shake_hand_duration;
-        }
         client.StopMove();
-        const int start_ret = client.ShakeHand(0);
-        if (start_ret != 0) {
-          ret = start_ret;
-          message = "shake_hand start failed";
-        } else {
-          const auto sleep_time = std::chrono::milliseconds(static_cast<int>(duration * 1000.0));
-          std::this_thread::sleep_for(sleep_time);
-          ret = client.ShakeHand(1);
-          message = (ret == 0) ? "shake_hand finished" : "shake_hand finish failed";
-        }
+        const int stage = shake_hand_extended ? 1 : 0;
+        ret = client.ShakeHand(stage);
+        if (ret == 0) shake_hand_extended = !shake_hand_extended;
+        message = (ret == 0) ? (shake_hand_extended ? "shake_hand extended" : "shake_hand retracted")
+                             : (shake_hand_extended ? "shake_hand retract failed" : "shake_hand extend failed");
       } else if (name == "reach_hand") {
         client.StopMove();
         ret = client.ShakeHand(0);

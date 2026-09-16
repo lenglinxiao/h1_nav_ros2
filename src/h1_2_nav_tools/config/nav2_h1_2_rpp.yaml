@@ -72,16 +72,18 @@ controller_server:
     goal_checker:
       plugin: "nav2_controller::SimpleGoalChecker"
       xy_goal_tolerance: 0.25
-      yaw_goal_tolerance: 0.35
+      # Memory-route points are position-only targets. Any final heading is
+      # accepted so Nav2 finishes without rotating at the waypoint.
+      yaw_goal_tolerance: 3.14
       stateful: true
     FollowPath:
       plugin: "nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController"
       desired_linear_vel: 0.10
-      lookahead_dist: 0.25
-      min_lookahead_dist: 0.15
-      max_lookahead_dist: 0.35
-      lookahead_time: 0.8
-      rotate_to_heading_angular_vel: 0.35
+      lookahead_dist: 0.45
+      min_lookahead_dist: 0.30
+      max_lookahead_dist: 0.70
+      lookahead_time: 1.2
+      rotate_to_heading_angular_vel: 0.25
       transform_tolerance: 0.3
       use_velocity_scaled_lookahead_dist: true
       min_approach_linear_velocity: 0.06

@@ -107,15 +107,11 @@ def test_h1_2_nav_web_gui_manages_navigation_and_rviz_processes():
     assert "mode:={rviz_mode}" in source
     assert "rviz_mode" in source
     assert "跟随 Run Mode" in source
-    assert '"rviz_embed_url"' in source
-    assert '"rviz_embed_enabled": True' in source
-    assert 'id="rviz_embed_url"' in source
-    assert 'id="rviz_embed_enabled"' in source
-    assert 'id="rviz_embed_frame"' in source
-    assert 'id="rviz_frame_wrap"' in source
-    assert "function loadRvizEmbed()" in source
-    assert "function reloadRvizEmbed()" in source
-    assert "function openRvizEmbedWindow()" in source
+    assert "点位与动作编排" in source
+    assert 'id="routeBody"' in source
+    assert "RViz 监控大屏" not in source
+    assert 'id="rviz_embed_frame"' not in source
+    assert "function loadRvizEmbed()" not in source
     assert 'id="native_rviz_button"' in source
     assert "打开原生 RViz" in source
     assert "function openNativeRviz()" in source
@@ -204,26 +200,20 @@ def test_h1_2_nav_web_gui_keeps_camera_processing_off_until_requested():
     assert "def stop_camera_preview" in source
     assert '"/api/camera/start"' in source
     assert '"/api/camera/stop"' in source
-    assert "开启相机预览" in source
-    assert "关闭相机预览" in source
     assert 'if not self.camera_preview_enabled:' in source
 
 
-def test_h1_2_nav_web_gui_has_camera_preview_panel():
+def test_h1_2_nav_web_gui_has_task_editor_without_camera_panels():
     source = WEB_GUI.read_text(encoding="utf-8")
-
-    assert "Camera Preview" in source
-    assert 'id="camera_rgb"' in source
-    assert 'id="camera_depth"' in source
-    assert 'id="camera_state"' in source
-    assert "重新连接" in source
-    assert "等待相机话题" in source
-    assert "refreshCameraStatus" in source
-    assert 'id="vision_annotated"' in source
-    assert 'id="vision_state"' in source
-    assert "YOLO Detection" in source
-    assert "启动识别" in source
-    assert "停止识别" in source
+    html = source[source.index("INDEX_HTML ="):]
+    for removed in ('id="camera_rgb"', 'id="camera_depth"', 'id="camera_rgb_topic"',
+                    'id="vision_annotated"', 'Camera Preview', 'Camera / Vision Control',
+                    'refreshCameraStatus', 'refreshVisionStatus', '/api/camera/', '/api/vision/'):
+        assert removed not in html
+    assert 'id="task_select"' in html
+    assert html.index('class="left-rail') < html.index('>设置<') < html.index('class="center-stage')
+    assert html.index('class="center-stage') < html.index('id="task_select"') < html.index('class="right-rail')
+    assert html.index('class="right-rail') < html.index('>主控制<')
 
 
 def test_h1_2_nav_web_gui_manages_remote_yolo_without_stopping_camera():
@@ -328,8 +318,6 @@ def test_h1_2_nav_web_gui_exposes_teaching_route_controls():
     assert "params_file=" in source
     assert 'id="teaching_path_file"' in source
     assert 'id="teaching_events_file"' in source
-    assert "启动示教录制" in source
-    assert "结束示教录制" in source
     assert "record_teaching_path.launch.py" in source
     assert "path_topic:=/teaching_route_path" in source
     assert "interactive_console:=false" in source
@@ -361,7 +349,7 @@ def test_h1_2_nav_web_gui_keeps_start_out_of_navigation_route():
     assert 'name != "START"' in source
     assert 'config["memory_route"] = normalize_memory_route' in source
     assert "memory_route={normalize_memory_route" in source
-    assert 'point.name === "START" ? "disabled" : ""' in source
+    assert 'check.disabled = point.name === "START"' in source
     assert 'if (name === "START") return;' in source
 
 
@@ -398,8 +386,8 @@ def test_h1_2_nav_web_gui_gates_route_start_on_stable_localization():
     assert "def localization_tf_available" in source
     assert "定位状态正常，但 TF 未发布" in source
     assert "TransformListener(self.tf_buffer, self.node, spin_thread=False)" in source
-    assert "start_teaching_record_button" in source
-    assert "startTeachingRecordButton.disabled = !localization.ready" in source
+    assert "start_teaching_record_button" not in source
+    assert "startTeachingRecordButton" not in source
 
 
 def test_h1_2_nav_web_gui_uses_cli_ros_dds_environment_before_rclpy_init():
@@ -409,7 +397,7 @@ def test_h1_2_nav_web_gui_uses_cli_ros_dds_environment_before_rclpy_init():
     assert 'os.environ["ROS_LOCALHOST_ONLY"] = "0"' in source
     assert 'os.environ.setdefault("ROS_DOMAIN_ID", "0")' in source
     assert 'os.environ["RMW_IMPLEMENTATION"] = "rmw_cyclonedds_cpp"' in source
-    assert '"cyclonedds_enp45s0.xml"' in source
+    assert '"cyclonedds_enp43s0.xml"' in source
     assert 'os.environ["CYCLONEDDS_URI"] = f"file://{dds_config}"' in source
     assert 'os.environ.pop("FASTRTPS_DEFAULT_PROFILES_FILE", None)' in source
     assert source.index("configure_ros_environment()") < source.index("rclpy.init(args=None)")

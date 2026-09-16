@@ -8,7 +8,7 @@ from builtin_interfaces.msg import Time
 from geometry_msgs.msg import PoseStamped
 from h1_2_icp_localization.msg import LocalizationStatus
 from h1_2_nav_msgs.srv import ExecuteGesture, RouteStatus, StartRoute, StopRoute
-from nav2_msgs.action import NavigateToPose
+from nav2_msgs.action import NavigateToPose, Spin
 from rclpy.action import ActionClient
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.node import Node
@@ -31,6 +31,7 @@ class MemoryRouteRunner(Node):
         self.declare_parameter("blocked_retry_wait_sec", 5.0)
         self.declare_parameter("max_retries_per_goal", 3)
         self.declare_parameter("return_to_start", False)
+        self.declare_parameter("start_at_first_route_point", False)
         self.declare_parameter("start_point_name", "START")
         self.declare_parameter("required_tf_target_frame", "map")
         self.declare_parameter("required_tf_source_frame", "camera_init")
@@ -45,6 +46,11 @@ class MemoryRouteRunner(Node):
         self.declare_parameter("gesture_route", "")
         self.declare_parameter("gesture_service_name", "/h1_2_loco/execute_gesture")
         self.declare_parameter("gesture_timeout_sec", 20.0)
+        self.declare_parameter("gesture_hold_sec", 3.0)
+        self.declare_parameter("turn_route", "")
+        self.declare_parameter("turn_angle_rad", math.pi)
+        self.declare_parameter("spin_action_name", "spin")
+        self.declare_parameter("spin_time_allowance_sec", 15.0)
         self.declare_parameter("peer_status_service", "teaching_route_status")
         self.declare_parameter("route_guard_timeout_sec", 0.5)
 
@@ -55,6 +61,9 @@ class MemoryRouteRunner(Node):
         self.blocked_retry_wait_sec = max(0.0, float(self.get_parameter("blocked_retry_wait_sec").value))
         self.max_retries_per_goal = max(0, int(self.get_parameter("max_retries_per_goal").value))
         self.return_to_start = bool(self.get_parameter("return_to_start").value)
+        self.start_at_first_route_point = bool(
+            self.get_parameter("start_at_first_route_point").value
+        )
         self.start_point_name = self.get_parameter("start_point_name").value
         self.required_tf_target_frame = self.get_parameter("required_tf_target_frame").value
         self.required_tf_source_frame = self.get_parameter("required_tf_source_frame").value
@@ -76,8 +85,17 @@ class MemoryRouteRunner(Node):
         self.gesture_route = self.parse_gesture_route(self.get_parameter("gesture_route").value)
         self.gesture_service_name = self.get_parameter("gesture_service_name").value
         self.gesture_timeout_sec = max(0.0, float(self.get_parameter("gesture_timeout_sec").value))
+        self.gesture_hold_sec = max(0.0, float(self.get_parameter("gesture_hold_sec").value))
+        self.turn_route = self.parse_turn_route(self.get_parameter("turn_route").value)
+        self.turn_angle_rad = abs(float(self.get_parameter("turn_angle_rad").value))
+        self.spin_time_allowance_sec = max(0.0, float(
+            self.get_parameter("spin_time_allowance_sec").value
+        ))
 
         self.action_client = ActionClient(self, NavigateToPose, self.get_parameter("action_name").value)
+        self.spin_action_client = ActionClient(
+            self, Spin, self.get_parameter("spin_action_name").value
+        )
         self.gesture_client = self.create_client(ExecuteGesture, self.gesture_service_name)
         self.route_guard = RouteActivityGuard(
             self,
@@ -94,7 +112,10 @@ class MemoryRouteRunner(Node):
             10,
         )
         self.active_goal_handle = None
+        self.active_spin_goal_handle = None
         self.active_gesture_future = None
+        self.pending_gestures = []
+        self.pending_gestures = []
         self.state = "idle"
         self.current_index = 0
         self.current_goal = ""
@@ -115,12 +136,12 @@ class MemoryRouteRunner(Node):
         self.create_service(RouteStatus, self.get_parameter("status_service").value, self.status_callback)
         self.get_logger().info(
             f"Memory route runner ready: file={self.points_file}, route={','.join(self.route_names)}, "
-            f"gesture_route={self.gesture_route}"
+            f"gesture_route={self.gesture_route}, turn_route={self.turn_route}"
         )
 
     def start_callback(self, request, response):
         del request
-        if self.state in ("running", "waiting", "retrying", "gesturing", "stopping"):
+        if self.state in ("running", "waiting", "retrying", "gesturing", "turning", "stopping"):
             response.success = False
             response.message = f"Route is already active: {self.state}"
             return response
@@ -138,6 +159,12 @@ class MemoryRouteRunner(Node):
         if not self.action_client.wait_for_server(timeout_sec=self.server_timeout_sec):
             response.success = False
             response.message = "Nav2 NavigateToPose action server is not available."
+            return response
+        if self.turn_route and not self.spin_action_client.wait_for_server(
+            timeout_sec=self.server_timeout_sec
+        ):
+            response.success = False
+            response.message = "Nav2 Spin action server is not available."
             return response
         if self.gesture_route and not self.gesture_client.wait_for_service(timeout_sec=self.server_timeout_sec):
             response.success = False
@@ -163,10 +190,14 @@ class MemoryRouteRunner(Node):
             return response
 
         self.stop_requested = False
-        self.current_index = 0
+        self.current_index = (
+            1 if self.start_at_first_route_point and not self.return_to_start
+            and len(self.route_names) > 1 else 0
+        )
         self.returning_to_start = self.return_to_start
         self.retry_count = 0
         self.active_gesture_future = None
+        self.pending_gestures = []
         self.state = "running"
         self.last_message = "Route started."
         self.send_current_goal()
@@ -179,11 +210,18 @@ class MemoryRouteRunner(Node):
         self.stop_requested = True
         self.cancel_pending_timer()
         self.active_gesture_future = None
+        canceled_action = False
         if self.active_goal_handle is not None:
             self.state = "stopping"
             self.active_goal_handle.cancel_goal_async()
             self.active_goal_handle = None
-        else:
+            canceled_action = True
+        if self.active_spin_goal_handle is not None:
+            self.state = "stopping"
+            self.active_spin_goal_handle.cancel_goal_async()
+            self.active_spin_goal_handle = None
+            canceled_action = True
+        if not canceled_action:
             self.state = "idle"
         self.current_goal = ""
         self.last_message = "Route stop requested."
@@ -325,6 +363,20 @@ class MemoryRouteRunner(Node):
                 gesture_route[name] = gesture
         return gesture_route
 
+    @staticmethod
+    def parse_turn_route(value):
+        if not isinstance(value, str):
+            return {}
+        turn_route = {}
+        for item in value.split(","):
+            if ":" not in item:
+                continue
+            name, direction = (part.strip() for part in item.split(":", 1))
+            direction = direction.lower()
+            if name and direction in ("cw", "ccw"):
+                turn_route[name] = direction
+        return turn_route
+
     def load_points(self):
         try:
             data = json.loads(self.points_file.read_text(encoding="utf-8"))
@@ -373,12 +425,37 @@ class MemoryRouteRunner(Node):
 
         goal = NavigateToPose.Goal()
         goal.pose = self.record_to_pose(record)
+        # Route points may have been recorded while the robot was facing an
+        # unrelated direction. For navigation, align the goal pose with the
+        # travel direction; an explicit turn_route is applied after arrival.
+        if not self.returning_to_start:
+            self.set_route_arrival_orientation(goal.pose, name)
         self.current_goal = name
         self.state = "running"
         self.last_message = f"Sending route goal: {name}"
         self.get_logger().info(self.last_message)
         future = self.action_client.send_goal_async(goal)
         future.add_done_callback(self.goal_response_callback)
+
+    def set_route_arrival_orientation(self, pose, goal_name):
+        if len(self.route_names) < 2:
+            return
+        previous_name = self.route_names[(self.current_index - 1) % len(self.route_names)]
+        previous_record = self.points.get(previous_name)
+        goal_record = self.points.get(goal_name)
+        if previous_record is None or goal_record is None:
+            return
+        previous_position = previous_record.get("position", {})
+        goal_position = goal_record.get("position", {})
+        dx = float(goal_position.get("x", 0.0)) - float(previous_position.get("x", 0.0))
+        dy = float(goal_position.get("y", 0.0)) - float(previous_position.get("y", 0.0))
+        if math.hypot(dx, dy) < 1e-6:
+            return
+        arrival_yaw = math.atan2(dy, dx)
+        pose.pose.orientation.x = 0.0
+        pose.pose.orientation.y = 0.0
+        pose.pose.orientation.z = math.sin(arrival_yaw / 2.0)
+        pose.pose.orientation.w = math.cos(arrival_yaw / 2.0)
 
     def goal_response_callback(self, future):
         if self.stop_requested:
@@ -409,6 +486,9 @@ class MemoryRouteRunner(Node):
     def handle_goal_arrival(self):
         gesture = self.gesture_route.get(self.current_goal, "")
         if gesture:
+            gestures = [item.strip() for item in gesture.split("+") if item.strip()]
+            self.pending_gestures = gestures[1:]
+            gesture = gestures[0] if gestures else ""
             self.execute_arrival_gesture(self.current_goal, gesture)
             return
         self.finish_goal_arrival(f"Reached {self.current_goal}. Waiting before next goal.")
@@ -424,6 +504,10 @@ class MemoryRouteRunner(Node):
             self.finish_goal_arrival(f"Reached {goal_name}; gesture service unavailable; continuing.")
             return
 
+        gesture = gesture.strip()
+        if not gesture:
+            self.finish_goal_arrival(f"Reached {goal_name}. Waiting before next goal.")
+            return
         request = ExecuteGesture.Request()
         request.name = gesture
         self.state = "gesturing"
@@ -450,13 +534,22 @@ class MemoryRouteRunner(Node):
         try:
             result = future.result()
         except Exception as exc:
+            self.pending_gestures = []
             self.get_logger().warn(f"Gesture {gesture} at {goal_name} failed: {exc}")
             self.finish_goal_arrival(f"Reached {goal_name}; gesture {gesture} failed; continuing.")
             return
 
         if result.success:
-            self.finish_goal_arrival(f"Reached {goal_name}; gesture {gesture} completed.")
+            if self.pending_gestures:
+                next_gesture = self.pending_gestures.pop(0)
+                self.schedule_timer(
+                    self.gesture_hold_sec,
+                    lambda: self.execute_arrival_gesture(goal_name, next_gesture),
+                )
+            else:
+                self.finish_goal_arrival(f"Reached {goal_name}; gesture {gesture} completed.")
         else:
+            self.pending_gestures = []
             self.get_logger().warn(
                 f"Gesture {gesture} at {goal_name} returned sdk_ret={result.sdk_ret}: {result.message}"
             )
@@ -466,6 +559,7 @@ class MemoryRouteRunner(Node):
         if future is not self.active_gesture_future:
             return
         self.active_gesture_future = None
+        self.pending_gestures = []
         self.get_logger().warn(f"Gesture {gesture} at {goal_name} timed out; continuing route.")
         self.finish_goal_arrival(f"Reached {goal_name}; gesture {gesture} timed out; continuing.")
 
@@ -475,6 +569,62 @@ class MemoryRouteRunner(Node):
             self.current_goal = ""
             self.last_message = "Route stopped."
             return
+        direction = self.turn_route.get(self.current_goal, "")
+        if direction:
+            self.execute_arrival_turn(self.current_goal, direction)
+            return
+        self.advance_route_after_arrival(message)
+
+    def execute_arrival_turn(self, goal_name, direction):
+        goal = Spin.Goal()
+        goal.target_yaw = self.turn_angle_rad if direction == "ccw" else -self.turn_angle_rad
+        goal.time_allowance.sec = int(self.spin_time_allowance_sec)
+        goal.time_allowance.nanosec = int(
+            (self.spin_time_allowance_sec - int(self.spin_time_allowance_sec)) * 1e9
+        )
+        self.state = "turning"
+        self.last_message = f"Reached {goal_name}. Turning {direction} before next goal."
+        self.get_logger().info(self.last_message)
+        future = self.spin_action_client.send_goal_async(goal)
+        future.add_done_callback(
+            lambda done: self.spin_response_callback(done, goal_name, direction)
+        )
+
+    def spin_response_callback(self, future, goal_name, direction):
+        if self.stop_requested:
+            return
+        goal_handle = future.result()
+        if not goal_handle.accepted:
+            self.state = "blocked"
+            self.last_message = f"Nav2 rejected {direction} turn at {goal_name}."
+            self.get_logger().error(self.last_message)
+            return
+        self.active_spin_goal_handle = goal_handle
+        result_future = goal_handle.get_result_async()
+        result_future.add_done_callback(
+            lambda done: self.spin_result_callback(done, goal_name, direction)
+        )
+
+    def spin_result_callback(self, future, goal_name, direction):
+        self.active_spin_goal_handle = None
+        result = future.result()
+        if self.stop_requested or result.status == GoalStatus.STATUS_CANCELED:
+            self.state = "idle"
+            self.current_goal = ""
+            self.last_message = "Route stopped."
+            return
+        if result.status != GoalStatus.STATUS_SUCCEEDED:
+            self.state = "blocked"
+            self.last_message = (
+                f"{direction} turn at {goal_name} failed: {self.status_name(result.status)}"
+            )
+            self.get_logger().error(self.last_message)
+            return
+        self.advance_route_after_arrival(
+            f"Reached {goal_name}; {direction} turn completed."
+        )
+
+    def advance_route_after_arrival(self, message):
         if self.returning_to_start:
             self.returning_to_start = False
             self.current_index = 0
