@@ -1,5 +1,6 @@
 import argparse
 import errno
+import fcntl
 import json
 import os
 import signal
@@ -49,6 +50,10 @@ LOCALIZATION_STATUS_TIMEOUT_SEC = 10.0
 LOCALIZATION_TF_TARGET_FRAME = "map"
 LOCALIZATION_TF_SOURCE_FRAME = "camera_init"
 GESTURE_OPTIONS = ["", "wave_hand", "shake_hand"]
+HEARTBEAT_TIMEOUT_SEC = max(0.5, float(os.environ.get("H1_2_WEB_HEARTBEAT_TIMEOUT_SEC", "2.0")))
+# Let the independent stop script deliver StopMove before this Web process
+# interrupts its own navigation process group.
+STOP_COMMAND_GRACE_SEC = 0.5
 
 
 def configure_ros_environment():
@@ -59,7 +64,7 @@ def configure_ros_environment():
     os.environ.pop("ROS_IP", None)
     workspace_root = find_workspace_root()
     configured_dds = os.environ.get("H1_2_DDS_CONFIG", "").strip()
-    dds_config = Path(configured_dds).expanduser() if configured_dds else workspace_root / "config" / "cyclonedds_enp43s0.xml"
+    dds_config = Path(configured_dds).expanduser() if configured_dds else workspace_root / "config" / "cyclonedds_auto.xml"
     if not dds_config.is_file():
         raise RuntimeError(f"Cyclone DDS config does not exist: {dds_config}")
     os.environ["CYCLONEDDS_URI"] = f"file://{dds_config}"
@@ -72,8 +77,7 @@ def find_workspace_root():
     if env_root:
         candidates.append(Path(env_root))
     cwd = Path.cwd()
-    candidates.extend([cwd, *cwd.parents])
-    candidates.extend([Path.home() / "h1_nav2_ros2_ws", Path("/home/llx/h1_nav2_ros2_ws")])
+    candidates.extend([Path(__file__).resolve().parents[3], cwd, *cwd.parents])
     for candidate in candidates:
         if (candidate / "run_ai_slam_nav.sh").exists():
             return candidate
@@ -814,6 +818,7 @@ class ProcessManager:
         self.teaching_route_process = None
         self.teaching_record_process = None
         self.lock = threading.Lock()
+        self._closed = False
 
     def status(self):
         return {
@@ -844,11 +849,32 @@ class ProcessManager:
         script = self.workspace_root / "stop_ai_slam_nav.sh"
         if not script.is_file():
             return {"success": False, "message": f"missing script: {script}"}
+        self._start("stop", [str(script)])
+        time.sleep(STOP_COMMAND_GRACE_SEC)
+        if self._is_running(self.nav_process):
+            self._terminate_process(self.nav_process)
         self.stop_voice_control(payload or {})
         self.stop_teaching_record_runner()
         self.stop_teaching_route_runner()
-        self._start("stop", [str(script)])
         return {"success": True, "message": "stop script started"}
+
+    def stop_navigation(self, reason="requested"):
+        with self.lock:
+            self.logs.add("web", f"stopping navigation: {reason}")
+            script = self.workspace_root / "stop_ai_slam_nav.sh"
+            stopped = False
+            navigation_running = self._is_running(self.nav_process)
+            if navigation_running and script.is_file():
+                try:
+                    self._start("stop", [str(script)])
+                    time.sleep(STOP_COMMAND_GRACE_SEC)
+                    stopped = True
+                except OSError as exc:
+                    self.logs.add("web", f"failed to run navigation stop script: {exc}")
+            if navigation_running:
+                self._terminate_process(self.nav_process)
+                stopped = True
+            return {"success": stopped, "message": "navigation stop requested" if stopped else "navigation is not running"}
 
     def start_voice_control(self, payload=None):
         with self.lock:
@@ -1055,6 +1081,21 @@ class ProcessManager:
 
     def shutdown(self):
         with self.lock:
+            if self._closed:
+                return
+            self._closed = True
+            nav_running = self._is_running(self.nav_process)
+            if nav_running:
+                script = self.workspace_root / "stop_ai_slam_nav.sh"
+                if script.is_file():
+                    try:
+                        self._start("stop", [str(script)])
+                        time.sleep(STOP_COMMAND_GRACE_SEC)
+                    except OSError as exc:
+                        self.logs.add("web", f"failed to run navigation stop script: {exc}")
+            if nav_running:
+                self.logs.add("navigation", "terminating on server shutdown")
+                self._terminate_process(self.nav_process)
             for label, process in [
                 ("rviz", self.rviz_process),
                 ("voice-reader", self.voice_process),
@@ -1065,7 +1106,32 @@ class ProcessManager:
             ]:
                 if self._is_running(process):
                     self.logs.add(label, "terminating on server shutdown")
-                    process.terminate()
+                    self._terminate_process(process)
+    @staticmethod
+    def _terminate_process(process, interrupt_timeout=5.0, terminate_timeout=2.0):
+        if process is None or process.poll() is not None:
+            return
+        try:
+            os.killpg(process.pid, signal.SIGINT)
+        except (ProcessLookupError, PermissionError):
+            try:
+                process.terminate()
+            except ProcessLookupError:
+                return
+        try:
+            process.wait(timeout=interrupt_timeout)
+        except subprocess.TimeoutExpired:
+            try:
+                os.killpg(process.pid, signal.SIGTERM)
+            except (ProcessLookupError, PermissionError):
+                process.terminate()
+            try:
+                process.wait(timeout=terminate_timeout)
+            except subprocess.TimeoutExpired:
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except (ProcessLookupError, PermissionError):
+                    process.kill()
 
     def _start(self, label, command):
         self.logs.add(label, "$ " + " ".join(command))
@@ -1076,6 +1142,7 @@ class ProcessManager:
             stderr=subprocess.PIPE,
             text=True,
             bufsize=1,
+            start_new_session=True,
         )
         threading.Thread(target=self._read_stream, args=(label, "stdout", process.stdout), daemon=True).start()
         threading.Thread(target=self._read_stream, args=(label, "stderr", process.stderr), daemon=True).start()
@@ -1115,6 +1182,13 @@ class WebGuiApp:
     def __init__(self, workspace_root, ui_only=False):
         self.workspace_root = workspace_root
         self.ui_only = bool(ui_only)
+        self.runtime_profile = os.environ.get("H1_2_RUNTIME_PROFILE", "local").strip().lower()
+        self.pc4_profile = self.runtime_profile == "pc4"
+        self.heartbeat_timeout_sec = HEARTBEAT_TIMEOUT_SEC
+        self.heartbeat_expired = False
+        self.heartbeat_lock = threading.Lock()
+        self.last_heartbeat = None
+        self.watchdog_stop = threading.Event()
         self.loaded_task = None
         self.task_lock = threading.RLock()
         self.points_file = workspace_root / "maps" / "memory_points.json"
@@ -1122,13 +1196,46 @@ class WebGuiApp:
         self.processes = ProcessManager(workspace_root, self.logs)
         bridge_type = UiOnlyRosBridge if self.ui_only else RosServiceBridge
         self.ros = bridge_type(self.logs, self.default_config())
+        self.watchdog_thread = threading.Thread(target=self._watch_heartbeat, daemon=True)
+        self.watchdog_thread.start()
         self.logs.add("web", f"workspace={workspace_root}")
         if self.ui_only:
             self.logs.add("web", "UI-only mode enabled; ROS and process controls are disabled")
 
     def shutdown(self):
-        self.processes.shutdown()
+        self.watchdog_stop.set()
+        if not self.ui_only:
+            self.processes.shutdown()
         self.ros.shutdown()
+
+    def record_heartbeat(self):
+        with self.heartbeat_lock:
+            self.last_heartbeat = time.monotonic()
+
+    def _heartbeat_age(self):
+        with self.heartbeat_lock:
+            last_heartbeat = self.last_heartbeat
+        if last_heartbeat is None:
+            return float("inf")
+        return max(0.0, time.monotonic() - last_heartbeat)
+
+    def _watch_heartbeat(self):
+        timeout_sec = getattr(self, "heartbeat_timeout_sec", HEARTBEAT_TIMEOUT_SEC)
+        interval = min(0.25, timeout_sec / 4.0)
+        while not self.watchdog_stop.wait(interval):
+            if self.heartbeat_expired:
+                continue
+            if not self.processes.status()["navigation"]["running"]:
+                continue
+            age = self._heartbeat_age()
+            if age <= timeout_sec:
+                continue
+            self.logs.add("web", f"browser heartbeat timed out after {age:.2f}s; stopping navigation")
+            self.heartbeat_expired = True
+            # The stop script sends zero velocity independently of ROS service availability.
+            self.processes.stop_navigation("browser heartbeat timeout")
+            self.ros.route_stop()
+            self.ros.teaching_route_stop()
 
     def default_config(self):
         config = {
@@ -1205,6 +1312,7 @@ class WebGuiApp:
         config["workflow_version"] = CONFIG_WORKFLOW_VERSION
         config["rviz_embed_url"] = str(config.get("rviz_embed_url", "")).strip()
         config["rviz_embed_enabled"] = bool(config.get("rviz_embed_enabled", True))
+        config["camera_preview_enabled"] = False
         config["voice_remote_host"] = normalize_ssh_target(config.get("voice_remote_host", ""))
         config["voice_workspace"] = normalize_voice_workspace(config.get("voice_workspace", "~/ros2_ws"))
         config["vision_remote_host"] = normalize_ssh_target(config.get("vision_remote_host", ""))
@@ -1212,11 +1320,16 @@ class WebGuiApp:
             config.get("vision_workspace", "~/ros2_ws")
         )
         config["ui_only"] = self.ui_only
+        runtime_profile = getattr(self, "runtime_profile", "local")
+        config["runtime_profile"] = runtime_profile
+        config["pc4_profile"] = getattr(self, "pc4_profile", runtime_profile == "pc4")
         normalize_task_profiles(config)
         return config
 
     def save_config(self, config):
         normalize_task_profiles(config)
+        if getattr(self, "pc4_profile", False):
+            config["camera_preview_enabled"] = False
         for profile in config["task_profiles"]:
             new_task = "memory_points_file" in profile and not str(profile["memory_points_file"]).strip()
             previous_file = Path(str(profile.get("memory_points_file", ""))).expanduser() if str(profile.get("memory_points_file", "")).strip() else None
@@ -1267,11 +1380,15 @@ class WebGuiApp:
 
     def start_navigation_task(self, payload):
         with self.task_lock:
+            timeout_sec = getattr(self, "heartbeat_timeout_sec", 2.0)
+            if self._heartbeat_age() > timeout_sec:
+                return {"success": False, "message": "浏览器心跳未连接或已超时，导航未启动。"}
             ok, message = self.validate_navigation(payload)
             if not ok:
                 return {"success": False, "message": message}
             result = self.processes.start_navigation(self.navigation_args(payload))
-            if result.get("success"):
+            if result.get("success") and payload.get("run_mode") in ("online", "navigation"):
+                self.heartbeat_expired = False
                 self.loaded_task = task_execution_snapshot(payload) if payload.get("run_mode") == "navigation" else None
                 if payload.get("run_mode") not in ("save_map", "save_pcd_map"):
                     self.save_config(payload)
@@ -1288,12 +1405,16 @@ class WebGuiApp:
             return self.ros.route_start()
 
     def reconnect_camera(self, config):
+        if self.pc4_profile:
+            return {"success": False, "message": "PC4 第一阶段未启用相机预览"}
         config["camera_preview_enabled"] = True
         self.save_config(config)
         self.ros.configure_camera(config)
         return {"success": True, "message": "相机话题订阅已重新连接"}
 
     def start_camera_preview(self, config):
+        if self.pc4_profile:
+            return {"success": False, "message": "PC4 第一阶段未启用相机预览"}
         config["camera_preview_enabled"] = True
         self.save_config(config)
         self.ros.configure_camera(config)
@@ -1493,12 +1614,12 @@ class WebGuiApp:
         ]
         def mode_params_path(value):
             path = Path(value).expanduser()
-            # The two bundled Nav2 profiles use different global frames:
-            # online mapping publishes camera_init, while offline navigation
-            # relies on localization to publish map.
-            if mode == "online" and path.name == "nav2_h1_2_rpp.yaml":
-                return path.with_name("nav2_h1_2.yaml")
-            if mode == "navigation" and path.name == "nav2_h1_2.yaml":
+            # Online mapping publishes camera_init, while offline navigation
+            # relies on localization to publish map. Only switch bundled
+            # profiles so an operator-provided Nav2 file remains unchanged.
+            if mode == "online" and path.name in ("nav2_h1_2.yaml", "nav2_h1_2_rpp.yaml"):
+                return path.with_name("nav2_h1_2_camera_init.yaml")
+            if mode == "navigation" and path.name in ("nav2_h1_2.yaml", "nav2_h1_2_camera_init.yaml"):
                 return path.with_name("nav2_h1_2_rpp.yaml")
             return path
         if mode == "online":
@@ -1553,6 +1674,8 @@ class RequestHandler(BaseHTTPRequestHandler):
                     "processes": self.app.processes.status(),
                     "camera": self.app.ros.camera_status(),
                     "vision": self.app.ros.vision_status(),
+                    "runtime_profile": self.app.runtime_profile,
+                    "pc4_profile": self.app.pc4_profile,
                 }
             )
         elif parsed.path == "/api/camera/status":
@@ -1580,6 +1703,10 @@ class RequestHandler(BaseHTTPRequestHandler):
         if not isinstance(payload, dict):
             self._send_json({"success": False, "message": "请求配置必须是对象。"})
             return
+        if parsed.path == "/api/heartbeat":
+            self.app.record_heartbeat()
+            self._send_json({"success": True})
+            return
         if parsed.path in ("/api/config", "/api/navigation/start", "/api/route/start") or "task_profiles" in payload:
             try:
                 normalize_task_profiles(payload)
@@ -1594,6 +1721,17 @@ class RequestHandler(BaseHTTPRequestHandler):
                     "message": "UI-only 模式：未连接 ROS，控制操作未执行",
                 }
             )
+            return
+        if self.app.pc4_profile and parsed.path in (
+            "/api/voice/start", "/api/voice/stop", "/api/vision/start", "/api/vision/stop",
+            "/api/camera/reconnect", "/api/camera/start"
+        ):
+            self._send_json({"success": False, "message": "PC4 第一阶段未启用相机、语音或视觉功能。"})
+            return
+        if getattr(self.app, "heartbeat_expired", False) and parsed.path in (
+            "/api/route/start", "/api/teaching_route/start", "/api/gesture"
+        ):
+            self._send_json({"success": False, "message": "浏览器心跳曾超时，请显式重新启动导航后再控制机器人。"})
             return
         if parsed.path == "/api/config":
             self.app.save_config(payload)
@@ -1611,8 +1749,10 @@ class RequestHandler(BaseHTTPRequestHandler):
         elif parsed.path == "/api/navigation/start":
             self._send_json(self.app.start_navigation_task(payload))
         elif parsed.path == "/api/navigation/stop_all":
+            result = self.app.processes.stop_all(payload)
+            self.app.ros.route_stop()
             self.app.ros.teaching_route_stop()
-            self._send_json(self.app.processes.stop_all(payload))
+            self._send_json(result)
         elif parsed.path == "/api/voice/start":
             self.app.save_config(payload)
             self._send_json(self.app.processes.start_voice_control(payload))
@@ -1631,6 +1771,9 @@ class RequestHandler(BaseHTTPRequestHandler):
         elif parsed.path == "/api/vision/stop":
             self._send_json(self.app.processes.stop_vision(payload))
         elif parsed.path == "/api/rviz/open":
+            if self.app.pc4_profile:
+                self._send_json({"success": False, "message": "请在 AI PC 本地启动 RViz。"})
+                return
             self._send_json(
                 self.app.processes.open_rviz(
                     str(payload.get("run_mode", "online")),
@@ -1638,8 +1781,14 @@ class RequestHandler(BaseHTTPRequestHandler):
                 )
             )
         elif parsed.path == "/api/rviz/close":
+            if self.app.pc4_profile:
+                self._send_json({"success": False, "message": "请在 AI PC 本地管理 RViz。"})
+                return
             self._send_json(self.app.processes.close_rviz())
         elif parsed.path == "/api/rviz/restart":
+            if self.app.pc4_profile:
+                self._send_json({"success": False, "message": "请在 AI PC 本地启动 RViz。"})
+                return
             self._send_json(
                 self.app.processes.restart_rviz(
                     str(payload.get("run_mode", "online")),
@@ -2287,15 +2436,15 @@ INDEX_HTML = r"""<!doctype html>
           <div class="body control-grid">
             <button id="start_route_button" class="btn primary" onclick="startRoute()" disabled>开始巡航</button>
             <button id="start_teaching_route_button" class="runtime-hidden" disabled></button>
-            <button class="btn primary" onclick="postAction('/api/voice/start', true)">启动语音控制</button>
-            <button class="btn primary" onclick="postAction('/api/voice/stop', true)">停止语音控制</button>
+            <button id="voice_start_button" class="btn primary" onclick="postAction('/api/voice/start', true)">启动语音控制</button>
+            <button id="voice_stop_button" class="btn primary" onclick="postAction('/api/voice/stop', true)">停止语音控制</button>
             <button class="btn soft" onclick="saveSnapshot('save_map')">保存 2D 地图</button>
             <button class="btn soft" onclick="saveSnapshot('save_pcd_map')">保存 3D 点云</button>
             <button class="btn primary" onclick="gesture('wave_hand')">测试挥手</button>
             <button id="shake_hand_button" class="btn primary" onclick="toggleShakeHand()">出手 / 收手</button>
-            <button class="btn primary" onclick="openNativeRviz()">打开原生 RViz</button>
-            <button class="btn primary" onclick="postAction('/api/rviz/close')">关闭 RViz</button>
-            <button class="btn primary" onclick="postAction('/api/rviz/restart', true)">重启 RViz</button>
+            <button id="native_rviz_open_button" class="btn primary" onclick="openNativeRviz()">打开原生 RViz</button>
+            <button id="native_rviz_close_button" class="btn primary" onclick="postAction('/api/rviz/close')">关闭 RViz</button>
+            <button id="native_rviz_restart_button" class="btn primary" onclick="postAction('/api/rviz/restart', true)">重启 RViz</button>
             <button class="btn primary" onclick="refreshStatus()">刷新状态</button>
           </div>
         </section>
@@ -2355,6 +2504,7 @@ INDEX_HTML = r"""<!doctype html>
         <h3 id="new_task_title">新建任务</h3>
         <label for="new_task_name">任务名称</label>
         <input id="new_task_name" maxlength="80" placeholder="请输入任务名称">
+        <p id="new_task_error" class="error" role="alert"></p>
         <div class="modal-actions">
           <button class="btn" onclick="closeNewTaskModal()">取消</button>
           <button class="btn primary" onclick="confirmNewTask()">创建任务</button>
@@ -2437,6 +2587,16 @@ INDEX_HTML = r"""<!doctype html>
       selectedTaskId = config.selected_task_id;
       revision = savedRevision = 0;
       document.body.classList.toggle("ui-only", config.ui_only === true);
+      const pc4Profile = config.pc4_profile === true;
+      $("native_rviz_button").hidden = false;
+      $("native_rviz_open_button").hidden = false;
+      $("native_rviz_button").textContent = pc4Profile ? "打开本机 RViz" : "打开原生 RViz";
+      $("native_rviz_open_button").textContent = pc4Profile ? "打开本机 RViz" : "打开原生 RViz";
+      $("native_rviz_close_button").hidden = pc4Profile;
+      $("native_rviz_restart_button").hidden = pc4Profile;
+      $("voice_start_button").hidden = pc4Profile;
+      $("voice_stop_button").hidden = pc4Profile;
+      $("rviz_mode").disabled = false;
       $("run_mode").value = config.run_mode || "online";
       $("rviz_mode").value = config.rviz_mode || "auto";
       $("map").value = config.map || "";
@@ -2504,6 +2664,7 @@ INDEX_HTML = r"""<!doctype html>
     function switchTask(id) {
       if (!taskProfiles.some(task => task.id === id)) return;
       selectedTaskId = id;
+      points = [];
       markDirty();
       renderTasks();
       loadPoints().catch(showError);
@@ -2515,6 +2676,7 @@ INDEX_HTML = r"""<!doctype html>
     }
     function openNewTaskModal() {
       if (taskProfiles.length >= 100) { showError(new Error("最多可保存 100 个任务。")); return; }
+      $("new_task_error").textContent = "";
       $("new_task_name").value = uniqueTaskName("新任务");
       $("new_task_modal").classList.add("open");
       requestAnimationFrame(() => { $("new_task_name").focus(); $("new_task_name").select(); });
@@ -2525,24 +2687,44 @@ INDEX_HTML = r"""<!doctype html>
     }
     function confirmNewTask() {
       const name = $("new_task_name").value.trim();
-      if (!name || name.length > 80) { showError(new Error("任务名不能为空或超过 80 个字符。")); return; }
+      if (!name || name.length > 80) { showNewTaskError("任务名不能为空或超过 80 个字符。"); return; }
       const existing = taskProfiles.find(task => task.name === name);
       if (existing) {
         if (!confirm(`任务“${name}”已存在，是否覆盖？`)) return;
-        taskProfiles = taskProfiles.filter(task => task.id !== existing.id);
       }
-      createTask(false, name);
-      closeNewTaskModal();
+      if (createTask(false, name, existing ? existing.id : "")) closeNewTaskModal();
     }
-    function createTask(copy = false, taskName = "") {
-      if (taskProfiles.length >= 100) { showError(new Error("最多可保存 100 个任务。")); return; }
-      const task = {id: crypto.randomUUID(), name: taskName || uniqueTaskName(copy ? `${currentTask().name.slice(0, 65)} 副本` : "新任务"),
-        steps: copy ? structuredClone(currentTask().steps) : [], memory_points_file: ""};
+    function showNewTaskError(message) {
+      $("new_task_error").textContent = message;
+      showError(new Error(message));
+    }
+    function newTaskId() {
+      // getRandomValues also works on the robot's plain HTTP LAN page.
+      const bytes = crypto.getRandomValues(new Uint8Array(16));
+      bytes[6] = (bytes[6] & 0x0f) | 0x40;
+      bytes[8] = (bytes[8] & 0x3f) | 0x80;
+      const hex = Array.from(bytes, value => value.toString(16).padStart(2, "0")).join("");
+      return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+    }
+    function createTask(copy = false, taskName = "", replaceTaskId = "") {
+      if (taskProfiles.length >= 100 && !replaceTaskId) { showNewTaskError("最多可保存 100 个任务。"); return false; }
+      let task;
+      try {
+        task = {id: newTaskId(), name: taskName || uniqueTaskName(copy ? `${currentTask().name.slice(0, 65)} 副本` : "新任务"),
+          steps: copy ? structuredClone(currentTask().steps) : [], memory_points_file: ""};
+      } catch (error) {
+        showNewTaskError(`创建任务失败：${error.message || error}`);
+        return false;
+      }
+      if (replaceTaskId) taskProfiles = taskProfiles.filter(item => item.id !== replaceTaskId);
       taskProfiles.push(task);
       selectedTaskId = task.id;
+      points = [];
       markDirty(); renderTasks();
       loadPoints().catch(showError);
       $("task_name").focus(); $("task_name").select();
+      showResult({success: true, message: "任务已创建，请保存更改。"});
+      return true;
     }
     function renameTask() {
       const name = $("task_name").value.trim();
@@ -2565,12 +2747,26 @@ INDEX_HTML = r"""<!doctype html>
       if (!deleted.success) { showResult(deleted); return; }
       taskProfiles = taskProfiles.filter(task => task.id !== selectedTaskId);
       selectedTaskId = taskProfiles[0].id;
+      points = [];
       markDirty(); renderTasks();
+      loadPoints().catch(showError);
       await saveConfig();
       showResult({success:true, message:"任务及其点位文件已删除。"});
     }
+    let pointsRequestSeq = 0;
     async function loadPoints() {
-      const data = await api(`/api/points?task_id=${encodeURIComponent(selectedTaskId)}&task_name=${encodeURIComponent(currentTask()?.name || "")}`);
+      const taskId = selectedTaskId;
+      const requestSeq = ++pointsRequestSeq;
+      points = [];
+      renderRoute();
+      let data;
+      try {
+        data = await api(`/api/points?task_id=${encodeURIComponent(taskId)}&task_name=${encodeURIComponent(currentTask()?.name || "")}`);
+      } catch (error) {
+        if (requestSeq === pointsRequestSeq && taskId === selectedTaskId) throw error;
+        return;
+      }
+      if (requestSeq !== pointsRequestSeq || taskId !== selectedTaskId) return;
       points = data.points || [];
       renderRoute();
     }
@@ -2740,6 +2936,7 @@ INDEX_HTML = r"""<!doctype html>
       if (starting) return;
       starting = true; const version = revision; const config = payload();
       try { await preserveScroll(async () => {
+        await api("/api/heartbeat", {method:"POST", body:"{}"});
         const result = await api("/api/navigation/start", {method:"POST", body:JSON.stringify(config)});
         if (result.success) { savedRevision = version; baseConfig = config; updateSaveState(); }
         showResult(result); appendLog("web", result.message); await refreshStatus();
@@ -2753,6 +2950,7 @@ INDEX_HTML = r"""<!doctype html>
       const config = payload();
       config.run_mode = mode;
       try { await preserveScroll(async () => {
+        await api("/api/heartbeat", {method:"POST", body:"{}"});
         const result = await api("/api/navigation/start", {method:"POST", body:JSON.stringify(config)});
         showResult(result);
         appendLog("web", result.message || (mode === "save_map" ? "2D 地图保存请求已发送" : "3D 点云保存请求已发送"));
@@ -2770,6 +2968,18 @@ INDEX_HTML = r"""<!doctype html>
     }
 
     async function openNativeRviz() {
+      if (baseConfig.pc4_profile === true) {
+        if (/Windows/i.test(navigator.userAgent)) {
+          showError(new Error("本机 RViz 启动器目前配置在 Linux 上位机，请在该上位机打开此页面。"));
+          return;
+        }
+        const selectedMode = $("rviz_mode").value;
+        const mode = selectedMode === "offline" ||
+          (selectedMode === "auto" && $("run_mode").value === "navigation") ? "offline" : "online";
+        appendLog("rviz", "正在请求打开本机 RViz；首次使用请允许浏览器打开 H1 Local RViz 应用。");
+        window.location.href = `h1-rviz://open?mode=${mode}`;
+        return;
+      }
       await postAction("/api/rviz/open", true);
     }
 
@@ -2791,7 +3001,12 @@ INDEX_HTML = r"""<!doctype html>
 
     async function gesture(name) {
       const result = await api("/api/gesture", { method: "POST", body: JSON.stringify({ name }) });
-      appendLog("gesture", `${name}: ${result.success ? "ok" : "failed"} ${result.message || ""}`);
+      appendLog("gesture", formatGestureResult(name, result));
+    }
+
+    function formatGestureResult(name, result) {
+      const sdkRet = Object.prototype.hasOwnProperty.call(result, "sdk_ret") ? ` sdk_ret=${result.sdk_ret}` : "";
+      return `${name}: ${result.success ? "ok" : "failed"} ${result.message || ""}${sdkRet}`;
     }
 
     async function toggleShakeHand() {
@@ -2800,7 +3015,7 @@ INDEX_HTML = r"""<!doctype html>
       button.disabled = true;
       try {
         const result = await api("/api/gesture", {method:"POST", body:JSON.stringify({name})});
-        appendLog("gesture", `${name}: ${result.success ? "ok" : "failed"} ${result.message || ""}`);
+        appendLog("gesture", formatGestureResult(name, result));
         if (result.success) {
           shakeHandExtended = !shakeHandExtended;
           button.textContent = shakeHandExtended ? "收手" : "出手";
@@ -2942,10 +3157,12 @@ INDEX_HTML = r"""<!doctype html>
       await pollLogs();
       setupLogScrollLock();
       setInterval(refreshStatus, 1200);
+      setInterval(() => api("/api/heartbeat", {method:"POST", body:"{}"}).catch(() => {}), 500);
       setInterval(() => pollLogs().catch(() => {}), 700);
       document.querySelectorAll(".left-rail input, .left-rail select").forEach(el => el.addEventListener("change", markDirty));
     })().catch(showError);
     window.addEventListener("beforeunload", event => {
+      if (navigator.sendBeacon) navigator.sendBeacon("/api/heartbeat", new Blob(["{}"], {type:"application/json"}));
       if (revision !== savedRevision) { event.preventDefault(); event.returnValue = ""; }
     });
     window.addEventListener("unhandledrejection", event => { showError(event.reason); event.preventDefault(); });
@@ -2957,7 +3174,8 @@ INDEX_HTML = r"""<!doctype html>
 
 def main():
     parser = argparse.ArgumentParser(description="H1-2 offline navigation local web GUI")
-    parser.add_argument("--host", default="127.0.0.1")
+    default_host = "0.0.0.0" if os.environ.get("H1_2_RUNTIME_PROFILE", "").strip().lower() == "pc4" else "127.0.0.1"
+    parser.add_argument("--host", default=default_host)
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--port-tries", type=int, default=20, help="number of sequential ports to try")
     parser.add_argument("--no-single-instance", action="store_true", help="do not stop older Web GUI instances")
@@ -2972,10 +3190,18 @@ def main():
     if not args.ui_only and not ROS_CUSTOM_MESSAGES_AVAILABLE:
         parser.error("缺少 ROS 自定义消息包，请先 source 工作区 install；仅预览界面可使用 --ui-only。")
 
-    if not args.no_single_instance:
-        stop_existing_web_guis()
-
     workspace_root = find_workspace_root()
+    instance_lock = None
+    if not args.no_single_instance:
+        lock_path = Path.home() / ".ros" / "h1_2_nav_web_gui.lock"
+        lock_path.parent.mkdir(parents=True, exist_ok=True)
+        instance_lock = lock_path.open("w")
+        try:
+            fcntl.flock(instance_lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            parser.error("another h1_2_nav_web_gui instance is already running")
+        instance_lock.write(str(os.getpid()))
+        instance_lock.flush()
     server, actual_port = bind_http_server(args.host, args.port, RequestHandler, args.port_tries)
     app = WebGuiApp(workspace_root, ui_only=args.ui_only)
     server.app = app
@@ -2999,6 +3225,9 @@ def main():
     finally:
         app.shutdown()
         server.server_close()
+        if instance_lock is not None:
+            fcntl.flock(instance_lock.fileno(), fcntl.LOCK_UN)
+            instance_lock.close()
 
 
 if __name__ == "__main__":

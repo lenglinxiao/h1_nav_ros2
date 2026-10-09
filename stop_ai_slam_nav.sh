@@ -2,54 +2,42 @@
 set -euo pipefail
 
 LOCK_FILE="/tmp/h1_2_ai_slam_nav.lock"
+PID_FILE="/tmp/h1_2_ai_slam_nav.pid"
 
-printf 'vel 0.0 0.0 0.0 0.5' | nc -u -w1 127.0.0.1 39001 || true
+send_safe_stop() {
+  python3 -c 'import socket; s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM); s.sendto(b"vel 0.0 0.0 0.0 0.5",("127.0.0.1",39001)); s.sendto(b"stop",("127.0.0.1",39001)); s.close()' || true
+}
 
-patterns=(
-  "h1_2_slam_bringup fastlio2_grid_navigation.launch.py"
-  "h1_2_slam_bringup h1_2_nav2_mapping.launch.py"
-  "h1_2_slam_bringup h1_2_nav2_navigation.launch.py"
-  "h1_2_slam_bringup h1_2_nav2_slam_navigation.launch.py"
-  "h1_2_slam_bringup h1_2_nav2_camera_init_navigation.launch.py"
-  "h1_2_slam_bringup h1_2_nav2_rviz.launch.py"
-  "rviz2"
-  "install/fast_lio2/lib/fast_lio2/fastlio2_mapping"
-  "install/h1_2_nav_tools/lib/h1_2_nav_tools/fastlio_odom_adapter"
-  "install/h1_2_nav_tools/lib/h1_2_nav_tools/pointcloud_frame_adapter"
-  "install/h1_2_nav_tools/lib/h1_2_nav_tools/goal_pose_to_nav2"
-  "install/h1_2_nav_tools/lib/h1_2_nav_tools/velocity_smoother_ema"
-  "install/h1_2_nav_tools/lib/h1_2_nav_tools/pointcloud_to_occupancy_grid"
-  "install/h1_2_nav_tools/lib/h1_2_nav_tools/simple_grid_navigator"
-  "install/h1_2_nav_tools/lib/h1_2_nav_tools/slam_grid_navigator"
-  "install/h1_2_loco_bridge/lib/h1_2_loco_bridge/cmd_vel_to_h1_2_loco"
-  "install/h1_2_loco_bridge/lib/h1_2_loco_bridge/gesture_to_h1_2_loco"
-  "install/h1_2_loco_bridge/lib/h1_2_loco_bridge/h1_2_loco_udp_daemon"
-  "nav2_amcl"
-  "nav2_bt_navigator"
-  "nav2_controller"
-  "nav2_lifecycle_manager"
-  "nav2_map_server"
-  "nav2_planner"
-  "nav2_recoveries"
-  "nav2_waypoint_follower"
-  "pointcloud_to_laserscan"
-  "slam_toolbox"
-)
+wait_for_session_exit() {
+  local launch_pid="$1"
+  local timeout_sec="$2"
+  local deadline=$((SECONDS + timeout_sec))
+  while kill -0 -- "-${launch_pid}" 2>/dev/null; do
+    (( SECONDS >= deadline )) && return 1
+    sleep 0.1
+  done
+}
 
-for pattern in "${patterns[@]}"; do
-  pkill -TERM -f "${pattern}" || true
-done
+send_safe_stop
 
-sleep 1
-
-for pattern in "${patterns[@]}"; do
-  pkill -KILL -f "${pattern}" || true
-done
-
-if command -v lsof >/dev/null 2>&1 && [[ -e "${LOCK_FILE}" ]]; then
-  lsof -t "${LOCK_FILE}" 2>/dev/null | xargs -r kill -TERM || true
-  sleep 0.2
-  lsof -t "${LOCK_FILE}" 2>/dev/null | xargs -r kill -KILL || true
+if [[ -f "${PID_FILE}" ]]; then
+  launch_pid="$(cat "${PID_FILE}")"
+  launch_info=""
+  if [[ "${launch_pid}" =~ ^[0-9]+$ ]] && kill -0 "${launch_pid}" 2>/dev/null; then
+    launch_info="$(ps -o sid=,pgid=,args= -p "${launch_pid}" 2>/dev/null || true)"
+  fi
+  read -r launch_sid launch_pgid launch_args <<< "${launch_info}"
+  if [[ "${launch_sid}" == "${launch_pid}" && "${launch_pgid}" == "${launch_pid}" && "${launch_args}" == *"ros2 launch h1_2_slam_bringup"* ]]; then
+    # Only signal the dedicated session created by run_ai_slam_nav.sh.
+    kill -INT -- "-${launch_pid}" 2>/dev/null || true
+    wait_for_session_exit "${launch_pid}" 5 || {
+      kill -TERM -- "-${launch_pid}" 2>/dev/null || true
+      wait_for_session_exit "${launch_pid}" 2 || kill -KILL -- "-${launch_pid}" 2>/dev/null || true
+    }
+    if [[ "$(cat "${PID_FILE}" 2>/dev/null || true)" == "${launch_pid}" ]]; then
+      rm -f "${PID_FILE}"
+    fi
+  fi
 fi
 
 printf 'Stopped H1-2 ai slam nav processes.\n'

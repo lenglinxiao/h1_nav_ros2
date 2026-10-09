@@ -1,0 +1,17 @@
+[Unit]
+Description=H1-2 Web Control Console
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=@ENV_FILE@
+WorkingDirectory=@WORKSPACE@
+ExecStart=/bin/bash @WORKSPACE@/scripts/pc4_start_web.sh
+Restart=on-failure
+RestartSec=2
+KillMode=control-group
+TimeoutStopSec=20
+
+[Install]
+WantedBy=default.target

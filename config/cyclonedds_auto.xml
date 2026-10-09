@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CycloneDDS>
+  <Domain id="any">
+    <General>
+      <!-- Let CycloneDDS select the active interface on each host. -->
+      <AllowMulticast>spdp</AllowMulticast>
+    </General>
+    <Discovery>
+      <ParticipantIndex>auto</ParticipantIndex>
+      <MaxAutoParticipantIndex>32</MaxAutoParticipantIndex>
+    </Discovery>
+  </Domain>
+</CycloneDDS>

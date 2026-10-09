@@ -129,7 +129,7 @@ local_costmap:
           raytrace_range: 4.0
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
-        inflation_radius: 0.30
+        inflation_radius: 0.40
         cost_scaling_factor: 3.0
 
 global_costmap:
@@ -160,7 +160,7 @@ global_costmap:
           raytrace_range: 4.0
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
-        inflation_radius: 0.30
+        inflation_radius: 0.40
         cost_scaling_factor: 3.0
 
 map_server:

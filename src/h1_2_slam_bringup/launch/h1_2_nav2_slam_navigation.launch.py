@@ -45,7 +45,7 @@ def generate_launch_description():
             DeclareLaunchArgument("odom_yaw_offset", default_value="3.141592653589793"),
             DeclareLaunchArgument("enable_sport_bridge", default_value="true"),
             DeclareLaunchArgument("auto_start_loco", default_value="true"),
-            DeclareLaunchArgument("network_interface", default_value="enp45s0"),
+            DeclareLaunchArgument("network_interface", default_value=""),
             DeclareLaunchArgument("domain_id", default_value="0"),
             DeclareLaunchArgument("max_linear_speed", default_value="0.20"),
             DeclareLaunchArgument("max_angular_speed", default_value="0.5"),

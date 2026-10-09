@@ -4,6 +4,7 @@ import copy
 import json
 import os
 import threading
+import time
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
@@ -19,7 +20,7 @@ def module(tmp_path):
     names = {'normalize_memory_route', 'normalize_task_profiles', 'task_execution_snapshot',
              'normalize_ssh_target', 'normalize_voice_workspace', 'WebGuiApp'}
     subset = ast.Module(body=[node for node in tree.body if isinstance(node, (ast.FunctionDef, ast.ClassDef)) and node.name in names], type_ignores=[])
-    namespace = dict(Path=Path, json=json, os=os, threading=threading, CONFIG_PATH=tmp_path/'config.json', CONFIG_WORKFLOW_VERSION=2)
+    namespace = dict(Path=Path, json=json, os=os, threading=threading, time=time, HEARTBEAT_TIMEOUT_SEC=2.0, CONFIG_PATH=tmp_path/'config.json', CONFIG_WORKFLOW_VERSION=2)
     exec(compile(subset, str(SOURCE), 'exec'), namespace)
     return SimpleNamespace(**namespace)
 
@@ -74,6 +75,11 @@ def test_invalid_profiles_rejected(module, config, change):
 def app_without_ros(module):
     app = module.WebGuiApp.__new__(module.WebGuiApp)
     app.task_lock = threading.RLock()
+    app.heartbeat_lock = threading.Lock()
+    app.last_heartbeat = time.monotonic()
+    app.heartbeat_timeout_sec = 2.0
+    app.heartbeat_expired = False
+    app.pc4_profile = False
     app.loaded_task = None
     app.processes = Mock()
     app.processes.status.return_value = {'navigation':{'running':True}}
@@ -96,6 +102,20 @@ def test_launch_uses_selected_task_and_only_marks_success_loaded(module, config)
     app.processes.start_navigation.return_value = {'success':False}
     app.start_navigation_task(config)
     assert app.loaded_task['id'] == 'one'
+
+
+def test_pc4_launch_keeps_configured_gesture_route(module, config):
+    app = app_without_ros(module)
+    app.pc4_profile = True
+    app.validate_navigation = Mock(return_value=(True, ''))
+    app.save_config = Mock()
+    app.processes.start_navigation.return_value = {'success': True}
+
+    result = app.start_navigation_task(config)
+
+    assert result['success'] is True
+    args = app.processes.start_navigation.call_args.args[0]
+    assert 'gesture_route=B:wave_hand' in args
 
 
 def test_cruise_rejects_changed_task_order_action_and_stopped_navigation(module, config):
@@ -180,3 +200,35 @@ def test_task_turns_are_independent_and_persisted(module, config, tmp_path):
     assert loaded['turn_route'] == 'A:ccw'
     loaded['selected_task_id'] = 'one'
     assert 'turn_route=B:ccw,A:cw' in app.navigation_args(loaded)
+
+
+@pytest.mark.parametrize(
+    ("mode", "profile", "expected"),
+    [
+        ("online", "nav2_h1_2.yaml", "nav2_h1_2_camera_init.yaml"),
+        ("online", "nav2_h1_2_rpp.yaml", "nav2_h1_2_camera_init.yaml"),
+        ("online", "nav2_h1_2_camera_init.yaml", "nav2_h1_2_camera_init.yaml"),
+        ("navigation", "nav2_h1_2.yaml", "nav2_h1_2_rpp.yaml"),
+        ("navigation", "nav2_h1_2_camera_init.yaml", "nav2_h1_2_rpp.yaml"),
+        ("navigation", "nav2_h1_2_rpp.yaml", "nav2_h1_2_rpp.yaml"),
+    ],
+)
+def test_navigation_args_selects_bundled_profile_for_mode(module, config, tmp_path, mode, profile, expected):
+    app = app_without_ros(module)
+    config["run_mode"] = mode
+    config["nav2_params_file"] = str(tmp_path / profile)
+
+    params_arg = next(arg for arg in app.navigation_args(config) if arg.startswith("params_file="))
+
+    assert Path(params_arg.removeprefix("params_file=")) == tmp_path / expected
+
+
+@pytest.mark.parametrize("mode", ["online", "navigation"])
+def test_navigation_args_preserves_custom_profile(module, config, tmp_path, mode):
+    app = app_without_ros(module)
+    custom_profile = tmp_path / "operator_nav2.yaml"
+    config.update(run_mode=mode, nav2_params_file=str(custom_profile))
+
+    params_arg = next(arg for arg in app.navigation_args(config) if arg.startswith("params_file="))
+
+    assert Path(params_arg.removeprefix("params_file=")) == custom_profile

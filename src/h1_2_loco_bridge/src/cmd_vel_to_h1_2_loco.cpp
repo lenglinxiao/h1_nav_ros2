@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstring>
 #include <netinet/in.h>
+#include <stdexcept>
 #include <string>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -16,6 +17,9 @@ class CmdVelToH12Loco : public rclcpp::Node {
   CmdVelToH12Loco() : Node("cmd_vel_to_h1_2_loco") {
     cmd_topic_ = declare_parameter<std::string>("cmd_topic", "/cmd_vel_nav");
     udp_host_ = declare_parameter<std::string>("udp_host", "127.0.0.1");
+    if (udp_host_ != "127.0.0.1") {
+      throw std::invalid_argument("udp_host must remain 127.0.0.1");
+    }
     udp_port_ = declare_parameter<int>("udp_port", 39001);
     enabled_ = declare_parameter<bool>("enabled", false);
     auto_start_ = declare_parameter<bool>("auto_start", false);

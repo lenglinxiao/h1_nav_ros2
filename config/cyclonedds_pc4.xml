@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CycloneDDS>
+  <Domain id="any">
+    <General>
+      <Interfaces>
+        <!-- PC4 WiFi for remote DDS. Unitree SDK remains on eth0. -->
+        <NetworkInterface name="wlxf8ce21a12bfe"/>
+      </Interfaces>
+      <AllowMulticast>spdp</AllowMulticast>
+    </General>
+    <Discovery>
+      <ParticipantIndex>auto</ParticipantIndex>
+      <MaxAutoParticipantIndex>120</MaxAutoParticipantIndex>
+    </Discovery>
+  </Domain>
+</CycloneDDS>

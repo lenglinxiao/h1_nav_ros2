@@ -15,6 +15,9 @@ class GestureToH12Loco : public rclcpp::Node {
  public:
   GestureToH12Loco() : Node("gesture_to_h1_2_loco") {
     udp_host_ = declare_parameter<std::string>("udp_host", "127.0.0.1");
+    if (udp_host_ != "127.0.0.1") {
+      throw std::invalid_argument("udp_host must remain 127.0.0.1");
+    }
     udp_port_ = declare_parameter<int>("udp_port", 39001);
     service_name_ = declare_parameter<std::string>("service_name", "/h1_2_loco/execute_gesture");
     timeout_ = declare_parameter<double>("timeout", 20.0);

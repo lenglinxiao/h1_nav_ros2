@@ -19,7 +19,7 @@ def generate_launch_description():
             DeclareLaunchArgument("start_livox_driver", default_value="false"),
             DeclareLaunchArgument("enable_sport_bridge", default_value="true"),
             DeclareLaunchArgument("auto_start_loco", default_value="true"),
-            DeclareLaunchArgument("network_interface", default_value="enp45s0"),
+            DeclareLaunchArgument("network_interface", default_value=""),
             DeclareLaunchArgument("domain_id", default_value="0"),
             DeclareLaunchArgument("map_topic", default_value="/map"),
             DeclareLaunchArgument("odom_topic", default_value="/slam_odom"),

@@ -156,6 +156,9 @@ void SigHandle(int sig)
 
 inline void dump_lio_state_to_log(FILE *fp)  
 {
+    if (fp == nullptr)
+        return;
+
     V3D rot_ang(Log(state_point.rot.toRotationMatrix()));
     fprintf(fp, "%lf ", Measures.lidar_beg_time - first_lidar_time);
     fprintf(fp, "%lf %lf %lf ", rot_ang(0), rot_ang(1), rot_ang(2));                   // Angle
@@ -968,7 +971,8 @@ public:
     {
         fout_out.close();
         fout_pre.close();
-        fclose(fp);
+        if (fp != nullptr)
+            fclose(fp);
     }
 
 private:
@@ -1199,16 +1203,19 @@ int main(int argc, char** argv)
         FILE *fp2;
         string log_dir = root_dir + "/Log/fast_lio2_time_log.csv";
         fp2 = fopen(log_dir.c_str(),"w");
-        fprintf(fp2,"time_stamp, total time, scan point size, incremental time, search time, delete size, delete time, tree size st, tree size end, add point size, preprocess time\n");
-        for (int i = 0;i<time_log_counter; i++){
-            fprintf(fp2,"%0.8f,%0.8f,%d,%0.8f,%0.8f,%d,%0.8f,%d,%d,%d,%0.8f\n",T1[i],s_plot[i],int(s_plot2[i]),s_plot3[i],s_plot4[i],int(s_plot5[i]),s_plot6[i],int(s_plot7[i]),int(s_plot8[i]), int(s_plot10[i]), s_plot11[i]);
-            t.push_back(T1[i]);
-            s_vec.push_back(s_plot9[i]);
-            s_vec2.push_back(s_plot3[i] + s_plot6[i]);
-            s_vec3.push_back(s_plot4[i]);
-            s_vec5.push_back(s_plot[i]);
+        if (fp2 != nullptr)
+        {
+            fprintf(fp2,"time_stamp, total time, scan point size, incremental time, search time, delete size, delete time, tree size st, tree size end, add point size, preprocess time\n");
+            for (int i = 0;i<time_log_counter; i++){
+                fprintf(fp2,"%0.8f,%0.8f,%d,%0.8f,%0.8f,%d,%0.8f,%d,%d,%d,%0.8f\n",T1[i],s_plot[i],int(s_plot2[i]),s_plot3[i],s_plot4[i],int(s_plot5[i]),s_plot6[i],int(s_plot7[i]),int(s_plot8[i]), int(s_plot10[i]), s_plot11[i]);
+                t.push_back(T1[i]);
+                s_vec.push_back(s_plot9[i]);
+                s_vec2.push_back(s_plot3[i] + s_plot6[i]);
+                s_vec3.push_back(s_plot4[i]);
+                s_vec5.push_back(s_plot[i]);
+            }
+            fclose(fp2);
         }
-        fclose(fp2);
     }
 
     return 0;

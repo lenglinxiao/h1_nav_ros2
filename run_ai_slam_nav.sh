@@ -2,9 +2,15 @@
 set -eo pipefail
 
 WORKSPACE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-NETWORK_INTERFACE="enp43s0"
-CYCLONEDDS_CONFIG="${WORKSPACE_DIR}/config/cyclonedds_enp43s0.xml"
+RUNTIME_PROFILE="${H1_2_RUNTIME_PROFILE:-legacy}"
+NETWORK_INTERFACE="${H1_2_NETWORK_INTERFACE:-}"
+if [[ "${RUNTIME_PROFILE}" == "pc4" && -z "${NETWORK_INTERFACE}" ]]; then
+  NETWORK_INTERFACE="eth0"
+fi
+UNITREE_ROS_SETUP="${UNITREE_ROS_SETUP:-${HOME}/unitree_ros2/install/setup.bash}"
+CYCLONEDDS_CONFIG="${H1_2_DDS_CONFIG:-${WORKSPACE_DIR}/config/cyclonedds_auto.xml}"
 LOCK_FILE="/tmp/h1_2_ai_slam_nav.lock"
+PID_FILE="/tmp/h1_2_ai_slam_nav.pid"
 MODE="online"
 MAP_FILE=""
 MAP_SAVE_PREFIX=""
@@ -21,6 +27,53 @@ AUTO_START_ROUTE="false"
 RETURN_TO_START="false"
 NAV2_PARAMS_FILE=""
 MEMORY_POINTS_FILE="${WORKSPACE_DIR}/maps/memory_points.json"
+LAUNCH_PID=""
+
+source_ros_environment() {
+  local had_nounset=0
+  [[ $- == *u* ]] && had_nounset=1
+  set +u
+  source /opt/ros/humble/setup.bash
+  source "${UNITREE_ROS_SETUP}"
+  source "${WORKSPACE_DIR}/install/setup.bash"
+  (( had_nounset == 0 )) || set -u
+}
+
+launch_session_is_owned() {
+  local launch_info
+  [[ -n "${LAUNCH_PID}" && -f "${PID_FILE}" ]] || return 1
+  [[ "$(cat "${PID_FILE}" 2>/dev/null || true)" == "${LAUNCH_PID}" ]] || return 1
+  kill -0 "${LAUNCH_PID}" 2>/dev/null || return 1
+  local launch_sid launch_pgid launch_args
+  launch_info="$(ps -o sid=,pgid=,args= -p "${LAUNCH_PID}" 2>/dev/null || true)"
+  read -r launch_sid launch_pgid launch_args <<< "${launch_info}"
+  [[ "${launch_sid}" == "${LAUNCH_PID}" && "${launch_pgid}" == "${LAUNCH_PID}" ]] &&
+    [[ "${launch_args}" == *"ros2 launch h1_2_slam_bringup"* ]]
+}
+
+wait_for_session_exit() {
+  local timeout_sec="$1"
+  local deadline=$((SECONDS + timeout_sec))
+  while kill -0 -- "-${LAUNCH_PID}" 2>/dev/null; do
+    (( SECONDS >= deadline )) && return 1
+    sleep 0.1
+  done
+}
+
+cleanup_launch() {
+  local status=$?
+  if launch_session_is_owned; then
+    kill -INT -- "-${LAUNCH_PID}" 2>/dev/null || true
+    wait_for_session_exit 5 || {
+      kill -TERM -- "-${LAUNCH_PID}" 2>/dev/null || true
+      wait_for_session_exit 2 || kill -KILL -- "-${LAUNCH_PID}" 2>/dev/null || true
+    }
+  fi
+  if [[ -n "${LAUNCH_PID}" && -f "${PID_FILE}" && "$(cat "${PID_FILE}" 2>/dev/null || true)" == "${LAUNCH_PID}" ]]; then
+    rm -f "${PID_FILE}"
+  fi
+  return "${status}"
+}
 
 print_usage() {
   cat <<'EOF'
@@ -177,9 +230,7 @@ if [[ "${MODE}" == "navigation" && -n "${PCD_MAP_FILE}" && ! -f "${PCD_MAP_FILE}
 fi
 
 if [[ "${MODE}" == "save_map" ]]; then
-  source /opt/ros/humble/setup.bash
-  source "$HOME/unitree_ros2/install/setup.bash"
-  source "${WORKSPACE_DIR}/install/setup.bash"
+  source_ros_environment
 
   export ROS_LOCALHOST_ONLY=0
   export ROS_DOMAIN_ID="${ROS_DOMAIN_ID:-0}"
@@ -207,9 +258,7 @@ if [[ "${MODE}" == "save_map" ]]; then
 fi
 
 if [[ "${MODE}" == "save_pcd_map" ]]; then
-  source /opt/ros/humble/setup.bash
-  source "$HOME/unitree_ros2/install/setup.bash"
-  source "${WORKSPACE_DIR}/install/setup.bash"
+  source_ros_environment
 
   export ROS_LOCALHOST_ONLY=0
   export ROS_DOMAIN_ID="${ROS_DOMAIN_ID:-0}"
@@ -236,36 +285,12 @@ if ! flock -n 9; then
   exit 1
 fi
 
-source /opt/ros/humble/setup.bash
-source "$HOME/unitree_ros2/install/setup.bash"
-source "${WORKSPACE_DIR}/install/setup.bash"
-
-pkill -f "ros2 launch h1_2_slam_bringup fastlio2_grid_navigation.launch.py" || true
-pkill -f "ros2 launch h1_2_slam_bringup h1_2_nav2_mapping.launch.py" || true
-pkill -f "ros2 launch h1_2_slam_bringup h1_2_nav2_navigation.launch.py" || true
-pkill -f "ros2 launch h1_2_slam_bringup h1_2_nav2_slam_navigation.launch.py" || true
-pkill -f "ros2 launch h1_2_slam_bringup h1_2_nav2_camera_init_navigation.launch.py" || true
-pkill -f "install/fast_lio2/lib/fast_lio2/fastlio2_mapping" || true
-pkill -f "install/h1_2_nav_tools/lib/h1_2_nav_tools/fastlio_odom_adapter" || true
-pkill -f "install/h1_2_nav_tools/lib/h1_2_nav_tools/pointcloud_frame_adapter" || true
-pkill -f "install/h1_2_nav_tools/lib/h1_2_nav_tools/velocity_smoother_ema" || true
-pkill -f "install/h1_2_nav_tools/lib/h1_2_nav_tools/pointcloud_to_occupancy_grid" || true
-pkill -f "install/h1_2_nav_tools/lib/h1_2_nav_tools/simple_grid_navigator" || true
-pkill -f "install/h1_2_nav_tools/lib/h1_2_nav_tools/slam_grid_navigator" || true
-pkill -f "install/h1_2_icp_localization/lib/h1_2_icp_localization/global_relocalization_node" || true
-pkill -f "install/h1_2_loco_bridge/lib/h1_2_loco_bridge/cmd_vel_to_h1_2_loco" || true
-pkill -f "install/h1_2_loco_bridge/lib/h1_2_loco_bridge/gesture_to_h1_2_loco" || true
-pkill -f "install/h1_2_loco_bridge/lib/h1_2_loco_bridge/h1_2_loco_udp_daemon" || true
-pkill -f "nav2_bt_navigator" || true
-pkill -f "nav2_controller" || true
-pkill -f "nav2_lifecycle_manager" || true
-pkill -f "nav2_map_server" || true
-pkill -f "nav2_planner" || true
-pkill -f "nav2_recoveries" || true
-pkill -f "nav2_waypoint_follower" || true
-pkill -f "slam_toolbox" || true
-pkill -f "pointcloud_to_laserscan" || true
-sleep 1
+if [[ ! -f "${UNITREE_ROS_SETUP}" ]]; then
+  echo "Unitree ROS setup not found: ${UNITREE_ROS_SETUP}" >&2
+  echo "Set UNITREE_ROS_SETUP to the installed ROS workspace setup.bash." >&2
+  exit 2
+fi
+source_ros_environment
 
 export ROS_LOCALHOST_ONLY=0
 export ROS_DOMAIN_ID="${ROS_DOMAIN_ID:-0}"
@@ -281,12 +306,14 @@ if [[ "${MODE}" == "online" ]]; then
     "start_livox_driver:=false"
     map_file_path:="${PCD_SAVE_PREFIX}.pcd"
     "enable_sport_bridge:=true"
-    "network_interface:=${NETWORK_INTERFACE}"
     "memory_points_file:=${MEMORY_POINTS_FILE}"
     "start_at_first_route_point:=${START_AT_FIRST_ROUTE_POINT}"
     "max_linear_speed:=0.12"
     "max_angular_speed:=0.50"
   )
+  if [[ -n "${NETWORK_INTERFACE}" ]]; then
+    ONLINE_LAUNCH_ARGS+=("network_interface:=${NETWORK_INTERFACE}")
+  fi
   if [[ -n "${MEMORY_ROUTE}" ]]; then
     ONLINE_LAUNCH_ARGS+=("memory_route:=${MEMORY_ROUTE}")
   fi
@@ -299,7 +326,20 @@ if [[ "${MODE}" == "online" ]]; then
   if [[ -n "${NAV2_PARAMS_FILE}" ]]; then
     ONLINE_LAUNCH_ARGS+=("params_file:=${NAV2_PARAMS_FILE}")
   fi
-  exec ros2 launch h1_2_slam_bringup h1_2_nav2_camera_init_navigation.launch.py "${ONLINE_LAUNCH_ARGS[@]}"
+  setsid ros2 launch h1_2_slam_bringup h1_2_nav2_camera_init_navigation.launch.py "${ONLINE_LAUNCH_ARGS[@]}" &
+  LAUNCH_PID=$!
+  echo "${LAUNCH_PID}" > "${PID_FILE}"
+  trap 'exit 130' INT
+  trap 'exit 143' TERM
+  trap cleanup_launch EXIT
+  set +e
+  wait "${LAUNCH_PID}"
+  LAUNCH_STATUS=$?
+  set -e
+  rm -f "${PID_FILE}"
+  LAUNCH_PID=""
+  trap - EXIT INT TERM
+  exit "${LAUNCH_STATUS}"
 fi
 
 echo "Starting H1-2 Nav2 navigation with map: ${MAP_FILE}"
@@ -310,7 +350,6 @@ NAV_LAUNCH_ARGS=(
   "start_livox_driver:=false"
   "map_file_path:=${PCD_SAVE_PREFIX}.pcd"
   "enable_sport_bridge:=true"
-  "network_interface:=${NETWORK_INTERFACE}"
   "start_at_first_route_point:=${START_AT_FIRST_ROUTE_POINT}"
   "max_linear_speed:=0.12"
   "max_angular_speed:=0.50"
@@ -320,6 +359,10 @@ NAV_LAUNCH_ARGS=(
   "auto_start_route:=${AUTO_START_ROUTE}"
   "return_to_start:=${RETURN_TO_START}"
 )
+
+if [[ -n "${NETWORK_INTERFACE}" ]]; then
+  NAV_LAUNCH_ARGS+=("network_interface:=${NETWORK_INTERFACE}")
+fi
 
 if [[ -n "${MEMORY_ROUTE}" ]]; then
   NAV_LAUNCH_ARGS+=("memory_route:=${MEMORY_ROUTE}")
@@ -337,4 +380,17 @@ if [[ -n "${NAV2_PARAMS_FILE}" ]]; then
   NAV_LAUNCH_ARGS+=("params_file:=${NAV2_PARAMS_FILE}")
 fi
 
-exec ros2 launch h1_2_slam_bringup h1_2_nav2_navigation.launch.py "${NAV_LAUNCH_ARGS[@]}"
+setsid ros2 launch h1_2_slam_bringup h1_2_nav2_navigation.launch.py "${NAV_LAUNCH_ARGS[@]}" &
+LAUNCH_PID=$!
+echo "${LAUNCH_PID}" > "${PID_FILE}"
+trap 'exit 130' INT
+trap 'exit 143' TERM
+trap cleanup_launch EXIT
+set +e
+wait "${LAUNCH_PID}"
+LAUNCH_STATUS=$?
+set -e
+rm -f "${PID_FILE}"
+LAUNCH_PID=""
+trap - EXIT INT TERM
+exit "${LAUNCH_STATUS}"

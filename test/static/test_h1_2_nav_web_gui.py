@@ -96,6 +96,23 @@ def test_h1_2_nav_web_gui_enforces_single_instance_by_default():
     assert "--no-single-instance" in source
     assert "SIGTERM" in source
     assert "SIGKILL" in source
+    assert "fcntl.flock" in source
+
+
+def test_h1_2_nav_web_gui_has_backend_heartbeat_and_pc4_profile_gates():
+    source = WEB_GUI.read_text(encoding="utf-8")
+
+    assert '"/api/heartbeat"' in source
+    assert "H1_2_WEB_HEARTBEAT_TIMEOUT_SEC" in source
+    assert "HEARTBEAT_TIMEOUT_SEC" in source
+    assert "def _watch_heartbeat(self):" in source
+    assert "browser heartbeat timeout" in source
+    assert "STOP_COMMAND_GRACE_SEC" in source
+    assert "__import__(\"time\")" not in source
+    assert "time.sleep(STOP_COMMAND_GRACE_SEC)" in source
+    assert 'os.environ.get("H1_2_RUNTIME_PROFILE", "local")' in source
+    assert "请在 AI PC 本地启动 RViz" in source
+    assert "PC4 第一阶段未启用相机、语音或视觉功能" in source
 
 
 def test_h1_2_nav_web_gui_manages_navigation_and_rviz_processes():
@@ -142,6 +159,9 @@ def test_h1_2_nav_web_gui_uses_ros_services():
     assert "start_teaching_path_recording" in source
     assert "stop_and_save_teaching_path" in source
     assert "/h1_2_loco/execute_gesture" in source
+    assert "function formatGestureResult(name, result)" in source
+    assert 'Object.prototype.hasOwnProperty.call(result, "sdk_ret")' in source
+    assert "sdk_ret=${result.sdk_ret}" in source
 
 
 def test_h1_2_nav_web_gui_exposes_expected_api_routes():
@@ -324,8 +344,6 @@ def test_h1_2_nav_web_gui_exposes_teaching_route_controls():
     assert 'id="teaching_loop"' in source
     assert "启动示教节点" not in source
     assert "停止示教节点" not in source
-    assert "启动示教巡航" in source
-    assert "结束示教巡航" in source
     assert "startTeachingRoute" in source
     assert "def start_teaching_recording(self, payload):" in source
     assert "self.processes.start_teaching_record_runner(payload)" in source
@@ -397,16 +415,16 @@ def test_h1_2_nav_web_gui_uses_cli_ros_dds_environment_before_rclpy_init():
     assert 'os.environ["ROS_LOCALHOST_ONLY"] = "0"' in source
     assert 'os.environ.setdefault("ROS_DOMAIN_ID", "0")' in source
     assert 'os.environ["RMW_IMPLEMENTATION"] = "rmw_cyclonedds_cpp"' in source
-    assert '"cyclonedds_enp43s0.xml"' in source
+    assert '"cyclonedds_auto.xml"' in source
     assert 'os.environ["CYCLONEDDS_URI"] = f"file://{dds_config}"' in source
     assert 'os.environ.pop("FASTRTPS_DEFAULT_PROFILES_FILE", None)' in source
     assert source.index("configure_ros_environment()") < source.index("rclpy.init(args=None)")
 
 
-def test_cyclonedds_config_pins_the_navigation_interface_without_an_ip_address():
-    config = CYCLONEDDS_CONFIG.read_text(encoding="utf-8")
+def test_cyclonedds_config_keeps_the_interface_selectable_without_an_ip_address():
+    config = (ROOT / "config" / "cyclonedds_auto.xml").read_text(encoding="utf-8")
 
-    assert "<NetworkInterfaceAddress>enp45s0</NetworkInterfaceAddress>" in config
+    assert "<AllowMulticast>spdp</AllowMulticast>" in config
     assert "192.168.123.90" not in config
 
 
@@ -419,7 +437,9 @@ def test_run_script_still_exposes_online_and_offline_modes():
     assert "mode=save_pcd_map" in script
     assert "params_file=*" in script
     assert '"params_file:=${NAV2_PARAMS_FILE}"' in script
-    assert 'CYCLONEDDS_CONFIG="${WORKSPACE_DIR}/config/cyclonedds_enp45s0.xml"' in script
+    assert 'H1_2_DDS_CONFIG:-${WORKSPACE_DIR}/config/cyclonedds_auto.xml' in script
+    assert script.count('if [[ -n "${NETWORK_INTERFACE}" ]]') == 2
+    assert script.count('+=("network_interface:=${NETWORK_INTERFACE}")') == 2
     assert 'export CYCLONEDDS_URI="file://${CYCLONEDDS_CONFIG}"' in script
     assert 'unset CYCLONEDDS_URI' not in script
 
@@ -428,5 +448,9 @@ def test_h1_2_nav_web_gui_does_not_pass_launch_only_min_speed_to_script():
     source = WEB_GUI.read_text(encoding="utf-8")
 
     navigation_args = source[source.index("def navigation_args"):source.index("class RequestHandler")]
-    assert "params_file={params_path}" in navigation_args
+    assert "params_file={mode_params_path(params_file)}" in navigation_args
+    assert 'path.name in ("nav2_h1_2.yaml", "nav2_h1_2_rpp.yaml")' in navigation_args
+    assert 'path.with_name("nav2_h1_2_camera_init.yaml")' in navigation_args
+    assert 'path.name in ("nav2_h1_2.yaml", "nav2_h1_2_camera_init.yaml")' in navigation_args
+    assert 'path.with_name("nav2_h1_2_rpp.yaml")' in navigation_args
     assert "min_linear_speed=0.10" not in navigation_args

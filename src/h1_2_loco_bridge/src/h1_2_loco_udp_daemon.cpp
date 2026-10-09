@@ -1,7 +1,9 @@
 #include <arpa/inet.h>
 #include <algorithm>
 #include <chrono>
+#include <cerrno>
 #include <csignal>
+#include <cmath>
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
@@ -50,6 +52,7 @@ int main(int argc, char** argv) {
   double max_y = 0.0;
   double max_yaw = 0.30;
   double shake_hand_duration = 10.0;
+  double command_timeout = 1.0;
   bool auto_start = false;
   bool started = false;
   bool shake_hand_extended = false;
@@ -70,11 +73,16 @@ int main(int argc, char** argv) {
     else if (arg == "--max-y") max_y = std::atof(next());
     else if (arg == "--max-yaw") max_yaw = std::atof(next());
     else if (arg == "--shake-hand-duration") shake_hand_duration = std::atof(next());
+    else if (arg == "--command-timeout") command_timeout = std::atof(next());
     else if (arg == "--auto-start") auto_start = true;
     else if (arg == "--auto-start-value") {
       std::string value = next();
       auto_start = (value == "true" || value == "1" || value == "yes");
     }
+  }
+  if (!std::isfinite(command_timeout) || command_timeout <= 0.0) {
+    std::cerr << "--command-timeout must be a positive finite number" << std::endl;
+    return 2;
   }
 
   std::signal(SIGINT, handle_signal);
@@ -93,6 +101,7 @@ int main(int argc, char** argv) {
   int sock = socket(AF_INET, SOCK_DGRAM, 0);
   if (sock < 0) {
     perror("socket");
+    client.StopMove();
     return 1;
   }
   sockaddr_in addr{};
@@ -102,6 +111,7 @@ int main(int argc, char** argv) {
   if (bind(sock, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0) {
     perror("bind");
     close(sock);
+    client.StopMove();
     return 1;
   }
 
@@ -114,12 +124,28 @@ int main(int argc, char** argv) {
             << ", iface=" << network_interface << std::endl;
 
   char buf[256];
+  auto last_control = std::chrono::steady_clock::now();
+  bool timed_out = false;
   while (running) {
+    if (!timed_out &&
+        std::chrono::duration<double>(std::chrono::steady_clock::now() - last_control).count() > command_timeout) {
+      const auto ret = client.StopMove();
+      started = false;
+      timed_out = true;
+      std::cout << "Control command timeout; StopMove ret=" << ret << std::endl;
+    }
     sockaddr_in peer{};
     socklen_t peer_len = sizeof(peer);
     const ssize_t n = recvfrom(sock, buf, sizeof(buf) - 1, 0,
                                reinterpret_cast<sockaddr*>(&peer), &peer_len);
-    if (n <= 0) {
+    if (n < 0) {
+      if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) {
+        continue;
+      }
+      perror("recvfrom");
+      break;
+    }
+    if (n == 0) {
       continue;
     }
     buf[n] = '\0';
@@ -131,9 +157,34 @@ int main(int argc, char** argv) {
       const auto ret = client.Start();
       started = (ret == 0);
       std::cout << "Start ret=" << ret << std::endl;
+      send_response(sock, peer, peer_len,
+                    std::string(ret == 0 ? "ok " : "error ") + std::to_string(ret) + " start");
+    } else if (cmd == "stop") {
+      const auto ret = client.StopMove();
+      started = false;
+      std::cout << "StopMove ret=" << ret << std::endl;
+      send_response(sock, peer, peer_len,
+                    std::string(ret == 0 ? "ok " : "error ") + std::to_string(ret) + " stop");
     } else if (cmd == "vel") {
       double vx = 0.0, vy = 0.0, wz = 0.0, duration = 0.5;
-      in >> vx >> vy >> wz >> duration;
+      bool valid = static_cast<bool>(in >> vx >> vy >> wz);
+      if (valid) {
+        std::string duration_token;
+        if (in >> duration_token) {
+          char* end = nullptr;
+          duration = std::strtod(duration_token.c_str(), &end);
+          valid = end != duration_token.c_str() && *end == '\0';
+        }
+        std::string extra;
+        if (in >> extra) valid = false;
+      }
+      if (!valid || !std::isfinite(vx) || !std::isfinite(vy) || !std::isfinite(wz) ||
+          !std::isfinite(duration) || duration <= 0.0) {
+        send_response(sock, peer, peer_len, "error -2 invalid velocity command");
+        continue;
+      }
+      last_control = std::chrono::steady_clock::now();
+      timed_out = false;
       vx = clamp(vx, -max_x, max_x);
       vy = clamp(vy, -max_y, max_y);
       wz = clamp(wz, -max_yaw, max_yaw);
