@@ -1,4 +1,5 @@
 import rclpy
+from rclpy.executors import ExternalShutdownException
 from action_msgs.msg import GoalStatus
 from geometry_msgs.msg import PoseStamped
 from nav2_msgs.action import NavigateToPose
@@ -81,9 +82,13 @@ class GoalPoseToNav2(Node):
 
 def main():
     rclpy.init()
-    node = GoalPoseToNav2()
+    node = None
     try:
+        node = GoalPoseToNav2()
         rclpy.spin(node)
+    except (KeyboardInterrupt, ExternalShutdownException):
+        pass
     finally:
-        node.destroy_node()
-        rclpy.shutdown()
+        if node is not None:
+            node.destroy_node()
+        rclpy.try_shutdown()

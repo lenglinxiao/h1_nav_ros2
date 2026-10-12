@@ -1239,6 +1239,7 @@ class WebGuiApp:
 
     def default_config(self):
         config = {
+            "heartbeat_ws_port": getattr(self, "heartbeat_ws_port", 0),
             "map": str(self.workspace_root / "maps" / "h1_2_lab.yaml"),
             "pcd": str(self.workspace_root / "maps" / "h1_2_lab.pcd"),
             "run_mode": "online",
@@ -1658,6 +1659,9 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._send_text(INDEX_HTML, "text/html; charset=utf-8")
         elif parsed.path == "/api/config":
             self._send_json(self.app.default_config())
+        elif parsed.path in ("/api/info", "/api/status/info"):
+            self._send_json({"http_port": self.app.http_port,
+                             "heartbeat_ws_port": self.app.heartbeat_ws_port})
         elif parsed.path == "/api/points":
             task_id = parse_qs(parsed.query).get("task_id", [None])[0]
             task_name = parse_qs(parsed.query).get("task_name", [""])[0]
@@ -1676,6 +1680,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                     "vision": self.app.ros.vision_status(),
                     "runtime_profile": self.app.runtime_profile,
                     "pc4_profile": self.app.pc4_profile,
+                    "heartbeat_ws_port": self.app.heartbeat_ws_port,
                 }
             )
         elif parsed.path == "/api/camera/status":
@@ -1704,8 +1709,9 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._send_json({"success": False, "message": "请求配置必须是对象。"})
             return
         if parsed.path == "/api/heartbeat":
-            self.app.record_heartbeat()
-            self._send_json({"success": True})
+            # Retained for older clients, but HTTP traffic cannot keep the
+            # navigation watchdog alive. Only a WebSocket Pong does that.
+            self._send_json({"success": False, "message": "浏览器心跳已迁移至 WebSocket，请刷新页面。"})
             return
         if parsed.path in ("/api/config", "/api/navigation/start", "/api/route/start") or "task_profiles" in payload:
             try:
@@ -2534,6 +2540,8 @@ INDEX_HTML = r"""<!doctype html>
     let lastLogSeq = 0;
     let logsAutoFollow = true;
     let logsSelecting = false;
+    let logsPollInFlight = false;
+    const MAX_LOG_TEXT_LENGTH = 200000;
     let startGesture = "";
     let startTurn = "";
     let shakeHandExtended = false;
@@ -2583,6 +2591,7 @@ INDEX_HTML = r"""<!doctype html>
     async function loadConfig() {
       const config = await api("/api/config");
       baseConfig = config;
+      await connectHeartbeat(config.heartbeat_ws_port);
       taskProfiles = structuredClone(config.task_profiles);
       selectedTaskId = config.selected_task_id;
       revision = savedRevision = 0;
@@ -2616,6 +2625,40 @@ INDEX_HTML = r"""<!doctype html>
       $("return_to_start").checked = !!config.return_to_start;
       renderTasks();
       onModeChanged();
+    }
+
+    let heartbeatSocket;
+    let heartbeatReconnectTimer;
+    let heartbeatReady = false;
+    function connectHeartbeat(port, waitForReady = true) {
+      return new Promise((resolve, reject) => {
+        const socket = new WebSocket(`${location.protocol === "https:" ? "wss:" : "ws:"}//${location.hostname}:${port}`);
+        heartbeatSocket = socket;
+        let settled = false;
+        const startupTimer = waitForReady ? setTimeout(() => {
+          if (!settled) { settled = true; socket.close(); reject(new Error("浏览器心跳未就绪，页面保持未启动。")); }
+        }, 4000) : null;
+        socket.addEventListener("message", event => {
+          // The server emits ready only after this connection's first Ping/Pong.
+          try { if (JSON.parse(event.data).type === "ready" && !settled) {
+            settled = true; heartbeatReady = true; if (startupTimer) clearTimeout(startupTimer); resolve();
+          } } catch (_) {}
+        });
+        socket.addEventListener("error", () => {
+          if (!settled) { settled = true; if (startupTimer) clearTimeout(startupTimer); reject(new Error("无法连接浏览器 WebSocket 心跳服务。")); }
+        });
+        socket.addEventListener("close", () => {
+          heartbeatReady = false;
+          if (!settled) { settled = true; if (startupTimer) clearTimeout(startupTimer); reject(new Error("浏览器 WebSocket 心跳服务已关闭。")); }
+          clearTimeout(heartbeatReconnectTimer);
+          heartbeatReconnectTimer = setTimeout(() => connectHeartbeat(port, false).catch(() => {}), 500);
+        });
+      });
+    }
+    function ensureHeartbeatReady() {
+      if (!heartbeatReady || !heartbeatSocket || heartbeatSocket.readyState !== WebSocket.OPEN) {
+        throw new Error("浏览器心跳未连接，导航操作未发送。请等待心跳重连后重试。");
+      }
     }
 
     function onModeChanged() {
@@ -2936,7 +2979,7 @@ INDEX_HTML = r"""<!doctype html>
       if (starting) return;
       starting = true; const version = revision; const config = payload();
       try { await preserveScroll(async () => {
-        await api("/api/heartbeat", {method:"POST", body:"{}"});
+        ensureHeartbeatReady();
         const result = await api("/api/navigation/start", {method:"POST", body:JSON.stringify(config)});
         if (result.success) { savedRevision = version; baseConfig = config; updateSaveState(); }
         showResult(result); appendLog("web", result.message); await refreshStatus();
@@ -2950,7 +2993,7 @@ INDEX_HTML = r"""<!doctype html>
       const config = payload();
       config.run_mode = mode;
       try { await preserveScroll(async () => {
-        await api("/api/heartbeat", {method:"POST", body:"{}"});
+        ensureHeartbeatReady();
         const result = await api("/api/navigation/start", {method:"POST", body:JSON.stringify(config)});
         showResult(result);
         appendLog("web", result.message || (mode === "save_map" ? "2D 地图保存请求已发送" : "3D 点云保存请求已发送"));
@@ -2994,6 +3037,7 @@ INDEX_HTML = r"""<!doctype html>
     }
 
     async function startTeachingRoute() {
+      ensureHeartbeatReady();
       const result = await api("/api/teaching_route/start", { method: "POST", body: JSON.stringify(payload()) });
       appendLog("teaching-route", result.message || JSON.stringify(result));
       refreshStatus();
@@ -3098,8 +3142,18 @@ INDEX_HTML = r"""<!doctype html>
     function appendLog(source, message) {
       const logs = $("logs");
       const shouldFollow = shouldAutoFollowLogs();
-      logs.textContent += `[${new Date().toLocaleTimeString()}] [${source}] ${message}\n`;
+      appendLogText(logs, `[${new Date().toLocaleTimeString()}] [${source}] ${message}\n`);
       followLogsIfAllowed(shouldFollow);
+    }
+
+    function appendLogText(logs, text) {
+      let content = logs.textContent + text;
+      if (content.length > MAX_LOG_TEXT_LENGTH) {
+        const overflow = content.length - MAX_LOG_TEXT_LENGTH;
+        const nextLine = content.indexOf("\n", overflow);
+        content = nextLine >= 0 ? content.slice(nextLine + 1) : content.slice(-MAX_LOG_TEXT_LENGTH);
+      }
+      logs.textContent = content;
     }
 
     function logsNearBottom() {
@@ -3123,14 +3177,23 @@ INDEX_HTML = r"""<!doctype html>
     }
 
     async function pollLogs() {
-      const shouldFollow = shouldAutoFollowLogs();
-      const data = await api(`/api/logs?after=${lastLogSeq}`);
-      for (const entry of data.entries || []) {
-        lastLogSeq = Math.max(lastLogSeq, entry.seq);
-        if (entry.source === "http") continue;
-        $("logs").textContent += `[${entry.time}] [${entry.source}] ${entry.message}\n`;
+      if (logsPollInFlight) return;
+      logsPollInFlight = true;
+      try {
+        const shouldFollow = shouldAutoFollowLogs();
+        const data = await api(`/api/logs?after=${lastLogSeq}`);
+        const lines = [];
+        for (const entry of data.entries || []) {
+          if (entry.seq <= lastLogSeq) continue;
+          lastLogSeq = entry.seq;
+          if (entry.source === "http") continue;
+          lines.push(`[${entry.time}] [${entry.source}] ${entry.message}\n`);
+        }
+        if (lines.length) appendLogText($("logs"), lines.join(""));
+        followLogsIfAllowed(shouldFollow);
+      } finally {
+        logsPollInFlight = false;
       }
-      followLogsIfAllowed(shouldFollow);
     }
 
     function setupLogScrollLock() {
@@ -3157,12 +3220,10 @@ INDEX_HTML = r"""<!doctype html>
       await pollLogs();
       setupLogScrollLock();
       setInterval(refreshStatus, 1200);
-      setInterval(() => api("/api/heartbeat", {method:"POST", body:"{}"}).catch(() => {}), 500);
       setInterval(() => pollLogs().catch(() => {}), 700);
       document.querySelectorAll(".left-rail input, .left-rail select").forEach(el => el.addEventListener("change", markDirty));
     })().catch(showError);
     window.addEventListener("beforeunload", event => {
-      if (navigator.sendBeacon) navigator.sendBeacon("/api/heartbeat", new Blob(["{}"], {type:"application/json"}));
       if (revision !== savedRevision) { event.preventDefault(); event.returnValue = ""; }
     });
     window.addEventListener("unhandledrejection", event => { showError(event.reason); event.preventDefault(); });
@@ -3190,6 +3251,12 @@ def main():
     if not args.ui_only and not ROS_CUSTOM_MESSAGES_AVAILABLE:
         parser.error("缺少 ROS 自定义消息包，请先 source 工作区 install；仅预览界面可使用 --ui-only。")
 
+    try:
+        from h1_2_nav_tools.heartbeat_transport import HeartbeatWebSocketServer
+    except ImportError as exc:
+        print(f"WebSocket heartbeat dependency unavailable; refusing to start Web GUI: {exc}", file=sys.stderr, flush=True)
+        return 1
+
     workspace_root = find_workspace_root()
     instance_lock = None
     if not args.no_single_instance:
@@ -3204,7 +3271,13 @@ def main():
         instance_lock.flush()
     server, actual_port = bind_http_server(args.host, args.port, RequestHandler, args.port_tries)
     app = WebGuiApp(workspace_root, ui_only=args.ui_only)
+    app.http_port = actual_port
+    app.heartbeat_ws_port = actual_port + 1
     server.app = app
+    heartbeat_server = HeartbeatWebSocketServer(
+        args.host, app.heartbeat_ws_port, actual_port, app,
+        logger=lambda message: app.logs.add("web", message),
+    )
 
     stopping = threading.Event()
 
@@ -3219,10 +3292,13 @@ def main():
 
     url = f"http://{args.host}:{actual_port}"
     print(f"H1-2 web GUI: {url}", flush=True)
+    print(f"H1-2 browser heartbeat WebSocket: {args.host}:{app.heartbeat_ws_port}", flush=True)
     print("Press Ctrl-C to stop the web GUI server.", flush=True)
     try:
+        heartbeat_server.start()
         server.serve_forever()
     finally:
+        heartbeat_server.shutdown()
         app.shutdown()
         server.server_close()
         if instance_lock is not None:

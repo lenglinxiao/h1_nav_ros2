@@ -1,4 +1,5 @@
 import rclpy
+from rclpy.executors import ExternalShutdownException
 from geometry_msgs.msg import Twist
 from rclpy.node import Node
 
@@ -134,9 +135,13 @@ class VelocitySmootherEma(Node):
 
 def main():
     rclpy.init()
-    node = VelocitySmootherEma()
+    node = None
     try:
+        node = VelocitySmootherEma()
         rclpy.spin(node)
+    except (KeyboardInterrupt, ExternalShutdownException):
+        pass
     finally:
-        node.destroy_node()
-        rclpy.shutdown()
+        if node is not None:
+            node.destroy_node()
+        rclpy.try_shutdown()

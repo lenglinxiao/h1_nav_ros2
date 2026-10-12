@@ -1,8 +1,12 @@
 import math
 import struct
+import time
+from array import array
 from typing import Optional, Tuple
 
+import numpy as np
 import rclpy
+from rclpy.executors import ExternalShutdownException
 from nav_msgs.msg import OccupancyGrid
 from nav_msgs.msg import Odometry
 from rclpy.node import Node
@@ -11,6 +15,25 @@ from sensor_msgs.msg import PointCloud2, PointField
 
 
 FLOAT32 = PointField.FLOAT32
+
+
+def downsample_occupancy_grid(data, width: int, height: int, factor: int, unknown_value: int = -1):
+    """Conservatively reduce a row-major OccupancyGrid, padding partial blocks as unknown."""
+    if width <= 0 or height <= 0 or factor <= 0:
+        raise ValueError("width, height, and factor must be positive")
+    if len(data) != width * height:
+        raise ValueError("occupancy data length does not match grid dimensions")
+    out_width = (width + factor - 1) // factor
+    out_height = (height + factor - 1) // factor
+    padded = np.full((out_height * factor, out_width * factor), unknown_value, dtype=np.int16)
+    padded[:height, :width] = np.asarray(data, dtype=np.int16).reshape((height, width))
+    blocks = padded.reshape(out_height, factor, out_width, factor).transpose(0, 2, 1, 3)
+    occupied = np.any(blocks >= 100, axis=(2, 3))
+    free = np.all(blocks == 0, axis=(2, 3))
+    reduced = np.full((out_height, out_width), unknown_value, dtype=np.int8)
+    reduced[free] = 0
+    reduced[occupied] = 100
+    return array("b", reduced.tobytes()), out_width, out_height
 
 
 class PointCloudToOccupancyGrid(Node):
@@ -29,6 +52,9 @@ class PointCloudToOccupancyGrid(Node):
         self.declare_parameter("min_z", -0.35)
         self.declare_parameter("max_z", 1.50)
         self.declare_parameter("publish_hz", 2.0)
+        self.declare_parameter("preview_map_topic", "")
+        self.declare_parameter("preview_publish_hz", 0.5)
+        self.declare_parameter("preview_downsample_factor", 2)
         self.declare_parameter("point_stride", 1)
         self.declare_parameter("inflation_radius", 0.10)
         self.declare_parameter("clear_robot_radius", 0.0)
@@ -64,6 +90,15 @@ class PointCloudToOccupancyGrid(Node):
         self.min_z = float(self.get_parameter("min_z").value)
         self.max_z = float(self.get_parameter("max_z").value)
         self.publish_hz = float(self.get_parameter("publish_hz").value)
+        self.preview_map_topic = str(self.get_parameter("preview_map_topic").value).strip()
+        self.preview_publish_hz = float(self.get_parameter("preview_publish_hz").value)
+        self.preview_downsample_factor = int(self.get_parameter("preview_downsample_factor").value)
+        if not math.isfinite(self.preview_publish_hz) or self.preview_publish_hz <= 0:
+            raise ValueError("preview_publish_hz must be finite and greater than zero")
+        if self.preview_downsample_factor <= 0:
+            raise ValueError("preview_downsample_factor must be greater than zero")
+        self.preview_period = 1.0 / self.preview_publish_hz
+        self.last_preview_publish_monotonic = None
         self.point_stride = max(1, int(self.get_parameter("point_stride").value))
         self.inflation_radius = max(0.0, float(self.get_parameter("inflation_radius").value))
         self.clear_robot_radius = max(0.0, float(self.get_parameter("clear_robot_radius").value))
@@ -112,6 +147,12 @@ class PointCloudToOccupancyGrid(Node):
                 Odometry, self.get_parameter("odom_topic").value, self.odom_callback, 20
             )
         self.pub = self.create_publisher(OccupancyGrid, self.map_topic, map_qos)
+        self.preview_pub = None
+        if self.preview_map_topic:
+            preview_qos = QoSProfile(depth=1)
+            preview_qos.reliability = ReliabilityPolicy.RELIABLE
+            preview_qos.durability = DurabilityPolicy.TRANSIENT_LOCAL
+            self.preview_pub = self.create_publisher(OccupancyGrid, self.preview_map_topic, preview_qos)
         self.timer = self.create_timer(1.0 / max(self.publish_hz, 0.1), self.publish_map)
         self.cloud_count = 0
         self.publish_count = 0
@@ -385,12 +426,44 @@ class PointCloudToOccupancyGrid(Node):
         msg.info.origin.orientation.w = 1.0
         msg.data = self.latest_grid
         self.pub.publish(msg)
+        self.publish_preview_map()
         self.publish_count += 1
         if self.publish_count == 1 or self.publish_count % max(1, int(self.publish_hz * 5.0)) == 0:
             self.get_logger().info(
                 f"Published map #{self.publish_count}: {self.width}x{self.height}, "
                 f"occupied cells {self.last_occupied_count}, free cells {self.last_free_count}"
             )
+
+    def publish_preview_map(self):
+        if self.preview_pub is None or not self.has_cloud:
+            return
+        try:
+            if self.preview_pub.get_subscription_count() <= 0:
+                return
+            now = time.monotonic()
+            if (self.last_preview_publish_monotonic is not None and
+                    now - self.last_preview_publish_monotonic < self.preview_period):
+                return
+            preview_data, preview_width, preview_height = downsample_occupancy_grid(
+                self.latest_grid, self.width, self.height,
+                self.preview_downsample_factor, self.unknown_value,
+            )
+            msg = OccupancyGrid()
+            msg.header.stamp = self.get_clock().now().to_msg()
+            msg.header.frame_id = self.frame_id
+            msg.info.map_load_time = msg.header.stamp
+            msg.info.resolution = self.resolution * self.preview_downsample_factor
+            msg.info.width = preview_width
+            msg.info.height = preview_height
+            msg.info.origin.position.x = self.origin_x
+            msg.info.origin.position.y = self.origin_y
+            msg.info.origin.position.z = self.map_z
+            msg.info.origin.orientation.w = 1.0
+            msg.data = preview_data
+            self.preview_pub.publish(msg)
+            self.last_preview_publish_monotonic = now
+        except Exception as exc:
+            self.get_logger().error(f"Failed to publish preview map: {exc}")
 
     @staticmethod
     def as_bool(value):
@@ -403,12 +476,16 @@ class PointCloudToOccupancyGrid(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    node = PointCloudToOccupancyGrid()
+    node = None
     try:
+        node = PointCloudToOccupancyGrid()
         rclpy.spin(node)
+    except (KeyboardInterrupt, ExternalShutdownException):
+        pass
     finally:
-        node.destroy_node()
-        rclpy.shutdown()
+        if node is not None:
+            node.destroy_node()
+        rclpy.try_shutdown()
 
 
 if __name__ == "__main__":

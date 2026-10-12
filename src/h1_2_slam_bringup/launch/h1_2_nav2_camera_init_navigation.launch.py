@@ -173,6 +173,9 @@ def generate_launch_description():
                             LaunchConfiguration("occupied_decay_decrement"), value_type=int
                         ),
                         "publish_hz": 3.0,
+                        "preview_map_topic": "/map_preview",
+                        "preview_publish_hz": 0.5,
+                        "preview_downsample_factor": 2,
                         "inflation_radius": 0.10,
                         "clear_robot_radius": 0.45,
                         "accumulate_map": True,

@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import rclpy
+from rclpy.executors import ExternalShutdownException
 from geometry_msgs.msg import PoseStamped
 from h1_2_nav_msgs.srv import DeleteMemoryPoint, ListMemoryPoints, SaveMemoryPoint
 from nav_msgs.msg import Odometry
@@ -211,9 +212,13 @@ class MemoryPointManager(Node):
 
 def main():
     rclpy.init()
-    node = MemoryPointManager()
+    node = None
     try:
+        node = MemoryPointManager()
         rclpy.spin(node)
+    except (KeyboardInterrupt, ExternalShutdownException):
+        pass
     finally:
-        node.destroy_node()
-        rclpy.shutdown()
+        if node is not None:
+            node.destroy_node()
+        rclpy.try_shutdown()

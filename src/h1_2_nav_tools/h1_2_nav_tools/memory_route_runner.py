@@ -10,7 +10,7 @@ from h1_2_icp_localization.msg import LocalizationStatus
 from h1_2_nav_msgs.srv import ExecuteGesture, RouteStatus, StartRoute, StopRoute
 from nav2_msgs.action import NavigateToPose, Spin
 from rclpy.action import ActionClient
-from rclpy.executors import MultiThreadedExecutor
+from rclpy.executors import ExternalShutdownException, MultiThreadedExecutor
 from rclpy.node import Node
 from tf2_ros import Buffer, TransformListener
 
@@ -693,12 +693,18 @@ class MemoryRouteRunner(Node):
 
 def main():
     rclpy.init()
-    node = MemoryRouteRunner()
-    executor = MultiThreadedExecutor(num_threads=2)
-    executor.add_node(node)
+    node = None
+    executor = None
     try:
+        node = MemoryRouteRunner()
+        executor = MultiThreadedExecutor(num_threads=2)
+        executor.add_node(node)
         executor.spin()
+    except (KeyboardInterrupt, ExternalShutdownException):
+        pass
     finally:
-        executor.remove_node(node)
-        node.destroy_node()
-        rclpy.shutdown()
+        if executor is not None and node is not None:
+            executor.remove_node(node)
+        if node is not None:
+            node.destroy_node()
+        rclpy.try_shutdown()
