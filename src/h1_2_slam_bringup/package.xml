@@ -12,6 +12,7 @@
   <exec_depend>h1_2_icp_localization</exec_depend>
   <exec_depend>h1_2_description</exec_depend>
   <exec_depend>h1_2_loco_bridge</exec_depend>
+  <exec_depend>h1_2_policy_bridge</exec_depend>
   <exec_depend>fast_lio2</exec_depend>
   <exec_depend>dwb_core</exec_depend>
   <exec_depend>dwb_critics</exec_depend>

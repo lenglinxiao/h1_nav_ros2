@@ -3,12 +3,27 @@ import xml.etree.ElementTree as ET
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, OpaqueFunction
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration, PythonExpression
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, PythonExpression
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
+from launch_ros.substitutions import FindPackageShare
+
+
+def validate_motion_backend(context):
+    backend = LaunchConfiguration("motion_backend").perform(context)
+    if backend not in ("unitree", "policy"):
+        raise RuntimeError("motion_backend must be 'unitree' or 'policy'")
+    if backend == "policy":
+        if LaunchConfiguration("policy_network_interface").perform(context) != "lo":
+            raise RuntimeError("phase 1 policy requires policy_network_interface=lo")
+        if LaunchConfiguration("policy_dds_domain").perform(context) != "42":
+            raise RuntimeError("phase 1 policy requires policy_dds_domain=42")
+        if LaunchConfiguration("gesture_route").perform(context).strip():
+            raise RuntimeError("gesture_route must be empty with the policy backend")
+    return []
 
 
 def generate_launch_description():
@@ -66,6 +81,10 @@ def generate_launch_description():
     return LaunchDescription(
         [
             DeclareLaunchArgument("map"),
+            DeclareLaunchArgument("motion_backend", default_value="unitree"),
+            DeclareLaunchArgument("policy_model_path", default_value="/home/llx/policy.onnx"),
+            DeclareLaunchArgument("policy_network_interface", default_value="lo"),
+            DeclareLaunchArgument("policy_dds_domain", default_value="42"),
             DeclareLaunchArgument("localization_backend", default_value="global_gicp"),
             DeclareLaunchArgument("pcd_map", default_value=""),
             DeclareLaunchArgument("params_file", default_value=default_nav2_params),
@@ -140,6 +159,7 @@ def generate_launch_description():
             DeclareLaunchArgument("global_tf_rate_hz", default_value="20.0"),
             DeclareLaunchArgument("global_transform_tolerance_sec", default_value="0.1"),
             DeclareLaunchArgument("global_num_threads", default_value="4"),
+            OpaqueFunction(function=validate_motion_backend),
             Node(
                 package="robot_state_publisher",
                 executable="robot_state_publisher",
@@ -482,6 +502,7 @@ def generate_launch_description():
             ),
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource(loco_bridge_launch),
+                condition=IfCondition(PythonExpression(["'", LaunchConfiguration("motion_backend"), "' == 'unitree'"])),
                 launch_arguments={
                     "cmd_topic": "/cmd_vel_final",
                     "enabled": LaunchConfiguration("enable_sport_bridge"),
@@ -495,6 +516,18 @@ def generate_launch_description():
                     "gesture_service_name": LaunchConfiguration("gesture_service_name"),
                     "gesture_timeout": LaunchConfiguration("gesture_timeout_sec"),
                     "shake_hand_duration": LaunchConfiguration("shake_hand_duration"),
+                }.items(),
+            ),
+            IncludeLaunchDescription(
+                PythonLaunchDescriptionSource(PathJoinSubstitution([
+                    FindPackageShare("h1_2_policy_bridge"), "launch", "policy_bridge.launch.py"
+                ])),
+                condition=IfCondition(PythonExpression(["'", LaunchConfiguration("motion_backend"), "' == 'policy'"])),
+                launch_arguments={
+                    "model_path": LaunchConfiguration("policy_model_path"),
+                    "cmd_vel_topic": "/cmd_vel_final",
+                    "network_interface": LaunchConfiguration("policy_network_interface"),
+                    "dds_domain": LaunchConfiguration("policy_dds_domain"),
                 }.items(),
             ),
         ]
