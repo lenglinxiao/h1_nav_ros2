@@ -43,6 +43,13 @@ bool Controller::transition(
   mode_ = next;
   return true;
 }
+void Controller::shadow(const State& s, Observation& obs, Joints& action, Joints& torque) {
+  if (!valid(s)) throw std::runtime_error("invalid shadow input");
+  obs = shadow_core_.observe(s, {0, 0, 0});
+  action = policy_.infer(obs);
+  torque = shadow_core_.torque(s, action);
+  shadow_core_.set_last_action(action);
+}
 Joints Controller::step(
   const State&s, const Command&cmd, double now
   ){

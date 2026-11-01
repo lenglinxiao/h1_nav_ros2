@@ -44,6 +44,7 @@ class Controller {
 public: explicit Controller(const std::string& model);
 bool transition(Mode, const State&, double now);
 Joints step(const State&, const Command&, double now);
+void shadow(const State&, Observation&, Joints& action, Joints& torque);
 Mode mode() const {
   return mode_;
 }
@@ -51,6 +52,7 @@ void fault() {
   mode_ = Mode::Fault;
 }
 private: Core core_;
+Core shadow_core_;
 OrtPolicy policy_;
 Mode mode_ = Mode::Passive;
 double entered_ = 0;

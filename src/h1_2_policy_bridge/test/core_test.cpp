@@ -4,7 +4,8 @@
 #include <limits>
 #include <stdexcept>
 using namespace h1_policy;
-int main(){
+int main(int argc, char** argv){
+ if (argc != 2) return 1;
  try {
   Joints x{};
   for(int i = 0; i < 27; i++) x[i] = i;
@@ -70,7 +71,7 @@ int main(){
   CHECK(rejected);
   s.q = defaults();
   s.gravity = {0, 0, -1};
-  Controller ctl("/home/llx/policy.onnx");
+  Controller ctl(argv[1]);
   CHECK(!ctl.transition(Mode::ArmHold, s, 0));
   CHECK(ctl.transition(Mode::FixStand, s, 0));
   CHECK(!ctl.transition(Mode::ArmHoldStand, s, 2.9));
@@ -79,8 +80,8 @@ int main(){
   CHECK(!ctl.transition(Mode::ArmHold, s, 6));
   s.q[3] = .9;
   CHECK(ctl.transition(Mode::ArmHold, s, 6));
-  Controller early("/home/llx/policy.onnx");
-  Controller prepared("/home/llx/policy.onnx");
+  Controller early(argv[1]);
+  Controller prepared(argv[1]);
   CHECK(early.transition(Mode::FixStand, s, 0));
   CHECK(prepared.transition(Mode::FixStand, s, 0));
   for (int i = 0; i < 5; ++i) prepared.step(s, {0, 0, 0}, i * .02);
@@ -93,6 +94,19 @@ int main(){
   bool different = false;
   for (int i = 0; i < 27; ++i) different |= std::abs(first[i] - later[i]) > .001;
   CHECK(different);
+  Controller baseline(argv[1]);
+  Controller shadowed(argv[1]);
+  Observation shadow_obs; Joints shadow_action, shadow_torque;
+  for (int i = 0; i < 5; ++i) shadowed.shadow(s, shadow_obs, shadow_action, shadow_torque);
+  CHECK(baseline.transition(Mode::FixStand, s, 0));
+  CHECK(shadowed.transition(Mode::FixStand, s, 0));
+  CHECK(baseline.transition(Mode::ArmHoldStand, s, 3));
+  CHECK(shadowed.transition(Mode::ArmHoldStand, s, 3));
+  CHECK(baseline.transition(Mode::ArmHold, s, 6));
+  CHECK(shadowed.transition(Mode::ArmHold, s, 6));
+  auto expected_torque = baseline.step(s, {0, 0, 0}, 6.02);
+  auto shadow_torque_after = shadowed.step(s, {0, 0, 0}, 6.02);
+  for (int i = 0; i < 27; ++i) CHECK(std::abs(expected_torque[i] - shadow_torque_after[i]) < 1e-5f);
   ctl.fault();
   CHECK(!ctl.transition(Mode::FixStand, s, 7));
   CHECK(ctl.transition(Mode::Passive, s, 7));
