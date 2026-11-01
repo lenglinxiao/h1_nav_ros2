@@ -31,6 +31,7 @@ enum class Mode {
   Passive, FixStand, ArmHoldStand, ArmHold, Fault
 };
 Joints fix_stand_target();
+Joints passive_damping_gains();
 class OrtPolicy {
 public: explicit OrtPolicy(const std::string&);
 ~OrtPolicy();

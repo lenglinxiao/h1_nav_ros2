@@ -22,6 +22,12 @@ At 50 Hz, the policy forms a 92-element observation, runs ONNX for 27 actions, t
 
 ## Read-only and output lifecycle
 
+Hardware Passive sends zero feed-forward torque and kp, zero target velocity,
+and the guide's positive passive kd values to the motors. Other hardware
+states still use the explicit clipped torque with embedded kp/kd zero.
+Returning to Passive is distinct from simply stopping command publication;
+neither is a verified automatic recovery of the original locomotion controller.
+
 Configuration parameters are read-only after startup. Runtime parameter changes
 are rejected rather than silently disagreeing with the controller's cached
 settings; use `~/revoke_output` to withdraw authorization.

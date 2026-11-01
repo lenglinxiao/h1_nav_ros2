@@ -258,12 +258,16 @@ void tick(){
     LC out{};
     out.mode_machine() = machine;
     out.mode_pr() = pr;
+    // Hardware Passive uses motor-side damping, as specified by the supplied
+    // deployment guide. It must not leave a sampled nonzero torque on exit.
+    const bool motor_damping = hardware_ && controller_.mode() == h1_policy::Mode::Passive;
+    const auto damping = h1_policy::to_sdk(h1_policy::passive_damping_gains());
     for(int i = 0; i < 27; i++) {
       auto& m = out.motor_cmd()[i];
       m.mode() = 1;
-      m.tau() = t[i];
+      m.tau() = motor_damping ? 0.f : t[i];
       m.kp() = 0;
-      m.kd() = 0;
+      m.kd() = motor_damping ? damping[i] : 0.f;
     } out.crc() = crc32_core(reinterpret_cast<uint32_t*>(&out), (sizeof(out) >> 2) - 1);
     if (hardware_) {
       std::lock_guard<std::mutex> l(mutex_);

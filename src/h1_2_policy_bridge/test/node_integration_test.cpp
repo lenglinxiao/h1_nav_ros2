@@ -93,6 +93,12 @@ void disabled_and_shadow(const std::string& model) {
 void authorized_budget(const std::string& model) {
   Fixture f(model, true); f.state(false); f.state(false);
   CHECK(f.call("authorize_output").success); CHECK(f.io->opens == 1);
+  f.pump(25);
+  CHECK(!f.io->writes.empty());
+  const auto& damping = f.io->writes.back().motor_cmd();
+  CHECK(damping[0].tau() == 0 && damping[0].kp() == 0);
+  CHECK(std::abs(damping[0].kd() - 6.3f) < 1e-5f);
+  CHECK(std::abs(damping[3].kd() - 10.1f) < 1e-5f);
   CHECK(!f.call("arm_hold").success);
   CHECK(f.call("fix_stand").success);
   f.advance(3.01, false); CHECK(f.call("arm_hold_stand").success);
@@ -125,6 +131,7 @@ void fault_case(const std::string& model, int kind) {
 void simulation(const std::string& model) {
   Fixture f(model, false, true); f.state(); CHECK(f.io->present);
   CHECK(f.call("passive").success); f.pump(); CHECK(!f.io->writes.empty());
+  CHECK(f.io->writes.back().motor_cmd()[0].kd() == 0);
 }
 
 int main(int argc, char** argv) {

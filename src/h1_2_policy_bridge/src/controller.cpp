@@ -3,6 +3,10 @@
 #include <cmath>
 #include <stdexcept>
 namespace h1_policy {
+Joints passive_damping_gains() {
+  return {6.3, 6.3, 6.3, 10.1, 1.3, 1.3, 6.3, 6.3, 6.3, 10.1, 1.3, 1.3, 6.3,
+          1.3, 1.3, .5, .5, .5, .5, .5, 1.3, 1.3, .5, .5, .5, .5, .5};
+}
 Joints fix_stand_target(){
   return {0, -.2, 0, .5, -.3, 0, 0, -.2, 0, .5, -.3, 0, 0, .28, 0, 0, .52, 0, 0, 0, .28, 0, 0, .52, 0, 0, 0};
 }
@@ -74,7 +78,7 @@ Joints Controller::step(
   }
 // Advance the gait clock during preparation and passive control too.
   core_.observe(s, cmd);
-  const Joints damp = {6.3, 6.3, 6.3, 10.1, 1.3, 1.3, 6.3, 6.3, 6.3, 10.1, 1.3, 1.3, 6.3, 1.3, 1.3, .5, .5, .5, .5, .5, 1.3, 1.3, .5, .5, .5, .5, .5};
+  const Joints damp = passive_damping_gains();
   const Joints lim = {200, 200, 200, 300, 40, 40, 200, 200, 200, 300, 40, 40, 200, 40, 40, 18, 18, 19, 19, 19, 40, 40, 18, 18, 19, 19, 19};
   Joints kp = {98.7, 98.7, 98.7, 157.7, 19.7, 19.7, 98.7, 98.7, 98.7, 157.7, 19.7, 19.7, 98.7, 19.7, 19.7, 7.9, 7.9, 7.9, 7.9, 7.9, 19.7, 19.7, 7.9, 7.9, 7.9, 7.9, 7.9};
   Joints kd = damp;
