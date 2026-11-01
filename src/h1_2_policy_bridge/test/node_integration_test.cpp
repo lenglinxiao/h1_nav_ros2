@@ -12,11 +12,12 @@ using Command = unitree_hg::msg::dds_::LowCmd_;
 
 struct FakeIo final : h1_policy::LowLevelIo {
   StateCallback callback;
+  std::function<void()> on_open;
   bool present = false;
   int opens = 0, closes = 0;
   std::vector<Command> writes;
   void start(int, const std::string&, StateCallback cb) override { callback = std::move(cb); }
-  void open_output() override { present = true; ++opens; }
+  void open_output() override { present = true; ++opens; if (on_open) on_open(); }
   bool write(const Command& c) override { CHECK(present); writes.push_back(c); return true; }
   void close_output() override { present = false; ++closes; }
   bool output_present() const override { return present; }
@@ -128,6 +129,23 @@ void fault_case(const std::string& model, int kind) {
   CHECK(!f.call("fix_stand").success);
 }
 
+void slow_open(const std::string& model) {
+  // Opening DDS may block for 100 ms. A pre-open sample cannot authorize output.
+  Fixture f(model, true); f.state(); f.state();
+  f.io->on_open = [&] { f.clock += .11; };
+  CHECK(!f.call("authorize_output").success);
+  CHECK(!f.io->present); CHECK(f.io->writes.empty());
+  CHECK(f.status().find("authorized=false") != std::string::npos);
+}
+
+void slow_open_fresh_state(const std::string& model) {
+  Fixture f(model, true); f.state(); f.state();
+  // A synchronous callback also proves the state mutex is not held by open.
+  f.io->on_open = [&] { f.clock += .11; f.state(); };
+  CHECK(f.call("authorize_output").success); f.pump();
+  CHECK(!f.io->writes.empty()); CHECK(f.call("revoke_output").success);
+}
+
 void simulation(const std::string& model) {
   Fixture f(model, false, true); f.state(); CHECK(f.io->present);
   CHECK(f.call("passive").success); f.pump(); CHECK(!f.io->writes.empty());
@@ -140,7 +158,7 @@ int main(int argc, char** argv) {
   try {
     disabled_and_shadow(argv[1]); authorized_budget(argv[1]);
     for (int kind = 0; kind < 3; ++kind) fault_case(argv[1], kind);
-    simulation(argv[1]);
-    rclcpp::shutdown(); std::cout << "6 node integration scenarios passed\n";
+    slow_open(argv[1]); slow_open_fresh_state(argv[1]); simulation(argv[1]);
+    rclcpp::shutdown(); std::cout << "8 node integration scenarios passed\n";
   } catch (const std::exception& e) { std::cerr << e.what() << '\n'; rclcpp::shutdown(); return 1; }
 }

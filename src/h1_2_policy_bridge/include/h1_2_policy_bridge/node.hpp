@@ -149,14 +149,20 @@ PolicyNode(const rclcpp::NodeOptions& options, std::unique_ptr<LowLevelIo> io, s
           valid_state = read(s, mm, pr);
           if (!valid_state) { inhibit(); res->message = "state invalid after inference; output inhibited"; return; }
         }
+        if (!output_enabled_ || !debug_confirmed_ || !exclusive_confirmed_) {
+          res->message = "inhibited: output configuration or operator confirmations missing"; return;
+        }
+        // DDS writer initialization waits for discovery. Keep state callbacks
+        // running during that wait; opening alone never authorizes a Write.
+        create_publisher();
         bool authorized = false;
         {
           std::lock_guard<std::mutex> l(mutex_);
           valid_state = read_locked(s, mm, pr);
-          authorized = gate_.authorize(output_enabled_, debug_confirmed_, exclusive_confirmed_, valid_state, [this] { create_publisher(); });
+          authorized = gate_.authorize(output_enabled_, debug_confirmed_, exclusive_confirmed_, valid_state, [] {});
         }
         if (!authorized) {
-          if (!valid_state) inhibit();
+          inhibit();
           res->message = "inhibited: configuration, operator confirmations or valid advancing state missing"; return;
         }
         shadow_ = false;
