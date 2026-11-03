@@ -60,7 +60,7 @@ Observation Core::observe(
     o[65 + i] = last_[i];
   } return o;
 }
-Joints Core::torque(
+JointControl Core::control(
   const State&s, const Joints&a
   ) const {
   validate(s);
@@ -70,8 +70,14 @@ Joints Core::torque(
   const Joints scale = {.3333, .3333, .3333, .375, .25, .25, .3333, .3333, .3333, .375, .25, .25, .1667, .5076, .5076, .5696, .5696, .5696, .5696, .5696, .5076, .5076, .5696, .5696, .5696, .5696, .5696};
   const Joints lim = {200, 200, 200, 300, 40, 40, 200, 200, 200, 300, 40, 40, 200, 40, 40, 18, 18, 19, 19, 19, 40, 40, 18, 18, 19, 19, 19};
   auto d = defaults();
-  Joints t{};
-  for(int i = 0; i < 27; i++) t[i] = std::clamp(kp[i] * (d[i] + scale[i] * a[i] - s.q[i]) - kd[i] * s.dq[i], -lim[i], lim[i]);
-  return t;
+  JointControl out{};
+  out.kp = kp; out.kd = kd;
+  for(int i = 0; i < 27; i++) {
+    out.q[i] = d[i] + scale[i] * a[i];
+    out.tau[i] = std::clamp(kp[i] * (out.q[i] - s.q[i]) - kd[i] * s.dq[i], -lim[i], lim[i]);
+  }
+  require_finite(out.q);
+  return out;
 }
+Joints Core::torque(const State& s, const Joints& a) const { return control(s, a).tau; }
 }

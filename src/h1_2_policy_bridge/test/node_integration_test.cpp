@@ -33,7 +33,7 @@ struct Fixture {
   std::shared_ptr<h1_policy::PolicyNode> node;
   rclcpp::Node::SharedPtr client_node;
   rclcpp::executors::SingleThreadedExecutor executor;
-  Fixture(const std::string& model, bool enabled = false, bool sim = false) {
+  Fixture(const std::string& model, bool enabled = false, bool sim = false, const std::string& command_mode = "torque") {
     simulation_profile = sim;
     auto fake = std::make_unique<FakeIo>(); io = fake.get();
     rclcpp::NodeOptions options;
@@ -42,6 +42,7 @@ struct Fixture {
     options.arguments({"--ros-args", "-r", "__ns:=" + test_namespace});
     options.parameter_overrides({rclcpp::Parameter("model_path", model),
       rclcpp::Parameter("profile", sim ? "sim" : "hardware"),
+      rclcpp::Parameter("joint_command_mode", command_mode),
       rclcpp::Parameter("network_interface", sim ? "lo" : "eth0"),
       rclcpp::Parameter("dds_domain", sim ? 42 : 0),
       rclcpp::Parameter("enable_hardware_output", enabled),
@@ -152,6 +153,64 @@ void simulation(const std::string& model) {
   CHECK(f.io->writes.back().motor_cmd()[0].kd() == 0);
 }
 
+void position_pd_simulation(const std::string& model) {
+  Fixture f(model, false, true, "position_pd"); f.state();
+  CHECK(f.status().find("joint_command_mode=position_pd") != std::string::npos);
+  CHECK(!f.node->set_parameter(rclcpp::Parameter("joint_command_mode", "torque")).successful);
+  CHECK(f.call("passive").success); f.pump();
+  CHECK(!f.io->writes.empty());
+  auto damping = h1_policy::to_sdk(h1_policy::passive_damping_gains());
+  for (int i = 0; i < 27; ++i) {
+    const auto& motor = f.io->writes.back().motor_cmd()[i];
+    CHECK(motor.mode() == 1 && motor.tau() == 0 && motor.dq() == 0);
+    CHECK(motor.kp() == 0 && motor.kd() == damping[i]);
+  }
+  CHECK(f.call("fix_stand").success);
+  f.advance(3.01); CHECK(f.call("arm_hold_stand").success);
+  f.advance(3.01); f.pump();
+  CHECK(!f.io->writes.empty());
+  const auto& cmd = f.io->writes.back();
+  CHECK(h1_policy::valid_crc(cmd, cmd.crc()));
+  for (int i = 0; i < 27; ++i) {
+    const auto& motor = cmd.motor_cmd()[i];
+    CHECK(motor.mode() == 1 && motor.tau() == 0 && motor.dq() == 0);
+    CHECK(motor.kp() > 0 && motor.kd() > 0);
+  }
+  CHECK(std::abs(cmd.motor_cmd()[17].q() - (-.030f)) < 1e-5f);
+  CHECK(std::abs(cmd.motor_cmd()[18].q() - (-.003f)) < 1e-5f);
+  CHECK(std::abs(cmd.motor_cmd()[24].q() - (-.076f)) < 1e-5f);
+  CHECK(std::abs(cmd.motor_cmd()[25].q() - .004f) < 1e-5f);
+  CHECK(f.call("arm_hold").success);
+  size_t first_policy_write = f.io->writes.size();
+  f.pump(); CHECK(f.io->writes.size() > first_policy_write);
+  h1_policy::State state{}; state.q[3] = state.q[9] = .9f; state.gravity[2] = -1;
+  h1_policy::Core core;
+  h1_policy::OrtPolicy policy(model);
+  auto expected = core.control(state, policy.infer(core.observe(state, {0, 0, 0})));
+  auto expected_q = h1_policy::to_sdk(expected.q);
+  auto expected_kp = h1_policy::to_sdk(expected.kp);
+  auto expected_kd = h1_policy::to_sdk(expected.kd);
+  const auto& policy_cmd = f.io->writes[first_policy_write];
+  CHECK(h1_policy::valid_crc(policy_cmd, policy_cmd.crc()));
+  for (int i = 0; i < 27; ++i) {
+    const auto& motor = policy_cmd.motor_cmd()[i];
+    CHECK(std::abs(motor.q() - expected_q[i]) < 1e-5f);
+    CHECK(motor.kp() == expected_kp[i] && motor.kd() == expected_kd[i]);
+    CHECK(motor.tau() == 0 && motor.dq() == 0);
+  }
+  size_t before = f.io->writes.size();
+  f.clock += .11; f.pump(); CHECK(f.io->writes.size() == before);
+}
+
+void reject_command_modes(const std::string& model) {
+  bool rejected = false;
+  try { Fixture f(model, false, true, "invalid"); } catch (const std::runtime_error&) { rejected = true; }
+  CHECK(rejected);
+  rejected = false;
+  try { Fixture f(model, false, false, "position_pd"); } catch (const std::runtime_error&) { rejected = true; }
+  CHECK(rejected);
+}
+
 int main(int argc, char** argv) {
   if (argc != 2) { std::cerr << "usage: node_integration_test MODEL\n"; return 2; }
   rclcpp::init(argc, argv);
@@ -159,6 +218,7 @@ int main(int argc, char** argv) {
     disabled_and_shadow(argv[1]); authorized_budget(argv[1]);
     for (int kind = 0; kind < 3; ++kind) fault_case(argv[1], kind);
     slow_open(argv[1]); slow_open_fresh_state(argv[1]); simulation(argv[1]);
+    position_pd_simulation(argv[1]); reject_command_modes(argv[1]);
     rclcpp::shutdown(); std::cout << "8 node integration scenarios passed\n";
   } catch (const std::exception& e) { std::cerr << e.what() << '\n'; rclcpp::shutdown(); return 1; }
 }

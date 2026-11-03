@@ -19,6 +19,7 @@ from std_srvs.srv import Trigger
 parser = argparse.ArgumentParser()
 parser.add_argument('--output', required=True)
 parser.add_argument('--bridge', default='/tmp/h1_2_policy_sim_build/h1_2_dds_physics')
+parser.add_argument('--joint-command-mode', choices=('torque', 'position_pd'), default='torque')
 parser.add_argument('--duration', type=float, default=30)
 parser.add_argument('--vx', type=float, default=0.0)
 parser.add_argument('--wz', type=float, default=0.0)
@@ -44,8 +45,9 @@ logs = []
 node = None
 run_error = None
 try:
-    for name, command in [('bridge', [args.bridge, str(stage), str(out / 'trace.csv')]),
-                          ('node', ['/home/llx/h1_nav2_ros2_ws/install/h1_2_policy_bridge/lib/h1_2_policy_bridge/h1_2_policy_node'])]:
+    for name, command in [('bridge', [args.bridge, str(stage), str(out / 'trace.csv'), args.joint_command_mode]),
+                          ('node', ['/home/llx/h1_nav2_ros2_ws/install/h1_2_policy_bridge/lib/h1_2_policy_bridge/h1_2_policy_node',
+                                    '--ros-args', '-p', 'joint_command_mode:=' + args.joint_command_mode])]:
         log = open(out / (name + '.log'), 'w')
         logs.append(log)
         children.append(subprocess.Popen(command, stdout=log, stderr=subprocess.STDOUT, start_new_session=True))
@@ -123,6 +125,7 @@ summary.update(model_path=str(model), model_sha256=hashlib.sha256(model.read_byt
                scene_path=str(scene), scene_sha256=hashlib.sha256(scene.read_bytes()).hexdigest(),
                lowstate_period_seconds=.002, controller_period_seconds=.02,
                recorded_utc=datetime.now(timezone.utc).isoformat(),
-               dds_domain=42, network_interface='lo', ros_domain=43)
+               dds_domain=42, network_interface='lo', ros_domain=43, joint_command_mode=args.joint_command_mode,
+               simulated_torque_clamp='MuJoCo only; firmware torque limits unverified')
 summary_path.write_text(json.dumps(summary, indent=2, allow_nan=False) + '\n')
 sys.exit(result.returncode)

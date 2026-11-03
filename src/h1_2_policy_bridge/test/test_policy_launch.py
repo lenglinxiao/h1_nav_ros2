@@ -27,6 +27,7 @@ class LaunchParametersTest(unittest.TestCase):
     def test_sim_defaults(self):
         params = self.evaluate({})
         self.assertEqual(params['profile'], 'sim')
+        self.assertEqual(params['joint_command_mode'], 'torque')
         self.assertEqual(params['network_interface'], 'lo')
         self.assertEqual(params['dds_domain'], 42)
         self.assertEqual(params['max_policy_steps'], 0)
@@ -49,6 +50,9 @@ class LaunchParametersTest(unittest.TestCase):
         self.assertIs(params['enable_hardware_output'], True)
         self.assertIs(params['operator_confirmed_debug_mode'], True)
         self.assertIs(params['operator_confirmed_exclusive_control'], False)
+
+    def test_sim_position_pd_option(self):
+        self.assertEqual(self.evaluate({'joint_command_mode': 'position_pd'})['joint_command_mode'], 'position_pd')
 
 
 if __name__ == '__main__':

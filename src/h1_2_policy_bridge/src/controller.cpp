@@ -54,7 +54,7 @@ void Controller::shadow(const State& s, Observation& obs, Joints& action, Joints
   torque = shadow_core_.torque(s, action);
   shadow_core_.set_last_action(action);
 }
-Joints Controller::step(
+JointControl Controller::step_control(
   const State&s, const Command&cmd, double now
   ){
   if(!valid(s)||!std::isfinite(now)||!std::all_of(cmd.begin(), cmd.end(), [](float x){
@@ -68,7 +68,7 @@ Joints Controller::step(
     try{
       auto obs = core_.observe(s, cmd);
       auto a = policy_.infer(obs);
-      auto t = core_.torque(s, a);
+      auto t = core_.control(s, a);
       core_.set_last_action(a);
       return t;
     }catch(...) {
@@ -88,10 +88,13 @@ Joints Controller::step(
   }
   auto target = mode_ == Mode::FixStand?fix_stand_target():stand_target();
   float f = std::clamp(float((now - entered_) / 3.), 0.f, 1.f);
-  Joints t{};
+  JointControl out{};
+  out.kp = mode_ == Mode::Passive ? Joints{} : kp;
+  out.kd = kd;
   for(int i = 0; i < 27; i++) {
-    float desired = start_[i] + f * (target[i] - start_[i]);
-    t[i] = std::clamp((mode_ == Mode::Passive?0.f:kp[i] * (desired - s.q[i])) - kd[i] * s.dq[i], -lim[i], lim[i]);
-  } return t;
+    out.q[i] = start_[i] + f * (target[i] - start_[i]);
+    out.tau[i] = std::clamp((mode_ == Mode::Passive?0.f:kp[i] * (out.q[i] - s.q[i])) - kd[i] * s.dq[i], -lim[i], lim[i]);
+  } return out;
 }
+Joints Controller::step(const State& s, const Command& cmd, double now) { return step_control(s, cmd, now).tau; }
 }

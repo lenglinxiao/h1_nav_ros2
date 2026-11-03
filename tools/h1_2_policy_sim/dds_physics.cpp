@@ -22,10 +22,24 @@ using Clock=std::chrono::steady_clock;
 using namespace std::chrono_literals;
 const std::array<const char*,27> names={"left_hip_yaw_joint","left_hip_pitch_joint","left_hip_roll_joint","left_knee_joint","left_ankle_pitch_joint","left_ankle_roll_joint","right_hip_yaw_joint","right_hip_pitch_joint","right_hip_roll_joint","right_knee_joint","right_ankle_pitch_joint","right_ankle_roll_joint","torso_joint","left_shoulder_pitch_joint","left_shoulder_roll_joint","left_shoulder_yaw_joint","left_elbow_joint","left_wrist_roll_joint","left_wrist_pitch_joint","left_wrist_yaw_joint","right_shoulder_pitch_joint","right_shoulder_roll_joint","right_shoulder_yaw_joint","right_elbow_joint","right_wrist_roll_joint","right_wrist_pitch_joint","right_wrist_yaw_joint"};
 const std::array<float,27> limits={200,200,200,300,40,40,200,200,200,300,40,40,200,40,40,18,18,19,19,19,40,40,18,18,19,19,19};
+bool valid_command(const LC& cmd, bool position_pd) {
+ if(position_pd && (cmd.mode_machine()!=0 || cmd.mode_pr()!=0)) return false;
+ for(int i=0;i<27;++i) {
+  const auto& x=cmd.motor_cmd()[i];
+  if(!std::isfinite(x.tau())||!std::isfinite(x.q())||!std::isfinite(x.dq())||!std::isfinite(x.kp())||!std::isfinite(x.kd())) return false;
+  if(position_pd) {
+   if(x.mode()!=1 || x.tau()!=0 || x.dq()!=0 || x.kp()<0 || x.kd()<0) return false;
+  } else if(x.kp()!=0 || x.kd()!=0 || std::abs(x.tau())>limits[i]+.001) return false;
+ }
+ return true;
+}
 int find(const mjModel* m,int type,const char* name){int x=mj_name2id(m,type,name);if(x<0)throw std::runtime_error(std::string("missing ")+name);return x;}
 int main(int argc,char**argv){
  try{
-  if(argc!=3)throw std::runtime_error("usage: h1_2_dds_physics STAGE_FILE TRACE_CSV");
+  if(argc!=3 && argc!=4)throw std::runtime_error("usage: h1_2_dds_physics STAGE_FILE TRACE_CSV [torque|position_pd]");
+  const std::string command_mode=argc==4?argv[3]:"torque";
+  if(command_mode!="torque" && command_mode!="position_pd") throw std::runtime_error("invalid command mode");
+  const bool position_pd=command_mode=="position_pd";
   char error[1024]{};
   auto m=mj_loadXML("/home/llx/unitree_rl_mjlab/src/assets/robots/unitree_h1_2/xmls/scene_h1_2.xml",nullptr,error,sizeof error);
   if(!m)throw std::runtime_error(error);
@@ -49,14 +63,15 @@ int main(int argc,char**argv){
   sub.InitChannel([&](const void* p){
    auto cmd=*static_cast<const LC*>(p);
    if(cmd.crc()!=crc32_core(reinterpret_cast<uint32_t*>(&cmd),(sizeof(cmd)>>2)-1)){++bad_crc;return;}
-   for(int i=0;i<27;++i){auto x=cmd.motor_cmd()[i];if(!std::isfinite(x.tau())||!std::isfinite(x.q())||!std::isfinite(x.dq())||!std::isfinite(x.kp())||!std::isfinite(x.kd())||x.kp()!=0||x.kd()!=0||std::abs(x.tau())>limits[i]+.001){++bad_command;return;}}
+   if(!valid_command(cmd,position_pd)){++bad_command;return;}
    {std::lock_guard<std::mutex> lock(mutex);latest=cmd;cmd_time=Clock::now();}++count;
   });
   std::ofstream csv(argv[2]);if(!csv)throw std::runtime_error("cannot create trace");
-  csv<<"wall_time,sim_time,stage,height,roll,pitch,body_vx,body_vy,body_wz,commands,bad_crc,bad_command,command_age,states,base_constrained,support_newtons,contacts,fall,invalid,left_knee,right_knee,imu_gx,imu_gy,imu_gz,gravity_x,gravity_y,gravity_z,left_contact,right_contact,left_max_gap,right_max_gap,left_max_lift,right_max_lift,left_max_drift,right_max_drift\n";
+  csv<<"wall_time,sim_time,stage,height,roll,pitch,body_vx,body_vy,body_wz,commands,bad_crc,bad_command,command_age,states,base_constrained,support_newtons,contacts,fall,invalid,left_knee,right_knee,imu_gx,imu_gy,imu_gz,gravity_x,gravity_y,gravity_z,left_contact,right_contact,left_max_gap,right_max_gap,left_max_lift,right_max_lift,left_max_drift,right_max_drift,simulated_torque_clips\n";
   auto start=Clock::now(),next=start,stand_start=start;std::string stage="passive",old_stage;bool active=false,fall=false;int step=0,states=0;
   bool foot_contact[2]={false,false}, foot_initialized=false;
   double foot_ref[2][3]{}, gap[2]{}, max_gap[2]{}, max_lift[2]{}, max_drift[2]{};
+  unsigned long long simulated_torque_clips=0;
   while(Clock::now()-start<55s){
    bool finite = std::isfinite(d->time);
    for (int i=0; i<m->nq; ++i) finite &= std::isfinite(d->qpos[i]);
@@ -91,7 +106,7 @@ int main(int argc,char**argv){
    }
    LC cmd;Clock::time_point last;{std::lock_guard<std::mutex> lock(mutex);cmd=latest;last=cmd_time;}
    double age=last.time_since_epoch().count()?std::chrono::duration<double>(Clock::now()-last).count():-1;
-   if(age>=0&&age<.1)for(int i=0;i<27;++i){auto x=cmd.motor_cmd()[i];double q=d->qpos[m->jnt_qposadr[j[i]]],dq=d->qvel[m->jnt_dofadr[j[i]]];d->ctrl[a[i]]=std::clamp(double(x.tau()+x.kp()*(x.q()-q)+x.kd()*(x.dq()-dq)),-double(limits[i]),double(limits[i]));}
+   if(age>=0&&age<.1)for(int i=0;i<27;++i){auto x=cmd.motor_cmd()[i];double q=d->qpos[m->jnt_qposadr[j[i]]],dq=d->qvel[m->jnt_dofadr[j[i]]];double raw=x.tau()+x.kp()*(x.q()-q)+x.kd()*(x.dq()-dq); if(std::abs(raw)>limits[i])++simulated_torque_clips; d->ctrl[a[i]]=std::clamp(raw,-double(limits[i]),double(limits[i]));}
    else for(int i=0;i<27;++i)d->ctrl[a[i]]=0;
    {
     LS msg{};double quat[4];mju_mat2Quat(quat,d->site_xmat+9*imu);
@@ -106,7 +121,7 @@ int main(int argc,char**argv){
     double pitch=std::asin(std::clamp(2*(q[0]*q[2]-q[3]*q[1]),-1.,1.));
     double inv[4],vel[3];mju_negQuat(inv,q);mju_rotVecQuat(vel,d->qvel,inv);
     fall=d->qpos[2]<.6||std::abs(roll)>1||std::abs(pitch)>1;
-    csv<<std::chrono::duration<double>(Clock::now()-start).count()<<','<<d->time<<','<<stage<<','<<d->qpos[2]<<','<<roll<<','<<pitch<<','<<vel[0]<<','<<vel[1]<<','<<d->sensordata[m->sensor_adr[gyro]+2]<<','<<count.load()<<','<<bad_crc.load()<<','<<bad_command.load()<<','<<age<<','<<states<<','<<(!active)<<",0,"<<d->ncon<<','<<fall<<",0,"<<d->qpos[m->jnt_qposadr[j[3]]]<<','<<d->qpos[m->jnt_qposadr[j[9]]]<<','<<d->sensordata[m->sensor_adr[gyro]]<<','<<d->sensordata[m->sensor_adr[gyro]+1]<<','<<d->sensordata[m->sensor_adr[gyro]+2]<<','<<-d->site_xmat[9*imu+6]<<','<<-d->site_xmat[9*imu+7]<<','<<-d->site_xmat[9*imu+8]<<','<<foot_contact[0]<<','<<foot_contact[1]<<','<<max_gap[0]<<','<<max_gap[1]<<','<<max_lift[0]<<','<<max_lift[1]<<','<<max_drift[0]<<','<<max_drift[1]<<'\n';csv.flush();
+    csv<<std::chrono::duration<double>(Clock::now()-start).count()<<','<<d->time<<','<<stage<<','<<d->qpos[2]<<','<<roll<<','<<pitch<<','<<vel[0]<<','<<vel[1]<<','<<d->sensordata[m->sensor_adr[gyro]+2]<<','<<count.load()<<','<<bad_crc.load()<<','<<bad_command.load()<<','<<age<<','<<states<<','<<(!active)<<",0,"<<d->ncon<<','<<fall<<",0,"<<d->qpos[m->jnt_qposadr[j[3]]]<<','<<d->qpos[m->jnt_qposadr[j[9]]]<<','<<d->sensordata[m->sensor_adr[gyro]]<<','<<d->sensordata[m->sensor_adr[gyro]+1]<<','<<d->sensordata[m->sensor_adr[gyro]+2]<<','<<-d->site_xmat[9*imu+6]<<','<<-d->site_xmat[9*imu+7]<<','<<-d->site_xmat[9*imu+8]<<','<<foot_contact[0]<<','<<foot_contact[1]<<','<<max_gap[0]<<','<<max_gap[1]<<','<<max_lift[0]<<','<<max_lift[1]<<','<<max_drift[0]<<','<<max_drift[1]<<','<<simulated_torque_clips<<'\n';csv.flush();
     if(fall)break;
    }
    mj_step(m,d);
@@ -117,7 +132,7 @@ int main(int argc,char**argv){
    }
    ++step;next+=2ms;std::this_thread::sleep_until(next);
   }
-  std::cout<<"commands="<<count.load()<<" bad_crc="<<bad_crc.load()<<" bad_command="<<bad_command.load()<<" fall="<<fall<<std::endl;
+  std::cout<<"commands="<<count.load()<<" bad_crc="<<bad_crc.load()<<" bad_command="<<bad_command.load()<<" fall="<<fall<<" simulated_torque_clips="<<simulated_torque_clips<<" (simulation clamp; not firmware evidence)"<<std::endl;
   sub.CloseChannel();
   mj_deleteData(d);mj_deleteModel(m);return 0;
  }catch(const std::exception&e){std::cerr<<e.what()<<std::endl;return 1;}

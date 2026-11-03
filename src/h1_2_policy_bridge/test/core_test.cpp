@@ -59,8 +59,11 @@ int main(int argc, char** argv){
   Joints action{};
   action[3] = 1;
   auto worked = raw.torque(pd, action);
+  auto control = raw.control(pd, action);
   CHECK(std::abs(worked[0] + 16.f) < 1e-4f);
   CHECK(std::abs(worked[3] - 75.f) < 1e-4f);
+  CHECK(control.tau == worked);
+  CHECK(std::abs(control.q[3] - 1.275f) < 1e-5f && control.kp[3] == 200 && control.kd[3] == 4);
   s.q[0] = std::numeric_limits<float>::quiet_NaN();
   bool rejected = false;
   try {
@@ -71,6 +74,11 @@ int main(int argc, char** argv){
   CHECK(rejected);
   s.q = defaults();
   s.gravity = {0, 0, -1};
+  Controller prep(argv[1]);
+  CHECK(prep.transition(Mode::FixStand, s, 0));
+  auto halfway = prep.step_control(s, {0, 0, 0}, 1.5);
+  CHECK(std::abs(halfway.q[3] - .7f) < 1e-5f);
+  CHECK(std::abs(halfway.kp[3] - 157.7f) < 1e-4f && halfway.kd[3] == 10.1f);
   Controller ctl(argv[1]);
   CHECK(!ctl.transition(Mode::ArmHold, s, 0));
   CHECK(ctl.transition(Mode::FixStand, s, 0));
@@ -105,7 +113,10 @@ int main(int argc, char** argv){
   CHECK(baseline.transition(Mode::ArmHold, s, 6));
   CHECK(shadowed.transition(Mode::ArmHold, s, 6));
   auto expected_torque = baseline.step(s, {0, 0, 0}, 6.02);
-  auto shadow_torque_after = shadowed.step(s, {0, 0, 0}, 6.02);
+  auto shadow_torque_after = shadowed.step_control(s, {0, 0, 0}, 6.02).tau;
+  for (int i = 0; i < 27; ++i) CHECK(std::abs(expected_torque[i] - shadow_torque_after[i]) < 1e-5f);
+  expected_torque = baseline.step(s, {.2f, 0, 0}, 6.04);
+  shadow_torque_after = shadowed.step_control(s, {.2f, 0, 0}, 6.04).tau;
   for (int i = 0; i < 27; ++i) CHECK(std::abs(expected_torque[i] - shadow_torque_after[i]) < 1e-5f);
   ctl.fault();
   CHECK(!ctl.transition(Mode::FixStand, s, 7));

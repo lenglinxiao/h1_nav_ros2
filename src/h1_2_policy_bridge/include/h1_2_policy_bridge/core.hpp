@@ -10,11 +10,15 @@ struct State {
   Joints q{}, dq{};
   std::array<float, 3> gyro{}, gravity{};
 };
+struct JointControl {
+  Joints q{}, kp{}, kd{}, tau{};
+};
 Joints defaults();
 Joints from_sdk(const Joints&);
 Joints to_sdk(const Joints&);
 class Core {
 public: Observation observe(const State&, const Command&);
+JointControl control(const State&, const Joints&) const;
 Joints torque(const State&, const Joints&) const;
 void set_last_action(
   const Joints& a
@@ -45,6 +49,7 @@ class Controller {
 public: explicit Controller(const std::string& model);
 bool transition(Mode, const State&, double now);
 Joints step(const State&, const Command&, double now);
+JointControl step_control(const State&, const Command&, double now);
 void shadow(const State&, Observation&, Joints& action, Joints& torque);
 Mode mode() const {
   return mode_;

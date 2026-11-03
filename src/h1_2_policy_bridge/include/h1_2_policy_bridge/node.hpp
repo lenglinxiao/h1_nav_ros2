@@ -52,6 +52,11 @@ PolicyNode(const rclcpp::NodeOptions& options, std::unique_ptr<LowLevelIo> io, s
   auto interface = declare_parameter<std::string>("network_interface", "lo", startup_parameter_descriptor());
   auto domain = declare_parameter<int>("dds_domain", 42, startup_parameter_descriptor());
   if(!h1_policy::valid_profile(profile, interface, domain)) throw std::runtime_error("invalid profile, interface or domain");
+  joint_command_mode_ = declare_parameter<std::string>("joint_command_mode", "torque", startup_parameter_descriptor());
+  if (joint_command_mode_ != "torque" && joint_command_mode_ != "position_pd")
+    throw std::runtime_error("joint_command_mode must be torque or position_pd");
+  if (hardware_ && joint_command_mode_ == "position_pd")
+    throw std::runtime_error("hardware position_pd disabled: software torque limits are not equivalent and the successful configuration is unverified");
   output_enabled_ = declare_parameter<bool>("enable_hardware_output", false, startup_parameter_descriptor());
   debug_confirmed_ = declare_parameter<bool>("operator_confirmed_debug_mode", false, startup_parameter_descriptor());
   exclusive_confirmed_ = declare_parameter<bool>("operator_confirmed_exclusive_control", false, startup_parameter_descriptor());
@@ -124,6 +129,7 @@ PolicyNode(const rclcpp::NodeOptions& options, std::unique_ptr<LowLevelIo> io, s
     }
     std::ostringstream out;
     out << "profile=" << (hardware_ ? "hardware" : "sim") << " mode=" << mode
+        << " joint_command_mode=" << joint_command_mode_
         << " authorized=" << (gate_.authorized() ? "true" : "false")
         << " shadow=" << (shadow_ ? "true" : "false")
         << " publisher_present=" << (io_->output_present() ? "true" : "false")
@@ -257,10 +263,18 @@ void tick(){
   c[1] = 0;
   c[2] = std::clamp(c[2], -.5f, .5f);
   try{
-    auto t = h1_policy::to_sdk(controller_.step(s, c, now_seconds()));
+    auto control = controller_.step_control(s, c, now_seconds());
+    auto t = h1_policy::to_sdk(control.tau);
+    auto q = h1_policy::to_sdk(control.q);
+    auto kp = h1_policy::to_sdk(control.kp);
+    auto kd = h1_policy::to_sdk(control.kd);
     for (float torque : t) {
       if (!std::isfinite(torque)) throw std::runtime_error("non-finite torque");
     }
+    if (joint_command_mode_ == "position_pd")
+      for (int i = 0; i < 27; ++i)
+        if (!std::isfinite(q[i]) || !std::isfinite(kp[i]) || !std::isfinite(kd[i]))
+          throw std::runtime_error("non-finite position PD command");
     LC out{};
     out.mode_machine() = machine;
     out.mode_pr() = pr;
@@ -271,9 +285,10 @@ void tick(){
     for(int i = 0; i < 27; i++) {
       auto& m = out.motor_cmd()[i];
       m.mode() = 1;
-      m.tau() = motor_damping ? 0.f : t[i];
-      m.kp() = 0;
-      m.kd() = motor_damping ? damping[i] : 0.f;
+      m.tau() = (motor_damping || joint_command_mode_ == "position_pd") ? 0.f : t[i];
+      m.q() = joint_command_mode_ == "position_pd" ? q[i] : 0.f;
+      m.kp() = joint_command_mode_ == "position_pd" ? kp[i] : 0.f;
+      m.kd() = motor_damping ? damping[i] : (joint_command_mode_ == "position_pd" ? kd[i] : 0.f);
     } out.crc() = crc32_core(reinterpret_cast<uint32_t*>(&out), (sizeof(out) >> 2) - 1);
     if (hardware_) {
       std::lock_guard<std::mutex> l(mutex_);
@@ -300,6 +315,7 @@ h1_policy::Controller controller_;
 h1_policy::HardwareGate gate_;
 h1_policy::PolicyBudget budget_;
 int max_policy_steps_ = 0;
+std::string joint_command_mode_;
 h1_policy::TickProgress progress_;
 bool hardware_ = false, output_enabled_ = false, debug_confirmed_ = false, exclusive_confirmed_ = false, shadow_ = false;
 unsigned shadow_ticks_ = 0;
