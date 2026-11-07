@@ -13,12 +13,12 @@ using Command = unitree_hg::msg::dds_::LowCmd_;
 struct FakeIo final : h1_policy::LowLevelIo {
   StateCallback callback;
   std::function<void()> on_open;
-  bool present = false;
+  bool present = false, fail_write = false;
   int opens = 0, closes = 0;
   std::vector<Command> writes;
   void start(int, const std::string&, StateCallback cb) override { callback = std::move(cb); }
   void open_output() override { present = true; ++opens; if (on_open) on_open(); }
-  bool write(const Command& c) override { CHECK(present); writes.push_back(c); return true; }
+  bool write(const Command& c) override { CHECK(present); if (fail_write) return false; writes.push_back(c); return true; }
   void close_output() override { present = false; ++closes; }
   bool output_present() const override { return present; }
   void stop() override { callback = {}; }
@@ -26,6 +26,10 @@ struct FakeIo final : h1_policy::LowLevelIo {
 
 struct Fixture {
   double clock = 10;
+  int clock_reads = 0, jump_on_clock_read = 0;
+  int inject_on_clock_read = 0;
+  std::function<void()> clock_injection;
+  double clock_jump = 0;
   uint32_t tick = 0;
   bool simulation_profile;
   const std::string test_namespace = "/h1_policy_test_" + std::to_string(getpid());
@@ -33,13 +37,16 @@ struct Fixture {
   std::shared_ptr<h1_policy::PolicyNode> node;
   rclcpp::Node::SharedPtr client_node;
   rclcpp::executors::SingleThreadedExecutor executor;
-  Fixture(const std::string& model, bool enabled = false, bool sim = false, const std::string& command_mode = "torque") {
+  Fixture(const std::string& model, bool enabled = false, bool sim = false, const std::string& command_mode = "torque", int budget = -1, bool nav = false, bool continuous = false, double max_policy_seconds = 0, bool trained = false) {
     simulation_profile = sim;
     auto fake = std::make_unique<FakeIo>(); io = fake.get();
     rclcpp::NodeOptions options;
     // Service calls must never resolve to a live robot's policy node, even
     // when this binary is invoked outside the CTest environment.
     options.arguments({"--ros-args", "-r", "__ns:=" + test_namespace});
+    std::vector<std::string> names; for (auto name : h1_policy::sdk_joint_names()) names.emplace_back(name);
+    auto sdk_defaults = h1_policy::to_sdk(h1_policy::defaults());
+    std::vector<double> defaults(sdk_defaults.begin(), sdk_defaults.end());
     options.parameter_overrides({rclcpp::Parameter("model_path", model),
       rclcpp::Parameter("profile", sim ? "sim" : "hardware"),
       rclcpp::Parameter("joint_command_mode", command_mode),
@@ -48,17 +55,47 @@ struct Fixture {
       rclcpp::Parameter("enable_hardware_output", enabled),
       rclcpp::Parameter("operator_confirmed_debug_mode", enabled),
       rclcpp::Parameter("operator_confirmed_exclusive_control", enabled),
-      rclcpp::Parameter("max_policy_steps", enabled ? 2 : 0)});
-    node = std::make_shared<h1_policy::PolicyNode>(options, std::move(fake), [this] { return clock; });
+      rclcpp::Parameter("max_policy_steps", budget < 0 ? (enabled ? 2 : 0) : budget),
+      rclcpp::Parameter("enable_navigation_commands", nav),
+      rclcpp::Parameter("continuous_policy_navigation", continuous),
+      rclcpp::Parameter("max_policy_seconds", max_policy_seconds),
+      rclcpp::Parameter("protection_profile", trained ? "train_20261106" : "legacy"),
+      rclcpp::Parameter("train_guard_speed_limits_sdk", std::vector<double>(27, 1.0)),
+      rclcpp::Parameter("train_guard_position_lower_sdk", std::vector<double>(27, -3.0)),
+      rclcpp::Parameter("train_guard_position_upper_sdk", std::vector<double>(27, 3.0)),
+      rclcpp::Parameter("train_guard_default_positions_sdk", defaults),
+      rclcpp::Parameter("train_guard_joint_names_sdk", names),
+      rclcpp::Parameter("train_guard_profile_hash", "test")});
+    node = std::make_shared<h1_policy::PolicyNode>(options, std::move(fake), [this] {
+      ++clock_reads;
+      if (clock_reads == jump_on_clock_read) clock += clock_jump;
+      if (clock_reads == inject_on_clock_read && clock_injection) {
+        auto injection = std::move(clock_injection);
+        inject_on_clock_read = 0;
+        injection();
+      }
+      return clock;
+    });
     client_node = std::make_shared<rclcpp::Node>("integration_client", test_namespace);
     executor.add_node(node); executor.add_node(client_node);
   }
-  void state(bool ready = true, int delta = 1, bool corrupt = false) {
+  void state(bool ready = true, int delta = 1, bool corrupt = false, float velocity = 0.f, int velocity_joint = 0) {
     tick += delta;
     State s{}; s.tick() = tick; s.mode_machine() = simulation_profile ? 0 : 6; s.mode_pr() = 0;
     s.imu_state().quaternion()[0] = 1;
     s.motor_state()[3].q() = ready ? .9f : 0;
     s.motor_state()[9].q() = ready ? .9f : 0;
+    s.motor_state()[velocity_joint].dq() = velocity;
+    s.crc() = crc32_core(reinterpret_cast<uint32_t*>(&s), (sizeof(s) >> 2) - 1);
+    if (corrupt) s.crc() ^= 1;
+    io->callback(s);
+  }
+  void trained_state(float velocity = 0.f, int joint = 0, float position_delta = 0.f, bool corrupt = false) {
+    State s{}; s.tick() = ++tick; s.mode_machine() = 6; s.mode_pr() = 0;
+    s.imu_state().quaternion()[0] = 1;
+    auto defaults = h1_policy::to_sdk(h1_policy::defaults());
+    for (int i = 0; i < 27; ++i) s.motor_state()[i].q() = defaults[i];
+    s.motor_state()[joint].q() += position_delta; s.motor_state()[joint].dq() = velocity;
     s.crc() = crc32_core(reinterpret_cast<uint32_t*>(&s), (sizeof(s) >> 2) - 1);
     if (corrupt) s.crc() ^= 1;
     io->callback(s);
@@ -206,9 +243,339 @@ void reject_command_modes(const std::string& model) {
   bool rejected = false;
   try { Fixture f(model, false, true, "invalid"); } catch (const std::runtime_error&) { rejected = true; }
   CHECK(rejected);
-  rejected = false;
-  try { Fixture f(model, false, false, "position_pd"); } catch (const std::runtime_error&) { rejected = true; }
-  CHECK(rejected);
+}
+
+void position_pd_hardware(const std::string& model) {
+  {
+    Fixture f(model, false, false, "position_pd"); f.state(); f.state();
+    CHECK(!f.call("authorize_output").success); CHECK(!f.io->present);
+    CHECK(!f.call("fix_stand").success); f.pump(); CHECK(f.io->writes.empty());
+  }
+  {
+    Fixture f(model, true, false, "position_pd", 0); f.state(); f.state();
+    CHECK(f.status().find("software_torque_clamp=false") != std::string::npos);
+    CHECK(!f.node->set_parameter(rclcpp::Parameter("joint_command_mode", "torque")).successful);
+    CHECK(f.call("authorize_output").success); f.pump(); CHECK(!f.io->writes.empty());
+    auto damping = h1_policy::to_sdk(h1_policy::passive_damping_gains());
+    for (int i = 0; i < 27; ++i) {
+      const auto& m = f.io->writes.back().motor_cmd()[i];
+      CHECK(m.q() == 0 && m.dq() == 0 && m.kp() == 0 && m.tau() == 0 && m.kd() == damping[i]);
+    }
+    CHECK(h1_policy::valid_crc(f.io->writes.back(), f.io->writes.back().crc()));
+    CHECK(f.call("fix_stand").success); f.pump(); f.advance(3.01); f.pump(); CHECK(f.call("arm_hold_stand").success);
+    f.pump(); f.advance(3.01); f.pump(); const auto cmd = f.io->writes.back();
+    CHECK(h1_policy::valid_crc(cmd, cmd.crc()));
+    CHECK(std::abs(cmd.motor_cmd()[17].q() - (-.030f)) < 1e-5f);
+    CHECK(std::abs(cmd.motor_cmd()[18].q() - (-.003f)) < 1e-5f);
+    for (int i = 0; i < 27; ++i) {
+      const auto& m = cmd.motor_cmd()[i];
+      CHECK(m.mode() == 1 && m.kp() > 0 && m.kd() > 0 && m.dq() == 0 && m.tau() == 0);
+    }
+    CHECK(!f.call("arm_hold").success);
+    CHECK(f.call("revoke_output").success); auto before = f.io->writes.size();
+    f.pump(); CHECK(!f.io->present && f.io->writes.size() == before);
+  }
+  {
+    Fixture f(model, true, false, "position_pd", 0); f.state(); f.state();
+    CHECK(f.call("authorize_output").success); f.pump();
+    auto before = f.io->writes.size(); f.state(true, 1, true); f.pump();
+    CHECK(!f.io->present && f.io->writes.size() == before);
+  }
+}
+
+void position_pd_hardware_single_policy_step(const std::string& model) {
+  Fixture f(model, true, false, "position_pd", 1); f.state(); f.state();
+  CHECK(f.call("authorize_output").success); f.pump(); CHECK(f.call("fix_stand").success);
+  f.pump(); f.advance(3.01); f.pump(); CHECK(f.call("arm_hold_stand").success);
+  f.pump(); f.advance(3.01); f.pump(); auto before = f.io->writes.back();
+  CHECK(f.call("arm_hold").success); f.pump(25);
+  CHECK(f.status().find("mode=Hold") != std::string::npos);
+  CHECK(f.status().find("controlled_stop_supported=false") != std::string::npos);
+  CHECK(f.status().find("exit_protocol=hold_supported_release_v3") != std::string::npos);
+  auto first = f.io->writes.back();
+  for (int i=0;i<27;++i) {
+    CHECK(std::abs(first.motor_cmd()[i].kp()-before.motor_cmd()[i].kp()) < 1e-5f);
+    CHECK(std::abs(first.motor_cmd()[i].kd()-before.motor_cmd()[i].kd()) < 1e-5f);
+    CHECK(std::abs(first.motor_cmd()[i].q()-before.motor_cmd()[i].q()) < 1e-5f);
+  }
+  CHECK(!f.call("arm_hold").success); CHECK(f.call("passive").success);
+  f.advance(10.0); f.pump(25); CHECK(f.status().find("output_transition=hold") != std::string::npos);
+  auto held=f.io->writes.back();
+  for (int i=0;i<27;++i) { CHECK(held.motor_cmd()[i].kp()==first.motor_cmd()[i].kp()); CHECK(held.motor_cmd()[i].kd()==first.motor_cmd()[i].kd()); CHECK(std::abs(held.motor_cmd()[i].q()-first.motor_cmd()[i].q())<1e-5f); }
+  CHECK(!f.call("fix_stand").success); CHECK(f.call("passive").success);
+  CHECK(f.call("release_supported").success); f.pump(25);
+  CHECK(f.status().find("output_transition=exit") != std::string::npos);
+  CHECK(!f.call("release_supported").success);
+  f.advance(1.5); f.pump(25); auto middle=f.io->writes.back();
+  CHECK(middle.motor_cmd()[0].kp() < first.motor_cmd()[0].kp());
+  CHECK(middle.motor_cmd()[0].kd() >= first.motor_cmd()[0].kd());
+  f.advance(1.51); f.pump(25); CHECK(f.status().find("release_phase=settling") != std::string::npos);
+  f.advance(.51); f.pump(25); CHECK(f.status().find("release_phase=damping_down") != std::string::npos);
+  f.advance(3.01); f.pump(25); CHECK(f.status().find("mode=Passive") != std::string::npos);
+  CHECK(f.status().find("output_transition=none") != std::string::npos);
+  auto end=f.io->writes.back(); CHECK(end.motor_cmd()[0].kp()==0);
+  CHECK(h1_policy::valid_crc(end,end.crc()));
+  CHECK(f.call("revoke_output").success); auto n=f.io->writes.size(); f.pump(); CHECK(f.io->writes.size()==n);
+}
+
+float status_number(const std::string& status, const std::string& key) {
+  const auto pos = status.find(key + "=");
+  CHECK(pos != std::string::npos);
+  return std::stof(status.substr(pos + key.size() + 1));
+}
+void check_block_command(const std::string& status, const Command& previous, int policy_index, int sdk_index) {
+  CHECK(status_number(status, "last_release_block_policy_index") == policy_index);
+  CHECK(std::abs(status_number(status, "last_release_block_cmd_q") - previous.motor_cmd()[sdk_index].q()) < 1e-5f);
+  CHECK(std::abs(status_number(status, "last_release_block_cmd_kp") - previous.motor_cmd()[sdk_index].kp()) < 1e-5f);
+  CHECK(std::abs(status_number(status, "last_release_block_cmd_kd") - previous.motor_cmd()[sdk_index].kd()) < 1e-5f);
+}
+void position_pd_release_blocked(const std::string& model, bool after_unloading) {
+  Fixture f(model,true,false,"position_pd",0); f.state(); f.state();
+  CHECK(f.call("authorize_output").success); f.pump();
+  CHECK(f.call("fix_stand").success); f.pump(); f.advance(3.01); f.pump();
+  CHECK(f.call("arm_hold_stand").success); f.pump(); f.advance(3.01); f.pump();
+  CHECK(f.call("passive").success); f.pump();
+  CHECK(f.call("release_supported").success); f.pump();
+  if (after_unloading) {
+    f.advance(3.01); f.pump();
+    f.advance(.51); f.pump();
+    CHECK(f.status().find("release_phase=damping_down") != std::string::npos);
+    f.advance(1.0); f.pump();
+  } else {
+    f.advance(1.0); f.pump();
+  }
+  auto previous = f.io->writes.back();
+  f.state(true, 1, false, .5f); f.pump();
+  auto status = f.status();
+  CHECK(status.find("mode=Hold") != std::string::npos);
+  CHECK(status.find("release_blocked=true") != std::string::npos);
+  CHECK(status.find("last_release_block_reason=speed last_release_block_source=snapshot") != std::string::npos);
+  check_block_command(status, previous, 0, 0);
+  CHECK(status.find(after_unloading ? "release_kp_zero=true" : "release_kp_zero=false") != std::string::npos);
+  auto held = f.io->writes.back();
+  CHECK(held.motor_cmd()[0].kp() == previous.motor_cmd()[0].kp());
+  CHECK(held.motor_cmd()[0].kd() == previous.motor_cmd()[0].kd());
+  CHECK(!f.call("release_supported").success);
+  CHECK(f.call("passive").success);
+  CHECK(f.status().find("release_blocked=true") != std::string::npos);
+  CHECK(f.call("revoke_output").success);
+  auto count = f.io->writes.size(); f.pump();
+  CHECK(!f.io->present && f.io->writes.size() == count);
+  CHECK(f.status().find("last_release_block_reason=speed") != std::string::npos);
+}
+
+void position_pd_release_newer_nonquiet_sample(const std::string& model, bool at_completion, float velocity = .2f) {
+  Fixture f(model,true,false,"position_pd",0); f.state(); f.state();
+  CHECK(f.call("authorize_output").success); f.pump();
+  CHECK(f.call("fix_stand").success); f.pump(); f.advance(3.01); f.pump();
+  CHECK(f.call("arm_hold_stand").success); f.pump(); f.advance(3.01); f.pump();
+  CHECK(f.call("passive").success); f.pump();
+  CHECK(f.call("release_supported").success); f.pump();
+  f.advance(3.01); f.pump(); f.advance(.51); f.pump();
+  CHECK(f.status().find("release_phase=damping_down") != std::string::npos);
+  const auto previous = f.io->writes.back();
+  CHECK(previous.motor_cmd()[16].kd() > .5f);
+  // read_locked consumes three clock reads and the velocity watchdog two;
+  // inject a newer sample on the sixth read, just after the initial state
+  // snapshot and before the guarded release candidate is calculated.
+  f.advance(at_completion ? 3.01 : 1.0);
+  f.clock_reads = 0;
+  f.inject_on_clock_read = 6;
+  f.clock_injection = [&f, velocity] { f.state(true, 1, false, velocity, 16); };
+  f.pump();
+  CHECK(!f.clock_injection);
+  const auto status = f.status();
+  if (velocity >= h1_policy::kReleaseBlockSpeed) {
+    CHECK(status.find("mode=Hold") != std::string::npos);
+    CHECK(status.find("release_blocked=true") != std::string::npos);
+    CHECK(status.find("release_kp_zero=true") != std::string::npos);
+    CHECK(status.find("last_release_block_reason=speed last_release_block_source=newer_state") != std::string::npos);
+    check_block_command(status, previous, 16, 16);
+  } else {
+    CHECK(status.find("mode=Stopping") != std::string::npos);
+    CHECK(status.find("release_phase=settling") != std::string::npos);
+    CHECK(status.find("release_blocked=false") != std::string::npos);
+  }
+  CHECK(f.io->writes.back().motor_cmd()[16].kd() == previous.motor_cmd()[16].kd());
+  CHECK(f.call("revoke_output").success);
+}
+
+void position_pd_release_deadline_after_calculation(const std::string& model) {
+  Fixture f(model,true,false,"position_pd",0); f.state(); f.state();
+  CHECK(f.call("authorize_output").success); f.pump();
+  CHECK(f.call("fix_stand").success); f.pump(); f.advance(3.01); f.pump();
+  CHECK(f.call("arm_hold_stand").success); f.pump(); f.advance(3.01); f.pump();
+  CHECK(f.call("passive").success); f.pump();
+  CHECK(f.call("release_supported").success); f.pump();
+  f.advance(3.01); f.pump(); f.advance(.51); f.pump();
+  CHECK(f.status().find("release_phase=damping_down") != std::string::npos);
+  const auto previous = f.io->writes.back();
+  f.advance(6.475);  // Still before the 10 s total deadline.
+  f.clock_reads = 0; f.jump_on_clock_read = 8; f.clock_jump = .012;
+  f.pump();
+  const auto status = f.status();
+  CHECK(status.find("mode=Hold") != std::string::npos);
+  CHECK(status.find("release_blocked=true") != std::string::npos);
+  CHECK(status.find("last_release_block_reason=timeout last_release_block_source=newer_state") != std::string::npos);
+  check_block_command(status, previous, 0, 0);
+  CHECK(f.io->writes.back().motor_cmd()[16].kd() == previous.motor_cmd()[16].kd());
+  CHECK(f.call("revoke_output").success);
+}
+
+void position_pd_entry_blending(const std::string& model) {
+  Fixture f(model,true,false,"position_pd",500); f.state(); f.state(); CHECK(!f.call("release_supported").success); CHECK(f.call("authorize_output").success);
+  CHECK(!f.call("release_supported").success); f.pump();
+  auto passive=f.io->writes.back(); CHECK(f.call("fix_stand").success); f.pump();
+  auto first=f.io->writes.back();
+  for(int i=0;i<27;++i) { CHECK(first.motor_cmd()[i].kp()==passive.motor_cmd()[i].kp()); CHECK(first.motor_cmd()[i].kd()==passive.motor_cmd()[i].kd()); }
+  CHECK(!f.call("arm_hold_stand").success);
+  f.advance(1.5); f.pump(); CHECK(f.io->writes.back().motor_cmd()[0].kp()>0);
+  f.advance(1.51); f.pump(); CHECK(f.status().find("output_transition=none") != std::string::npos);
+  auto prep=f.io->writes.back(); CHECK(std::abs(prep.motor_cmd()[0].kp()-98.7f)<1e-4f);
+  CHECK(f.call("arm_hold_stand").success); f.pump(); auto first_stand=f.io->writes.back();
+  for(int i=0;i<27;++i) { CHECK(std::abs(first_stand.motor_cmd()[i].kp()-prep.motor_cmd()[i].kp())<1e-4f); CHECK(std::abs(first_stand.motor_cmd()[i].kd()-prep.motor_cmd()[i].kd())<1e-4f); }
+  f.advance(3.01); f.pump(); CHECK(f.status().find("output_transition=none") != std::string::npos);
+  auto stand=f.io->writes.back(); CHECK(std::abs(stand.motor_cmd()[16].kp()-120.f)<1e-4f);
+  CHECK(f.call("arm_hold").success); f.pump(); auto first_policy=f.io->writes.back();
+  for(int i=0;i<27;++i) { CHECK(std::abs(first_policy.motor_cmd()[i].kp()-stand.motor_cmd()[i].kp())<1e-4f); CHECK(std::abs(first_policy.motor_cmd()[i].kd()-stand.motor_cmd()[i].kd())<1e-4f); }
+  f.advance(1.5); f.pump(); CHECK(f.io->writes.back().motor_cmd()[0].kp()>stand.motor_cmd()[0].kp());
+  f.advance(1.51); f.pump(); CHECK(f.status().find("output_transition=none") != std::string::npos);
+  CHECK(std::abs(f.io->writes.back().motor_cmd()[0].kp()-150.f)<1e-4f);
+  CHECK(f.call("revoke_output").success);
+}
+
+void position_pd_exit_faults(const std::string& model) {
+  for(int kind=0;kind<3;++kind) {
+    Fixture f(model,true,false,"position_pd",1); f.state(); f.state(); CHECK(f.call("authorize_output").success); f.pump();
+    CHECK(f.call("fix_stand").success); f.pump(); CHECK(f.call("passive").success); f.pump();
+    CHECK(f.status().find("mode=Hold") != std::string::npos);
+    auto n=f.io->writes.size();
+    if(kind==0) { CHECK(f.call("revoke_output").success); n=f.io->writes.size(); }
+    if(kind==1) { f.clock+=.11; }
+    if(kind==2) f.io->fail_write=true;
+    f.pump(); CHECK(!f.io->present); CHECK(f.io->writes.size()==n);
+  }
+}
+
+
+void continuous_navigation_commands(const std::string& model) {
+  Fixture f(model, true, false, "position_pd", 0, true, true); f.state(); f.state();
+  auto pub = f.client_node->create_publisher<geometry_msgs::msg::Twist>("/cmd_vel_final", 10);
+  auto heartbeat = f.client_node->create_publisher<std_msgs::msg::Bool>("/h1_2/policy_gate_alive", 10);
+  std_msgs::msg::Bool alive; alive.data = true;
+  geometry_msgs::msg::Twist v; v.linear.x = .18; v.angular.z = .3;
+  CHECK(f.call("authorize_output").success); f.pump(); CHECK(f.call("fix_stand").success);
+  f.pump(); f.advance(3.01); f.pump(); CHECK(f.call("arm_hold_stand").success);
+  f.pump(); f.advance(3.01); f.pump();
+  pub->publish(v); f.pump(); CHECK(f.call("arm_hold").success);
+  f.pump(); CHECK(f.status().find("navigation_ready=false") != std::string::npos);
+  CHECK(f.status().find("policy_cmd=0,0,0") != std::string::npos);
+  f.advance(3.01); heartbeat->publish(alive); f.pump(70); CHECK(f.status().find("navigation_ready=true") != std::string::npos);
+  CHECK(f.status().find("policy_cmd=0,0,0") != std::string::npos);
+  f.advance(.01); pub->publish(v); f.pump(70);
+  CHECK(f.status().find("policy_cmd=0.18,0,0.3") != std::string::npos);
+  f.advance(.21); f.pump(); CHECK(f.status().find("policy_cmd=0,0,0") != std::string::npos);
+  CHECK(f.status().find("navigation_ready=false") != std::string::npos);
+  heartbeat->publish(alive); f.pump(70); CHECK(f.status().find("navigation_ready=true") != std::string::npos);
+  f.advance(.41); heartbeat->publish(alive); f.pump(70); CHECK(f.status().find("policy_cmd=0,0,0") != std::string::npos);
+  CHECK(f.status().find("navigation_ready=true") != std::string::npos);
+  CHECK(f.call("revoke_output").success); CHECK(f.status().find("navigation_ready=false") != std::string::npos);
+}
+void reject_continuous_misconfiguration(const std::string& model) {
+  bool rejected = false; try { Fixture f(model, true, false, "torque", 0, true, true); } catch (const std::runtime_error&) { rejected = true; } CHECK(rejected);
+  rejected = false; try { Fixture f(model, true, false, "position_pd", 0, false, true); } catch (const std::runtime_error&) { rejected = true; } CHECK(rejected);
+  rejected = false; try { Fixture f(model, true, false, "position_pd", 5, true, true); } catch (const std::runtime_error&) { rejected = true; } CHECK(rejected);
+}
+
+void policy_deadline_before_and_during_step(const std::string& model, bool cross_during_step) {
+  Fixture f(model, true, false, "position_pd", 155, false, false, 3.1);
+  f.state(); f.state(); CHECK(f.call("authorize_output").success); f.pump();
+  CHECK(f.call("fix_stand").success); f.pump(); f.advance(3.01); f.pump();
+  CHECK(f.call("arm_hold_stand").success); f.pump(); f.advance(3.01); f.pump();
+  CHECK(f.call("arm_hold").success); f.pump(25);
+  CHECK(f.status().find("mode=ArmHold") != std::string::npos);
+  auto last = f.io->writes.back();
+  auto first_after = f.io->writes.size();
+  if (cross_during_step) {
+    // Fresh feedback remains valid while time passes across the deadline
+    // during policy computation; the late result must never be written.
+    f.advance(3.099);
+    f.clock_reads = 0; f.clock_jump = .002; f.jump_on_clock_read = 8;
+  } else {
+    f.advance(3.101);
+  }
+  f.pump(70);
+  CHECK(f.status().find("mode=Hold") != std::string::npos);
+  CHECK(f.io->writes.size() > first_after);
+  for (size_t n = first_after; n < f.io->writes.size(); ++n) {
+    for (int i = 0; i < 27; ++i) {
+      const auto& actual = f.io->writes[n].motor_cmd()[i];
+      const auto& previous = last.motor_cmd()[i];
+      CHECK(std::abs(actual.q() - previous.q()) < 1e-5f);
+      CHECK(std::abs(actual.kp() - previous.kp()) < 1e-5f);
+      CHECK(std::abs(actual.kd() - previous.kd()) < 1e-5f);
+    }
+  }
+  CHECK(f.call("revoke_output").success);
+}
+
+void trained_guard_integration(const std::string& model) {
+  Fixture f(model, true, false, "position_pd", 500, false, false, 0, true);
+  f.trained_state(); f.trained_state(); CHECK(f.call("authorize_output").success); f.pump();
+  CHECK(f.call("fix_stand").success); f.pump();
+  f.clock += 3.01; f.trained_state(); f.pump(); CHECK(f.call("arm_hold_stand").success); f.pump();
+  f.clock += 3.01; f.trained_state(); f.pump();
+  CHECK(!f.io->writes.empty());
+  const auto expected_stand = h1_policy::to_sdk(h1_policy::defaults());
+  for (int i = 0; i < 27; ++i)
+    CHECK(std::abs(f.io->writes.back().motor_cmd()[i].q() - expected_stand[i]) < 1e-5f);
+  f.trained_state(0, 3, .27f);
+  CHECK(f.status().find("entry_angle_gate=diagnostic_only") != std::string::npos);
+  CHECK(f.call("arm_hold").success);
+  CHECK(f.status().find("guard_prearm_sdk_index=3") != std::string::npos);
+  CHECK(f.status().find("guard_prearm_max_delta=0.27") != std::string::npos);
+  f.pump();
+  // During the first two seconds the configured 1 rad/s limit is doubled.
+  for (int i = 0; i < 2; ++i) { f.clock += .02; f.trained_state(2.1f, 17); f.pump(25); }
+  CHECK(f.status().find("trained_guard_tripped=false") != std::string::npos);
+  auto before = f.io->writes.size();
+  f.clock += .02; f.trained_state(2.1f, 17); f.pump(25);
+  CHECK(f.io->writes.size() > before);
+  auto status = f.status();
+  CHECK(status.find("mode=Passive") != std::string::npos);
+  CHECK(status.find("trained_guard_tripped=true") != std::string::npos);
+  CHECK(status.find("trained_guard_reason=joint_speed") != std::string::npos);
+  CHECK(status.find("trained_guard_sdk_index=17") != std::string::npos);
+  CHECK(status.find("trained_guard_native_damping=true") != std::string::npos);
+  CHECK(status.find("authorized=true") != std::string::npos);
+  auto damping = h1_policy::to_sdk(h1_policy::passive_damping_gains());
+  for (size_t n = before; n < f.io->writes.size(); ++n)
+    for (int i = 0; i < 27; ++i) {
+      const auto& m = f.io->writes[n].motor_cmd()[i];
+      CHECK(m.tau() == 0 && m.kp() == 0 && m.q() == 0);
+      CHECK(std::abs(m.kd() - damping[i]) < 1e-5f);
+    }
+  CHECK(!f.call("fix_stand").success); CHECK(f.call("passive").success);
+  f.clock += .02; f.trained_state(); f.pump(25);
+  CHECK(f.status().find("trained_guard_tripped=true") != std::string::npos);
+  f.trained_state(0, 0, 0, true); f.pump(25);
+  CHECK(!f.io->present); CHECK(f.status().find("authorized=false") != std::string::npos);
+  CHECK(f.status().find("trained_guard_tripped=true") != std::string::npos);
+}
+
+
+void trained_position_limit_integration(const std::string& model) {
+  Fixture f(model, true, false, "position_pd", 500, false, false, 0, true);
+  f.trained_state(); f.trained_state(); CHECK(f.call("authorize_output").success); f.pump();
+  CHECK(f.call("fix_stand").success); f.pump();
+  f.clock += 3.01; f.trained_state(); f.pump(); CHECK(f.call("arm_hold_stand").success); f.pump();
+  f.clock += 3.01; f.trained_state(0, 3, .27f); f.pump(); CHECK(f.call("arm_hold").success);
+  for (int i = 0; i < 3; ++i) { f.clock += .02; f.trained_state(0, 3, 2.2f); f.pump(25); }
+  const auto status = f.status();
+  CHECK(status.find("trained_guard_tripped=true") != std::string::npos);
+  CHECK(status.find("trained_guard_reason=joint_position") != std::string::npos);
+  CHECK(status.find("trained_guard_sdk_index=3") != std::string::npos);
+  CHECK(status.find("trained_guard_native_damping=true") != std::string::npos);
 }
 
 int main(int argc, char** argv) {
@@ -218,7 +585,16 @@ int main(int argc, char** argv) {
     disabled_and_shadow(argv[1]); authorized_budget(argv[1]);
     for (int kind = 0; kind < 3; ++kind) fault_case(argv[1], kind);
     slow_open(argv[1]); slow_open_fresh_state(argv[1]); simulation(argv[1]);
-    position_pd_simulation(argv[1]); reject_command_modes(argv[1]);
-    rclcpp::shutdown(); std::cout << "8 node integration scenarios passed\n";
+    position_pd_simulation(argv[1]); reject_command_modes(argv[1]); position_pd_hardware(argv[1]);
+    position_pd_hardware_single_policy_step(argv[1]); position_pd_entry_blending(argv[1]); position_pd_exit_faults(argv[1]);
+    position_pd_release_blocked(argv[1], false); position_pd_release_blocked(argv[1], true);
+    position_pd_release_newer_nonquiet_sample(argv[1], false); position_pd_release_newer_nonquiet_sample(argv[1], true);
+    position_pd_release_newer_nonquiet_sample(argv[1], true, .6f);
+    position_pd_release_deadline_after_calculation(argv[1]);
+    continuous_navigation_commands(argv[1]); reject_continuous_misconfiguration(argv[1]);
+    policy_deadline_before_and_during_step(argv[1], false);
+    policy_deadline_before_and_during_step(argv[1], true);
+    trained_guard_integration(argv[1]); trained_position_limit_integration(argv[1]);
+    rclcpp::shutdown(); std::cout << "node integration scenarios passed\n";
   } catch (const std::exception& e) { std::cerr << e.what() << '\n'; rclcpp::shutdown(); return 1; }
 }

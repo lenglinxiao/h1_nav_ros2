@@ -3,6 +3,11 @@
 #include <unitree/robot/channel/channel_publisher.hpp>
 #include <unitree/robot/channel/channel_subscriber.hpp>
 #include <mutex>
+#include <cstdlib>
+#include <cstdio>
+#include <fstream>
+#include <iomanip>
+#include <stdexcept>
 namespace h1_policy {
 using LS = unitree_hg::msg::dds_::LowState_;
 using LC = unitree_hg::msg::dds_::LowCmd_;
@@ -22,8 +27,23 @@ public:
     });
   }
   void open_output() override {
-    pub_ = std::make_shared<unitree::robot::ChannelPublisher<LC>>("rt/lowcmd");
-    pub_->InitChannel();
+    auto pub = unitree::robot::ChannelFactory::Instance()->CreateSendChannel<LC>("rt/lowcmd");
+    const char* path = std::getenv("H1_POLICY_WRITER_GUID_FILE");
+    if (path && *path) {
+      dds_guid_t guid{};
+      auto writer = pub->GetWriter()->GetNative();
+      if (dds_get_guid(writer.delegate()->get_ddsc_entity(), &guid) != DDS_RETCODE_OK)
+        throw std::runtime_error("cannot obtain LowCmd writer GUID");
+      const std::string temporary = std::string(path) + ".tmp";
+      { std::ofstream out(temporary, std::ios::trunc);
+        for (auto byte : guid.v) out << std::hex << std::setw(2) << std::setfill('0') << unsigned(byte);
+        out << '\n'; out.close();
+        if (!out) throw std::runtime_error("cannot write LowCmd writer GUID");
+      }
+      if (std::rename(temporary.c_str(), path) != 0)
+        throw std::runtime_error("cannot publish LowCmd writer GUID");
+    }
+    pub_ = std::move(pub);
   }
   bool write(const LC& message) override { return pub_ && pub_->Write(message, 0); }
   void close_output() override { pub_.reset(); }
@@ -38,7 +58,7 @@ public:
 private:
   std::shared_ptr<CallbackState> callback_state_;
   std::shared_ptr<unitree::robot::ChannelSubscriber<LS>> sub_;
-  std::shared_ptr<unitree::robot::ChannelPublisher<LC>> pub_;
+  unitree::robot::ChannelPtr<LC> pub_;
 };
 std::unique_ptr<LowLevelIo> make_sdk_io() { return std::make_unique<SdkIo>(); }
 }

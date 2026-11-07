@@ -32,6 +32,8 @@ class LaunchParametersTest(unittest.TestCase):
         self.assertEqual(params['dds_domain'], 42)
         self.assertEqual(params['max_policy_steps'], 0)
         self.assertIsInstance(params['max_policy_steps'], int)
+        self.assertIs(params['continuous_policy_navigation'], False)
+        self.assertIs(params['enable_navigation_commands'], False)
         for name in ('enable_hardware_output', 'operator_confirmed_debug_mode',
                      'operator_confirmed_exclusive_control'):
             self.assertIs(params[name], False)
@@ -41,7 +43,9 @@ class LaunchParametersTest(unittest.TestCase):
                                 'dds_domain': '0', 'max_policy_steps': '123',
                                 'enable_hardware_output': 'true',
                                 'operator_confirmed_debug_mode': 'true',
-                                'operator_confirmed_exclusive_control': 'false'})
+                                'operator_confirmed_exclusive_control': 'false',
+                                'continuous_policy_navigation': 'true',
+                                'enable_navigation_commands': 'true'})
         self.assertEqual(params['profile'], 'hardware')
         self.assertEqual(params['network_interface'], 'eth0')
         self.assertEqual(params['dds_domain'], 0)
@@ -50,9 +54,16 @@ class LaunchParametersTest(unittest.TestCase):
         self.assertIs(params['enable_hardware_output'], True)
         self.assertIs(params['operator_confirmed_debug_mode'], True)
         self.assertIs(params['operator_confirmed_exclusive_control'], False)
+        self.assertIs(params['continuous_policy_navigation'], True)
+        self.assertIs(params['enable_navigation_commands'], True)
 
     def test_sim_position_pd_option(self):
         self.assertEqual(self.evaluate({'joint_command_mode': 'position_pd'})['joint_command_mode'], 'position_pd')
+
+    def test_joint_mode_defaults_follow_profile(self):
+        self.assertEqual(self.evaluate({'profile': 'sim'})['joint_command_mode'], 'torque')
+        self.assertEqual(self.evaluate({'profile': 'hardware'})['joint_command_mode'], 'position_pd')
+        self.assertEqual(self.evaluate({'profile': 'hardware', 'joint_command_mode': 'torque'})['joint_command_mode'], 'torque')
 
 
 if __name__ == '__main__':

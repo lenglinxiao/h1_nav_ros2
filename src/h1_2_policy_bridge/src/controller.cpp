@@ -24,11 +24,12 @@ static bool valid(
   return true;
 }
 Controller::Controller(
-  const std::string& path
-  ) : policy_(path){
+  const std::string& path, double knee_tolerance
+  ) : knee_tolerance_(knee_tolerance), policy_(path){
+  if (!std::isfinite(knee_tolerance_) || knee_tolerance_ < .07 || knee_tolerance_ > .10) throw std::invalid_argument("invalid knee tolerance");
 }
 bool Controller::transition(
-  Mode next, const State&s, double now
+  Mode next, const State&s, double now, bool check_knees
   ){
   if(!valid(s)||!std::isfinite(now)) return false;
   if(next == Mode::Passive) {
@@ -39,7 +40,7 @@ bool Controller::transition(
   if(mode_ == Mode::Fault) return false;
   if(next == Mode::FixStand && mode_ == Mode::Passive) {
   }else if(next == Mode::ArmHoldStand && mode_ == Mode::FixStand && now - entered_ >= 3) {
-  }else if(next == Mode::ArmHold && mode_ == Mode::ArmHoldStand && now - entered_ >= 3 && std::abs(s.q[3] - .9f) < .07f && std::abs(s.q[9] - .9f) < .07f && s.gravity[2] < -.9f) {
+  }else if(next == Mode::ArmHold && mode_ == Mode::ArmHoldStand && now - entered_ >= 3 && (!check_knees || (std::abs(s.q[3] - .9f) < knee_tolerance_ && std::abs(s.q[9] - .9f) < knee_tolerance_)) && s.gravity[2] < -.9f) {
     core_.reset_action();
   }else return false;
   start_ = s.q;
@@ -86,7 +87,8 @@ JointControl Controller::step_control(
     kp = {98.7, 98.7, 98.7, 157.7, 100, 100, 98.7, 98.7, 98.7, 157.7, 100, 100, 98.7, 100, 100, 60, 120, 40, 40, 40, 100, 100, 60, 120, 40, 40, 40};
     kd = {6.3, 6.3, 6.3, 10.1, 4, 4, 6.3, 6.3, 6.3, 10.1, 4, 4, 6.3, 6, 6, 3, 4, 2, 2, 2, 6, 6, 3, 4, 2, 2, 2};
   }
-  auto target = mode_ == Mode::FixStand?fix_stand_target():stand_target();
+  auto target = mode_ == Mode::FixStand ? fix_stand_target() :
+    (use_training_stand_target_ && mode_ == Mode::ArmHoldStand ? training_stand_target_ : stand_target());
   float f = std::clamp(float((now - entered_) / 3.), 0.f, 1.f);
   JointControl out{};
   out.kp = mode_ == Mode::Passive ? Joints{} : kp;

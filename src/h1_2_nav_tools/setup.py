@@ -27,6 +27,7 @@ setup(
     license="MIT",
     entry_points={
         "console_scripts": [
+            "policy_navigation_gate = h1_2_nav_tools.policy_navigation_gate:main",
             "path_to_waypoint = h1_2_nav_tools.path_to_waypoint:main",
             "play_teaching_path = h1_2_nav_tools.play_teaching_path:main",
             "record_teaching_path = h1_2_nav_tools.record_teaching_path:main",
