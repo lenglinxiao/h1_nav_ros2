@@ -1,0 +1,23 @@
+---
+string owner_boot_id
+uint32 owner_pid
+uint32 policy_pid
+string node_fqn
+uint32 ros_domain_id
+bool ros_localhost_only
+string model_path
+string model_sha256
+string urdf_path
+string urdf_sha256
+string executable_path
+string executable_sha256
+string profile_sha256
+bool authorized
+bool writer_present
+uint8[16] lowcmd_writer_gid
+bool valid
+string reason
+string input_identity_mode
+bool input_claimed
+uint8[] cmd_writer_gid
+uint8[] heartbeat_writer_gid

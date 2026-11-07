@@ -1,0 +1,6 @@
+string owner_boot_id
+uint8[] cmd_writer_gid
+uint8[] heartbeat_writer_gid
+---
+bool success
+string reason
