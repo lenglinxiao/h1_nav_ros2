@@ -72,7 +72,7 @@ class MotionCoordinator:
         with self.lock:
             if not _valid_token(expected_token) or expected_token != self._token:
                 return Transition(False, 'TOKEN_MISMATCH')
-            if source not in ('manual', 'nav') or not isinstance(source, str):
+            if type(source) is not str or source not in ('manual', 'nav'):
                 return Transition(False, 'INVALID_SOURCE')
             if source == 'nav' and not self._nav_verified:
                 return Transition(False, 'NAV_NOT_VERIFIED')
@@ -108,9 +108,14 @@ class MotionCoordinator:
                 return Transition(False, 'TOKEN_MISMATCH')
             if self._state != 'switching' or not self._ready:
                 return Transition(False, 'NOT_READY')
-            node = self._node_ready if node_ready is None else node_ready
-            backend = self._backend_ready if backend_ready is None else backend_ready
-            if node is not True or backend is not True:
+            if ((node_ready is not None and type(node_ready) is not bool)
+                    or (backend_ready is not None and type(backend_ready) is not bool)):
+                return Transition(False, 'INVALID_READINESS')
+            if node_ready is not None:
+                self._node_ready = node_ready
+            if backend_ready is not None:
+                self._backend_ready = backend_ready
+            if not self._node_ready or not self._backend_ready:
                 return Transition(False, 'NOT_READY')
             self._state = self._source
             self._ready = False

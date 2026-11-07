@@ -110,3 +110,31 @@ def test_explicit_node_ready_required_at_activation():
     assert not c.activate(p.token).success
     assert not c.activate(p.token, node_ready=1).success
     assert c.activate(p.token, node_ready=True).success
+
+
+def test_activation_updates_readiness_across_denied_attempts():
+    c = MotionCoordinator(OWNER)
+    p = prepare(c)
+    assert finish(c, p.operation, node_ready=False, backend_ready=False).success
+    assert not c.activate(p.token, node_ready=True).success
+    assert c.activate(p.token, backend_ready=True).success
+
+
+def test_invalid_readiness_does_not_partially_update_snapshots():
+    c = MotionCoordinator(OWNER)
+    p = prepare(c)
+    assert finish(c, p.operation, node_ready=False, backend_ready=False).success
+    assert not c.activate(p.token, node_ready=True, backend_ready=1).success
+    assert not c.activate(p.token, backend_ready=True).success
+    assert c.activate(p.token, node_ready=True).success
+
+
+def test_source_object_never_compared():
+    class MaliciousSource:
+        def __eq__(self, other):
+            raise AssertionError('source comparison must not run')
+    c = MotionCoordinator(OWNER)
+    token, state, generation = c.token, c.state, c.generation
+    result = c.begin_prepare(MaliciousSource(), token)
+    assert not result.success and result.reason == 'INVALID_SOURCE'
+    assert (c.token, c.state, c.generation) == (token, state, generation)
