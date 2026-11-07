@@ -1,3 +1,5 @@
+2026-11-07 ONNX 导航本地实施：用户明确当前未连接机器人、全部验证在本地。任务 1 拆为类型/纯状态机、ROS coordinator、bridge GID、owner/session launch 四个可审查增量。类型与纯状态机已通过 17 项测试及 Python3.10 原生 ROSIDL 类型支持检查，提交 00691a01284269266c895a373e87411f8a85fe81、c729fe232f03ae9964f362ac592cfcb0a904af7b，后续软件与真实导航尚未完成。prepare 必须先返回新 namespace 供客户端启动 backend，fresh ready 在 activate 再检查，避免循环依赖。旧 /tmp 实现目录不可用，现用项目内 .codex_tmp/onnx-navigation-dev 隔离副本；功能进度见 docs/h1_2-onnx-navigation/development-plan.md，接续见 tasks/20261107-onnx-navigation-development.md。此记录不构成现场动作、迁移或新推送授权。
+
 2026-11-07 导航开发规划：常驻策略生命周期、唯一速度/心跳仲裁、域与训练配置贯通、GUI 停止隔离、已验限速和分层验收拆为[六项任务](docs/h1_2-onnx-navigation/development-plan.md)；[设计](docs/h1_2-onnx-navigation/design.md)待审阅。当前私有 ROS43 localhost 实例不能假定热接，现场及授权见[任务](tasks/20261106-trained-policy-guard.md)，未执行新操作。
 
 2026-11-07 无外部悬吊/防摔支撑：用户确认站稳、净空、可急停，原PTY一次WALK后返回ArmHold idle；前后status均ArmHold、ready、零命令、guard未触发，同PID/GUID。窗口中runner检查模式；repeat内存事件未落盘；用户确认已迈步、结束后独立站稳，未切模式、重启、撤权或再次触发，本次授权已用；不推及长时或导航安全。[任务](tasks/20261106-trained-policy-guard.md)。

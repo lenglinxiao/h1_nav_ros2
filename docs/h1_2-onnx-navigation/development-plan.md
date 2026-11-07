@@ -1,6 +1,6 @@
 # H1-2 ONNX 导航 Implementation Plan
 
-> **For agentic workers:** 实施时按项目 AGENTS.md 和用户届时许可选择执行方式；若用户明确允许对应 skill，可使用 superpowers:subagent-driven-development 或 superpowers:executing-plans。以下复选框均为待办，本轮只规划。
+> **实施状态（2026-11-07）：** 用户已要求实施，任务 1A 已通过本地验证与审查，当前推进 1B；所有验证仅在本地完成，不连接机器人。任务 1 拆为 1A 类型与纯状态机、1B ROS 协调器/action、1C bridge 输入 GID、1D owner/会话 launch，逐项验证与审查。后续任务仍待办。
 
 **Goal:** 建立受保护的常驻 ONNX 控制与可独立启停的 Nav2 会话，停止导航后保持零速 ArmHold。
 
@@ -8,7 +8,7 @@
 
 **Tech Stack:** ROS 2 Humble、rclpy、C++、Nav2、launch、Bash、pytest。
 
-**Spec:** [设计提案](design.md)、[总计划](plan.md)、[测试计划](test-plan.md)。方案为主代理建议，待用户审阅。
+**Spec:** [设计提案](design.md)、[总计划](plan.md)、[测试计划](test-plan.md)。用户已授权本地实施；现场迁移与动作另行验收。接续见[开发任务](../../tasks/20261107-onnx-navigation-development.md)。
 
 ## Global Constraints
 
@@ -31,7 +31,16 @@
 - 新建 `src/h1_2_nav_tools/h1_2_nav_tools/policy_motion_coordinator.py`：会话仲裁、目标代理、心跳；复用 `policy_navigation_gate.py` 的 action 清理逻辑，在 `setup.py` 注册入口。
 - 新建 `tools/h1_2_policy_hardware/policy_owner.py`：启动与监护常驻 policy/coordinator/monitor 的独立进程组、生成运行 manifest；新建 `tools/h1_2_policy_hardware/systemd/h1-policy-owner.service` 和 `tools/h1_2_policy_hardware/systemd/h1-policy-owner.env.example`：未来维护窗口托管 owner，不安装当前服务、不自动重启并重授权；新建 `src/h1_2_nav_tools/launch/policy_nav_session.launch.py`：仅负责 Nav2 会话进程组和命名空间 remap。
 - 修改 `src/h1_2_policy_bridge/include/h1_2_policy_bridge/node.hpp` 及必要实现：claimed 输入 GID、runtime identity；修改 bridge 和导航 launch、shell/GUI、Nav2 配置和各自测试。
-- 依赖顺序：任务 1 → 2 → 3 → 4 → 5 → 6；3、4 可在 2 接口固定后分别开发。每项独立审查并按项目约定提交；本次不提交。
+- 依赖顺序：任务 1 → 2 → 3 → 4 → 5 → 6；3、4 可在 2 接口固定后分别开发。每项独立审查并按项目约定本地提交；新的开发提交尚未获额外推送指令。
+
+## 实施记录
+
+- 基线：`65f8adae590dd35508fbeb24265a8e656637e062`；主工作区在本轮开始时干净，本地 `origin/main` 同基线。前轮已记录推送成功，本轮未重新联网推送。
+- 隔离目录：项目内 `.codex_tmp/onnx-navigation-dev`，分支 `feat/onnx-navigation`。旧交接所列 `/tmp` 开发目录与相关实现提交在本轮环境中不可用，不将其测试结果当作当前证据。改用项目内隔离副本保存实现，主目录暂不覆盖。
+- 任务 1A：完成本地验证与审查，提交 `00691a01284269266c895a373e87411f8a85fe81` 与 `c729fe232f03ae9964f362ac592cfcb0a904af7b`。纯状态机定向测试 17 项通过；接口包单独构建成功，两个消息和四个服务的 Python 3.10 原生类型支持加载成功。审查发现的 readiness 快照及 source 比较顺序问题已修复并复审通过。任务 1B 进行中，1C–1D 及 2–6 未完成。
+- 任务 1A 验证命令：`PYTHONPATH=src/h1_2_nav_tools /usr/bin/python3 -m pytest -q src/h1_2_nav_tools/test/test_policy_motion_coordinator.py`（17 passed）；隔离 `colcon build --packages-select h1_2_policy_interfaces` 固定 `Python3_EXECUTABLE` 和 `PYTHON_EXECUTABLE` 为 `/usr/bin/python3`，原生类型支持逐类检查非空。过程报告与复审记录在隔离副本 `.superpowers/sdd/development-plan/task-1a-{report,review,fix1-review}.md`。未运行机器人或 ROS 图。
+- 启动顺序澄清：prepare 在旧会话隔离、零速 barrier 后返回新 namespace，客户端据此启动 Nav2；node/backend readiness 在 activate 时再次检查。若 prepare 先等待尚未启动的 backend，就会形成启动循环。此澄清不放开运动准入。
+- 本地验证边界：离线单元测试、FakeIO、本机独立 ROS 域中的假节点；不创建实际 Unitree LowCmd writer，不进行迁移、授权、撤权或切模式。当前未连接机器人，历史现场记录不能证明当前状态。
 
 ### 任务 1：常驻 coordinator 与会话隔离
 
