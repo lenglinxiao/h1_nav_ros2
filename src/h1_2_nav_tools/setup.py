@@ -27,6 +27,7 @@ setup(
     license="MIT",
     entry_points={
         "console_scripts": [
+            "policy_motion_coordinator = h1_2_nav_tools.policy_motion_coordinator_node:main",
             "policy_navigation_gate = h1_2_nav_tools.policy_navigation_gate:main",
             "path_to_waypoint = h1_2_nav_tools.path_to_waypoint:main",
             "play_teaching_path = h1_2_nav_tools.play_teaching_path:main",

@@ -1,6 +1,6 @@
 # H1-2 ONNX 导航 Implementation Plan
 
-> **实施状态（2026-11-07）：** 用户已要求实施，任务 1A 已通过本地验证与审查，当前推进 1B；所有验证仅在本地完成，不连接机器人。任务 1 拆为 1A 类型与纯状态机、1B ROS 协调器/action、1C bridge 输入 GID、1D owner/会话 launch，逐项验证与审查。后续任务仍待办。
+> **实施状态（2026-11-08）：** 任务 1A、1B 已通过本地验证；当前推进 1C bridge 输入 GID。所有验证仅在本地完成，不连接机器人。任务 1 拆为 1A 类型与纯状态机、1B ROS 协调器/action、1C bridge 输入 GID、1D owner/会话 launch，逐项验证与审查。后续任务仍待办。
 
 **Goal:** 建立受保护的常驻 ONNX 控制与可独立启停的 Nav2 会话，停止导航后保持零速 ArmHold。
 
@@ -37,7 +37,8 @@
 
 - 基线：`65f8adae590dd35508fbeb24265a8e656637e062`；主工作区在本轮开始时干净，本地 `origin/main` 同基线。前轮已记录推送成功，本轮未重新联网推送。
 - 隔离目录：项目内 `.codex_tmp/onnx-navigation-dev`，分支 `feat/onnx-navigation`。旧交接所列 `/tmp` 开发目录与相关实现提交在本轮环境中不可用，不将其测试结果当作当前证据。改用项目内隔离副本保存实现，主目录暂不覆盖。
-- 任务 1A：完成本地验证与审查，提交 `00691a01284269266c895a373e87411f8a85fe81` 与 `c729fe232f03ae9964f362ac592cfcb0a904af7b`。纯状态机定向测试 17 项通过；接口包单独构建成功，两个消息和四个服务的 Python 3.10 原生类型支持加载成功。审查发现的 readiness 快照及 source 比较顺序问题已修复并复审通过。任务 1B 进行中，1C–1D 及 2–6 未完成。
+- 任务 1A：完成本地验证与审查，提交 `00691a01284269266c895a373e87411f8a85fe81` 与 `c729fe232f03ae9964f362ac592cfcb0a904af7b`。纯状态机定向测试 17 项通过；接口包单独构建成功，两个消息和四个服务的 Python 3.10 原生类型支持加载成功。审查发现的 readiness 快照及 source 比较顺序问题已修复并复审通过。任务 1B 后续完成；1C–1D 及 2–6 未完成。
+- 任务 1B：ROS coordinator、双 action proxy 和本地假节点测试已完成，24 项定向测试通过；`colcon build --packages-up-to h1_2_nav_tools` 5 包构建通过。详细命令与边界见隔离副本 `.superpowers/sdd/development-plan/task-1b-report.md`。下一步 1C，以 1B 提交为基线。
 - 任务 1A 验证命令：`PYTHONPATH=src/h1_2_nav_tools /usr/bin/python3 -m pytest -q src/h1_2_nav_tools/test/test_policy_motion_coordinator.py`（17 passed）；隔离 `colcon build --packages-select h1_2_policy_interfaces` 固定 `Python3_EXECUTABLE` 和 `PYTHON_EXECUTABLE` 为 `/usr/bin/python3`，原生类型支持逐类检查非空。过程报告与复审记录在隔离副本 `.superpowers/sdd/development-plan/task-1a-{report,review,fix1-review}.md`。未运行机器人或 ROS 图。
 - 启动顺序澄清：prepare 在旧会话隔离、零速 barrier 后返回新 namespace，客户端据此启动 Nav2；node/backend readiness 在 activate 时再次检查。若 prepare 先等待尚未启动的 backend，就会形成启动循环。此澄清不放开运动准入。
 - 本地验证边界：离线单元测试、FakeIO、本机独立 ROS 域中的假节点；不创建实际 Unitree LowCmd writer，不进行迁移、授权、撤权或切模式。当前未连接机器人，历史现场记录不能证明当前状态。
