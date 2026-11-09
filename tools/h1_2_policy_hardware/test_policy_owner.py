@@ -16,7 +16,8 @@ from policy_owner import (
     CMD_TOPIC, HEARTBEAT_TOPIC, CLAIM_SERVICE, COORDINATOR_CLAIM_SERVICE,
     ChildSpec, ProcessSupervisor, bind_owner_tokens,
     build_runtime_manifest, canonical_profile_sha256,
-    claim_and_start_coordinator, load_child_specs, run as run_owner,
+    claim_and_start_coordinator, configure_runtime_policy, load_child_specs, run as run_owner,
+    runtime_profile_from_urdf,
     runtime_identity_allows_shutdown, verify_runtime_identity,
 )
 
@@ -49,6 +50,7 @@ def sample_profile():
             "default_positions_sdk": [0] * 27,
         },
         "source_sha256": hashlib.sha256(b"profile source").hexdigest(),
+        "urdf_sha256": hashlib.sha256(b"urdf").hexdigest(),
         "profile_sha256": "0" * 64,
     }
     profile["profile_sha256"] = canonical_profile_sha256(profile)
@@ -87,73 +89,196 @@ def make_status(manifest):
     )
 
 
-class PolicyOwnerTests(unittest.TestCase):
-    def test_owner_claims_bridge_then_coordinator_before_heartbeat(self):
-        calls = []
-        cmd_gid = list(range(1, 25))
-        heartbeat_gid = list(range(25, 49))
+def write_test_urdf(path):
+    from train_guard_profile import JOINT_NAMES_SDK
 
-        class ClaimRequest:
+    path.write_text(
+        '<robot name="test">' + "".join(
+            f'<joint name="{name}" type="revolute"><limit lower="-3" upper="3"/></joint>'
+            for name in JOINT_NAMES_SDK
+        ) + "</robot>",
+        encoding="utf-8",
+    )
+
+
+def make_runtime_env(temp_dir):
+    root = Path(temp_dir)
+    model = root / "policy.onnx"
+    model.write_bytes(b"model")
+    executable = root / "h1_2_policy_node"
+    executable.write_bytes(b"executable")
+    executable.chmod(0o700)
+    urdf = root / "robot.urdf"
+    write_test_urdf(urdf)
+    return {
+        **VALID_ENV,
+        "ROS_DOMAIN_ID": "0",
+        "ROS_LOCALHOST_ONLY": "0",
+        "H1_POLICY_OWNER_URDF_PATH": str(urdf),
+        "H1_POLICY_OWNER_BRIDGE_COMMAND": (
+            f"{executable} --ros-args -p model_path:={model} -p profile:=hardware "
+            "-p joint_command_mode:=position_pd "
+            "-p enable_hardware_output:=false -p input_identity_mode:=claimed "
+            "-p owner_boot_id:={owner_boot_id} -p owner_pid:={owner_pid}"
+        ),
+    }
+
+
+def invoke_fake_claim_startup(manifest, response, env, *, identity_available=True, timeout=0.01,
+                              calls=None):
+    calls = [] if calls is None else calls
+    cmd_gid = list(range(1, 25))
+    heartbeat_gid = list(range(25, 49))
+
+    class Request:
+        pass
+
+    class ClaimService:
+        pass
+
+    class IdentityService:
+        pass
+
+    ClaimService.Request = Request
+    IdentityService.Request = Request
+
+    class Future:
+        def __init__(self, result):
+            self._result = result
+
+        def done(self):
+            return True
+
+        def result(self):
+            return self._result
+
+    class Client:
+        def __init__(self, service, name):
+            self.service, self.name = service, name
+
+        def service_is_ready(self):
+            return identity_available or self.service is not IdentityService
+
+        def call_async(self, request):
+            if self.service is IdentityService:
+                calls.append("identity")
+                return Future(response)
+            calls.append(self.name)
+            return Future(SimpleNamespace(success=True, reason="claimed"))
+
+    class FakeNode:
+        def __init__(self, _name):
             pass
 
-        class ClaimService:
-            Request = ClaimRequest
+        def create_client(self, service, name):
+            return Client(service, name)
 
-        class Future:
-            def __init__(self, result):
-                self._result = result
+        def get_publishers_info_by_topic(self, topic):
+            if topic == CMD_TOPIC:
+                return [Endpoint(cmd_gid)]
+            if topic == HEARTBEAT_TOPIC:
+                return [Endpoint(heartbeat_gid)]
+            return []
 
-            def done(self):
-                return True
+        def destroy_node(self):
+            pass
 
-            def result(self):
-                return self._result
+    fake_interfaces_srv = types.ModuleType("h1_2_policy_interfaces.srv")
+    fake_interfaces_srv.ClaimPolicyInput = ClaimService
+    fake_interfaces_srv.PolicyRuntimeIdentity = IdentityService
+    with patch.dict(sys.modules, {"h1_2_policy_interfaces.srv": fake_interfaces_srv}), \
+         patch("rclpy.init"), patch("rclpy.ok", return_value=True), \
+         patch("rclpy.spin_once"), patch("rclpy.shutdown"), \
+         patch("rclpy.node.Node", FakeNode):
+        claim_and_start_coordinator(
+            str(manifest["owner_boot_id"]), manifest, env, timeout_seconds=timeout
+        )
+    return calls
 
-        class Client:
-            def __init__(self, service, name):
-                self.service = service
-                self.name = name
 
-            def service_is_ready(self):
-                return True
+class PolicyOwnerTests(unittest.TestCase):
+    def test_owner_claims_bridge_then_coordinator_before_heartbeat(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            env = make_runtime_env(temp_dir)
+            _, profile, paths = configure_runtime_policy(load_child_specs(env), env)
+            manifest = build_runtime_manifest(paths, profile, owner_boot_id="a" * 32,
+                                              owner_pid=1234, policy_pid=5678, env=env)
+            calls = invoke_fake_claim_startup(manifest, make_status(manifest), env)
+        self.assertEqual(["identity", CLAIM_SERVICE, COORDINATOR_CLAIM_SERVICE], calls)
 
-            def call_async(self, request):
-                if self.service is ClaimService:
-                    calls.append((self.name, request.owner_boot_id,
-                                  request.cmd_writer_gid, request.heartbeat_writer_gid))
-                    return Future(SimpleNamespace(success=True, reason="claimed"))
-                raise AssertionError(f"unexpected service type: {self.service}")
+    def test_runtime_profile_hash_matches_bridge_profile_and_urdf_bytes(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            env = make_runtime_env(temp_dir)
+            specs, profile, paths = configure_runtime_policy(load_child_specs(env), env)
+            from train_guard_profile import build_profile
 
-        class FakeNode:
-            def __init__(self, _name):
-                pass
+            expected_profile = build_profile(paths[1])
+            self.assertEqual(expected_profile["profile_hash"], profile["profile_sha256"])
+            self.assertEqual(hashlib.sha256(Path(paths[1]).read_bytes()).hexdigest(),
+                             profile["urdf_sha256"])
+            command = next(spec.command for spec in specs if spec.name == "policy")
+            self.assertIn("protection_profile:=train_20261106", command)
+            self.assertIn("train_guard_profile_hash:=" + expected_profile["profile_hash"], command)
 
-            def create_client(self, service, name):
-                return Client(service, name)
+    def test_identity_mismatch_blocks_both_input_claims(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            env = make_runtime_env(temp_dir)
+            _, profile, paths = configure_runtime_policy(load_child_specs(env), env)
+            manifest = build_runtime_manifest(paths, profile, owner_boot_id="b" * 32,
+                                              owner_pid=1234, policy_pid=5678, env=env)
+            status = make_status(manifest)
+            status.policy_pid += 1
+            calls = []
+            with self.assertRaisesRegex(RuntimeError, "IDENTITY_MISMATCH"):
+                invoke_fake_claim_startup(manifest, status, env, calls=calls)
+            self.assertEqual(["identity"], calls)
 
-            def get_publishers_info_by_topic(self, topic):
-                if topic == CMD_TOPIC:
-                    return [Endpoint(cmd_gid)]
-                if topic == HEARTBEAT_TOPIC:
-                    return [Endpoint(heartbeat_gid)]
-                return []
+    def test_runtime_hash_profile_and_domain_mismatches_block_claims(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            env = make_runtime_env(temp_dir)
+            _, profile, paths = configure_runtime_policy(load_child_specs(env), env)
+            manifest = build_runtime_manifest(paths, profile, owner_boot_id="d" * 32,
+                                              owner_pid=1234, policy_pid=5678, env=env)
+            cases = (
+                ("model_sha256", "0" * 64, "HASH_MISMATCH", env),
+                ("profile_sha256", "0" * 64, "PROFILE_MISMATCH", env),
+                ("ros_domain_id", 42, "DOMAIN_MISMATCH", env),
+                ("owner_boot_id", "e" * 32, "IDENTITY_MISMATCH", env),
+                ("env_domain", None, "DOMAIN_MISMATCH", {**env, "ROS_DOMAIN_ID": "42"}),
+            )
+            for field, value, reason, runtime_env in cases:
+                with self.subTest(field=field, reason=reason):
+                    status = make_status(manifest)
+                    if field == "model_sha256":
+                        status.model_sha256 = value
+                    elif field != "env_domain":
+                        setattr(status, field, value)
+                    calls = []
+                    with self.assertRaisesRegex(RuntimeError, reason):
+                        invoke_fake_claim_startup(manifest, status, runtime_env, calls=calls)
+                    self.assertEqual(["identity"], calls)
 
-            def destroy_node(self):
-                pass
-
-        fake_interfaces_srv = types.ModuleType("h1_2_policy_interfaces.srv")
-        fake_interfaces_srv.ClaimPolicyInput = ClaimService
-        with patch.dict(sys.modules, {
-            "h1_2_policy_interfaces.srv": fake_interfaces_srv,
-        }), patch("rclpy.init"), patch("rclpy.ok", return_value=True), \
-             patch("rclpy.spin_once"), patch("rclpy.shutdown"), \
-             patch("rclpy.node.Node", FakeNode):
-            claim_and_start_coordinator("a" * 32)
-
-        self.assertEqual(CLAIM_SERVICE, calls[0][0])
-        self.assertEqual(COORDINATOR_CLAIM_SERVICE, calls[1][0])
-        self.assertEqual((calls[0][1], calls[0][2], calls[0][3]),
-                         (calls[1][1], calls[1][2], calls[1][3]))
+    def test_active_runtime_and_unavailable_identity_block_claims(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            env = make_runtime_env(temp_dir)
+            _, profile, paths = configure_runtime_policy(load_child_specs(env), env)
+            manifest = build_runtime_manifest(paths, profile, owner_boot_id="c" * 32,
+                                              owner_pid=1234, policy_pid=5678, env=env)
+            status = make_status(manifest)
+            status.authorized = True
+            status.writer_present = True
+            status.lowcmd_writer_gid = [1] + [0] * 15
+            calls = []
+            with self.assertRaisesRegex(RuntimeError, "unauthorized and writer-free"):
+                invoke_fake_claim_startup(manifest, status, env, calls=calls)
+            self.assertEqual(["identity"], calls)
+            calls = []
+            with self.assertRaises(TimeoutError):
+                invoke_fake_claim_startup(
+                    manifest, make_status(manifest), env, identity_available=False,
+                    timeout=0.001, calls=calls
+                )
+            self.assertEqual([], calls)
 
     def test_owner_shutdown_requires_unauthed_runtime_without_writer(self):
         status = SimpleNamespace(valid=True, authorized=False, writer_present=False,
@@ -189,6 +314,10 @@ class PolicyOwnerTests(unittest.TestCase):
             def start(self):
                 pass
 
+            def pid_for(self, name):
+                self.asserted_pid_name = name
+                return 98765
+
             def request_stop(self, *_args):
                 self.stop_requested = True
 
@@ -203,23 +332,28 @@ class PolicyOwnerTests(unittest.TestCase):
             kwargs["should_stop"]()
             holder["self"].request_stop()
 
-        def shutdown_safe():
+        def shutdown_safe(**_kwargs):
             value = next(states)
             holder["last_safe"] = value
             return value
 
         with tempfile.TemporaryDirectory() as temp_dir, patch("policy_owner.signal.signal"):
+            env = make_runtime_env(temp_dir)
+            state_dir = Path(temp_dir) / "state"
+            env["H1_POLICY_OWNER_STATE_DIR"] = str(state_dir)
             result = run_owner(
-                {**VALID_ENV, "H1_POLICY_OWNER_STATE_DIR": temp_dir},
+                env,
                 poll_interval=0.001,
                 supervisor_factory=FakeSupervisor,
                 startup=startup,
                 shutdown_safe=shutdown_safe,
             )
+            manifest_count = len(list(state_dir.glob("*/runtime-manifest.json")))
 
         self.assertEqual(0, result)
         self.assertTrue(holder["self"].stopped)
         self.assertTrue(holder["self"].stopped_after_safe_status)
+        self.assertEqual(1, manifest_count)
 
     def test_systemd_owner_stop_cannot_force_kill_an_active_policy(self):
         service = (Path(__file__).parent / "systemd" / "h1-policy-owner.service").read_text()
@@ -292,6 +426,7 @@ class PolicyOwnerTests(unittest.TestCase):
                 path = Path(temp_dir) / name
                 path.write_bytes(name.encode())
                 paths.append(str(path))
+            write_test_urdf(Path(paths[1]))
             invalid_profile = sample_profile()
             invalid_profile["arrays"]["speed_limits_sdk"].pop()
             with self.assertRaisesRegex(ValueError, "exactly 27"):

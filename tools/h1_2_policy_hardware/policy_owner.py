@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Mapping, Optional, Sequence
 
-from train_guard_profile import JOINT_NAMES_SDK
+from train_guard_profile import JOINT_NAMES_SDK, build_profile
 
 
 COMMAND_ENV = {
@@ -111,8 +111,10 @@ def _valid_sha256(value: object) -> bool:
 
 
 def _canonical_profile(profile: Mapping[str, object]) -> dict:
-    if set(profile) != {"joint_names", "arrays", "source_sha256", "profile_sha256"}:
-        raise ValueError("profile must contain exactly joint_names, arrays, source_sha256 and profile_sha256")
+    if set(profile) != {"joint_names", "arrays", "source_sha256", "urdf_sha256", "profile_sha256"}:
+        raise ValueError(
+            "profile must contain exactly joint_names, arrays, source_sha256, urdf_sha256 and profile_sha256"
+        )
     joint_names = profile["joint_names"]
     arrays = profile["arrays"]
     if not isinstance(joint_names, list) or len(joint_names) != 27:
@@ -141,18 +143,29 @@ def _canonical_profile(profile: Mapping[str, object]) -> dict:
         normalized_arrays[key] = normalized
     if not _valid_sha256(profile["source_sha256"]):
         raise ValueError("profile source_sha256 must be a 64-character SHA256")
+    if not _valid_sha256(profile["urdf_sha256"]):
+        raise ValueError("profile urdf_sha256 must be a 64-character SHA256")
     if not _valid_sha256(profile["profile_sha256"]):
         raise ValueError("profile profile_sha256 must be a 64-character SHA256")
     return {
         "joint_names": list(joint_names),
         "arrays": normalized_arrays,
         "source_sha256": profile["source_sha256"].lower(),
+        "urdf_sha256": profile["urdf_sha256"].lower(),
     }
 
 
 def canonical_profile_sha256(profile: Mapping[str, object]) -> str:
     canonical = _canonical_profile(profile)
-    payload = {"joint_names": canonical["joint_names"], "arrays": canonical["arrays"]}
+    arrays = canonical["arrays"]
+    payload = {
+        "default_positions_sdk": arrays["default_positions_sdk"],
+        "joint_names_sdk": canonical["joint_names"],
+        "position_lower_sdk": arrays["position_lower_sdk"],
+        "position_upper_sdk": arrays["position_upper_sdk"],
+        "speed_limits_sdk": arrays["speed_limits_sdk"],
+        "urdf_sha256": canonical["urdf_sha256"],
+    }
     data = json.dumps(payload, sort_keys=True, separators=(",", ":"), allow_nan=False).encode("utf-8")
     return hashlib.sha256(data).hexdigest()
 
@@ -163,6 +176,66 @@ def _sha256_file(path: Path) -> str:
         for chunk in iter(lambda: stream.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def runtime_profile_from_urdf(urdf_path: str) -> dict:
+    urdf = Path(urdf_path).expanduser().resolve(strict=True)
+    generated = build_profile(str(urdf))
+    profile = {
+        "joint_names": list(generated["joint_names_sdk"]),
+        "arrays": {
+            key: list(generated[key])
+            for key in PROFILE_ARRAY_KEYS
+        },
+        "source_sha256": _sha256_file(Path(__file__).with_name("train_guard_profile.py")),
+        "urdf_sha256": generated["urdf_sha256"],
+        "profile_sha256": generated["profile_hash"],
+    }
+    if canonical_profile_sha256(profile) != profile["profile_sha256"]:
+        raise ValueError("generated owner profile hash does not match bridge canonical profile")
+    return profile
+
+
+def _command_parameter(command: Sequence[str], name: str) -> str:
+    prefix = name + ":="
+    values = [arg[len(prefix):] for arg in command if arg.startswith(prefix)]
+    if len(values) != 1 or not values[0]:
+        raise ValueError(f"policy command must contain exactly one nonempty {prefix}<value>")
+    return values[0]
+
+
+def configure_runtime_policy(specs: Sequence[ChildSpec], env: Mapping[str, str]):
+    policy = next(spec for spec in specs if spec.name == "policy")
+    for parameter, expected in (("profile", "hardware"), ("joint_command_mode", "position_pd")):
+        if _command_parameter(policy.command, parameter) != expected:
+            raise ValueError(f"policy command must set {parameter}:={expected} for the reviewed training guard")
+    urdf_path = env.get("H1_POLICY_OWNER_URDF_PATH", "").strip()
+    if not urdf_path:
+        raise ValueError("H1_POLICY_OWNER_URDF_PATH must identify the deployed URDF")
+    urdf_path = str(Path(urdf_path).expanduser().resolve(strict=True))
+    model_path = str(Path(_command_parameter(policy.command, "model_path")).expanduser().resolve(strict=True))
+    executable_path = str(Path(policy.command[0]).expanduser().resolve(strict=True))
+    profile = runtime_profile_from_urdf(urdf_path)
+
+    managed_parameters = {"urdf_path", "protection_profile"} | {
+        "train_guard_" + key for key in (
+            "speed_limits_sdk", "position_lower_sdk", "position_upper_sdk",
+            "default_positions_sdk", "joint_names_sdk", "profile_hash",
+        )
+    }
+    if any(arg.partition(":=")[0] in managed_parameters for arg in policy.command):
+        raise ValueError("policy command must not override owner-generated runtime profile parameters")
+    params = [("urdf_path", urdf_path), ("protection_profile", "train_20261106")]
+    params.extend(("train_guard_" + key, json.dumps(profile["arrays"][key], separators=(",", ":")))
+                  for key in PROFILE_ARRAY_KEYS)
+    params.append(("train_guard_joint_names_sdk", json.dumps(profile["joint_names"], separators=(",", ":"))))
+    params.append(("train_guard_profile_hash", profile["profile_sha256"]))
+    command = list(policy.command)
+    for name, value in params:
+        command.extend(("-p", f"{name}:={value}"))
+    configured = ChildSpec(policy.name, tuple(command))
+    configured_specs = tuple(configured if spec.name == "policy" else spec for spec in specs)
+    return configured_specs, profile, (model_path, urdf_path, executable_path)
 
 
 def _parse_bool(value: str) -> bool:
@@ -205,6 +278,8 @@ def build_runtime_manifest(
         if key == "executable" and not os.access(path, os.X_OK):
             raise ValueError(f"policy executable is not executable: {path}")
         files[key] = {"path": str(path), "sha256": _sha256_file(path)}
+    if canonical["urdf_sha256"] != files["urdf"]["sha256"]:
+        raise ValueError("profile urdf_sha256 does not match the deployed URDF")
 
     runtime_env = os.environ if env is None else env
     try:
@@ -390,15 +465,17 @@ def _spin_until(node, future, deadline: float, description: str,
     return result
 
 
-def claim_and_start_coordinator(owner_boot_id: str, timeout_seconds: float = 15.0,
+def claim_and_start_coordinator(owner_boot_id: str, runtime_manifest: Mapping[str, object],
+                                env: Mapping[str, str], timeout_seconds: float = 15.0,
                                 should_stop: Callable[[], bool] = lambda: False) -> None:
-    """Claim the coordinator's discovered final writers before enabling heartbeat."""
+    """Verify the direct policy process, then claim both input endpoints."""
     import rclpy
-    from h1_2_policy_interfaces.srv import ClaimPolicyInput
+    from h1_2_policy_interfaces.srv import ClaimPolicyInput, PolicyRuntimeIdentity
     from rclpy.node import Node
 
     rclpy.init(args=None)
     node = Node("h1_2_policy_owner_claim")
+    identity_client = node.create_client(PolicyRuntimeIdentity, "/h1_2/policy/runtime_identity")
     claim_client = node.create_client(ClaimPolicyInput, CLAIM_SERVICE)
     coordinator_claim_client = node.create_client(ClaimPolicyInput, COORDINATOR_CLAIM_SERVICE)
     deadline = time.monotonic() + timeout_seconds
@@ -407,7 +484,8 @@ def claim_and_start_coordinator(owner_boot_id: str, timeout_seconds: float = 15.
             if should_stop():
                 raise InterruptedError("owner stop requested before publisher claim")
             rclpy.spin_once(node, timeout_sec=0.05)
-            if (claim_client.service_is_ready() and coordinator_claim_client.service_is_ready()):
+            if (identity_client.service_is_ready() and claim_client.service_is_ready() and
+                    coordinator_claim_client.service_is_ready()):
                 try:
                     cmd_gid = unique_writer_gid(node.get_publishers_info_by_topic(CMD_TOPIC), CMD_TOPIC)
                     heartbeat_gid = unique_writer_gid(
@@ -417,7 +495,17 @@ def claim_and_start_coordinator(owner_boot_id: str, timeout_seconds: float = 15.
                 except RuntimeError:
                     continue
         else:
-            raise TimeoutError("coordinator publishers or input claim services were unavailable")
+            raise TimeoutError("policy identity, coordinator publishers or input claim services were unavailable")
+
+        identity = _spin_until(
+            node, identity_client.call_async(PolicyRuntimeIdentity.Request()), deadline,
+            "policy runtime identity", should_stop
+        )
+        identity_result = verify_runtime_identity(runtime_manifest, identity, env)
+        if identity_result != "OK":
+            raise RuntimeError(f"policy runtime identity rejected: {identity_result}")
+        if not runtime_identity_allows_shutdown(identity):
+            raise RuntimeError("policy output must be unauthorized and writer-free before input claim")
 
         request = ClaimPolicyInput.Request()
         request.owner_boot_id = owner_boot_id
@@ -454,7 +542,8 @@ def runtime_identity_allows_shutdown(response) -> bool:
         return False
 
 
-def policy_runtime_allows_shutdown(timeout_seconds: float = 2.0) -> bool:
+def policy_runtime_allows_shutdown(runtime_manifest: Mapping[str, object], env: Mapping[str, str],
+                                   timeout_seconds: float = 2.0) -> bool:
     """Fail closed when the policy runtime cannot prove it has no active writer."""
     import rclpy
     from h1_2_policy_interfaces.srv import PolicyRuntimeIdentity
@@ -471,7 +560,8 @@ def policy_runtime_allows_shutdown(timeout_seconds: float = 2.0) -> bool:
             return False
         response = _spin_until(node, client.call_async(PolicyRuntimeIdentity.Request()), deadline,
                                "policy runtime shutdown status")
-        return runtime_identity_allows_shutdown(response)
+        return (verify_runtime_identity(runtime_manifest, response, env) == "OK" and
+                runtime_identity_allows_shutdown(response))
     except Exception:
         return False
     finally:
@@ -497,6 +587,12 @@ class ProcessSupervisor:
         except Exception:
             self.stop_children()
             raise
+
+    def pid_for(self, name: str) -> int:
+        matches = [process.pid for spec, process in self.children if spec.name == name]
+        if len(matches) != 1 or matches[0] <= 0:
+            raise RuntimeError(f"expected exactly one running {name} child")
+        return matches[0]
 
     def request_stop(self, signum=None, frame=None) -> None:
         self.stop_requested = True
@@ -541,22 +637,39 @@ def run(env: Mapping[str, str], poll_interval: float = 0.2,
         supervisor_factory: Callable = ProcessSupervisor,
         startup: Callable = claim_and_start_coordinator,
         shutdown_safe: Callable = policy_runtime_allows_shutdown) -> int:
-    specs = load_child_specs(env)
+    specs, profile, deployment_paths = configure_runtime_policy(load_child_specs(env), env)
+    runtime_env = dict(env)
     owner_boot_id = uuid.uuid4().hex
     state_root = Path(env.get("H1_POLICY_OWNER_STATE_DIR", "~/.local/state/h1-policy-owner")).expanduser()
     run_dir = state_root / owner_boot_id
     run_dir.mkdir(mode=0o700, parents=True, exist_ok=False)
     specs = bind_owner_tokens(specs, run_dir, owner_boot_id, os.getpid())
+    runtime_env["ROS_DOMAIN_ID"] = runtime_env.get("ROS_DOMAIN_ID", "0")
+    runtime_env["ROS_LOCALHOST_ONLY"] = runtime_env.get("ROS_LOCALHOST_ONLY", "0")
     supervisor = supervisor_factory(specs)
     signal.signal(signal.SIGTERM, supervisor.request_stop)
     signal.signal(signal.SIGINT, supervisor.request_stop)
     print(f"policy owner boot id: {owner_boot_id}", flush=True)
     supervisor.start()
     startup_failure = None
+    runtime_manifest = None
+    reported_child_failure = None
     try:
         try:
+            policy_pid = supervisor.pid_for("policy")
+            runtime_manifest = build_runtime_manifest(
+                deployment_paths, profile, owner_boot_id=owner_boot_id, owner_pid=os.getpid(),
+                policy_pid=policy_pid, env=runtime_env,
+            )
+            manifest_path = run_dir / "runtime-manifest.json"
+            with manifest_path.open("x", encoding="utf-8") as stream:
+                json.dump(runtime_manifest, stream, sort_keys=True, indent=2, allow_nan=False)
+                stream.write("\n")
+            os.chmod(manifest_path, 0o600)
             startup(
                 owner_boot_id,
+                runtime_manifest=runtime_manifest,
+                env=runtime_env,
                 timeout_seconds=float(env.get("H1_POLICY_OWNER_STARTUP_TIMEOUT_S", "15")),
                 should_stop=lambda: supervisor.stop_requested,
             )
@@ -564,7 +677,6 @@ def run(env: Mapping[str, str], poll_interval: float = 0.2,
             startup_failure = exc
             print(f"owner startup failed; waiting for verified inactive output: {exc}",
                   file=sys.stderr, flush=True)
-        reported_child_failure = None
         while True:
             failure = supervisor.poll_failure()
             if failure is not None and failure != reported_child_failure:
@@ -574,7 +686,8 @@ def run(env: Mapping[str, str], poll_interval: float = 0.2,
                       "waiting for verified inactive output", file=sys.stderr, flush=True)
             if supervisor.stop_requested or startup_failure is not None or failure is not None:
                 try:
-                    safe_to_stop = shutdown_safe()
+                    safe_to_stop = (runtime_manifest is not None and
+                                    shutdown_safe(runtime_manifest=runtime_manifest, env=runtime_env))
                 except Exception as exc:
                     safe_to_stop = False
                     print(f"runtime shutdown check failed; keeping owner alive: {exc}",
@@ -595,6 +708,7 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
     try:
         specs = load_child_specs(os.environ)
+        configure_runtime_policy(specs, os.environ)
     except ValueError as exc:
         parser.error(str(exc))
     if args.check:

@@ -18,7 +18,7 @@
                                                                   ↑ rt/lowstate
 ```
 
-已有 `motion_backend:=policy`、连续策略模式和 [policy_navigation_gate](../../src/h1_2_nav_tools/h1_2_nav_tools/policy_navigation_gate.py)。1A–1C 的会话接口、coordinator/action proxy 和 claimed GID 输入已合入 main 并完成本地验证；owner、runtime identity 和 session launch 已纳入本次待提交改动，1D 的启动准入联测与 verifier 接线仍未完成。实现已加入严格 session namespace 校验及 shutdown inactive-writer gate。离线导航 shell 已增加启动时选择参数，但 GUI 尚未透传。以上本地实现不代表部署或真实导航验收。接口和已有限速、超时说明见 [策略桥 README](../../src/h1_2_policy_bridge/README.md)。`/h1_2/policy_ready` 是软件就绪信号，不证明现场平衡或控制权独占。
+已有 `motion_backend:=policy`、连续策略模式和 [policy_navigation_gate](../../src/h1_2_nav_tools/h1_2_nav_tools/policy_navigation_gate.py)。1A–1C 的会话接口、coordinator/action proxy 和 claimed GID 输入已合入 main 并完成本地验证；1D owner/session 已提交，owner 当前在 GID claim 前执行 runtime identity 与未授权/no-writer 检查。owner fake-service 和整合定向测试已通过，仍待 scoped review 与目标部署路径核验。实现已加入严格 session namespace 校验及 shutdown inactive-writer gate。离线导航 shell 已增加启动时选择参数，但 GUI 尚未透传。以上本地实现不代表部署或真实导航验收。接口和已有限速、超时说明见 [策略桥 README](../../src/h1_2_policy_bridge/README.md)。`/h1_2/policy_ready` 是软件就绪信号，不证明现场平衡或控制权独占。
 
 ## 进度与验收
 
