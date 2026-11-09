@@ -8,6 +8,8 @@
 #include <geometry_msgs/msg/twist.hpp>
 #include <std_msgs/msg/bool.hpp>
 #include <std_srvs/srv/trigger.hpp>
+#include <h1_2_policy_interfaces/srv/claim_policy_input.hpp>
+#include <rmw/types.h>
 #include <unitree/robot/channel/channel_factory.hpp>
 #include <unitree/robot/channel/channel_publisher.hpp>
 #include <unitree/robot/channel/channel_subscriber.hpp>
@@ -21,7 +23,10 @@
 #include <cstring>
 #include <memory>
 #include <mutex>
+#include <array>
+#include <iomanip>
 #include <sstream>
+#include <vector>
 #include <fcntl.h>
 #include <sys/file.h>
 #include <unistd.h>
@@ -29,6 +34,25 @@ using namespace std::chrono_literals;
 using LS = unitree_hg::msg::dds_::LowState_;
 using LC = unitree_hg::msg::dds_::LowCmd_;
 namespace h1_policy {
+inline bool valid_owner_boot_id(const std::string& value) {
+  return value.size() == 32 && std::all_of(value.begin(), value.end(), [](unsigned char c) {
+    return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f');
+  });
+}
+inline bool nonzero_ros_gid(const std::vector<uint8_t>& gid) {
+  return gid.size() == RMW_GID_STORAGE_SIZE &&
+      std::any_of(gid.begin(), gid.end(), [](uint8_t byte) { return byte != 0; });
+}
+inline bool matches_ros_gid(const std::array<uint8_t, RMW_GID_STORAGE_SIZE>& expected,
+                            const rmw_gid_t& actual) {
+  return std::equal(expected.begin(), expected.end(), actual.data);
+}
+inline std::string ros_gid_hex(const std::array<uint8_t, RMW_GID_STORAGE_SIZE>& gid) {
+  std::ostringstream out;
+  out << std::hex << std::setfill('0');
+  for (uint8_t byte : gid) out << std::setw(2) << static_cast<unsigned>(byte);
+  return out.str();
+}
 inline rcl_interfaces::msg::ParameterDescriptor startup_parameter_descriptor() {
   rcl_interfaces::msg::ParameterDescriptor descriptor;
   descriptor.read_only = true;
@@ -102,6 +126,13 @@ PolicyNode(const rclcpp::NodeOptions& options, std::unique_ptr<LowLevelIo> io, s
   if (max_policy_seconds_ > 0 && (!hardware_ || joint_command_mode_ != "position_pd" ||
                                    continuous_navigation_ || max_policy_steps_ == 0))
     throw std::runtime_error("max_policy_seconds requires hardware position_pd with a finite policy step budget");
+  input_identity_mode_ = declare_parameter<std::string>("input_identity_mode", "legacy", startup_parameter_descriptor());
+  owner_boot_id_ = declare_parameter<std::string>("owner_boot_id", "", startup_parameter_descriptor());
+  if (input_identity_mode_ != "legacy" && input_identity_mode_ != "claimed")
+    throw std::runtime_error("input_identity_mode must be legacy or claimed");
+  if (input_identity_mode_ == "claimed" && !h1_policy::valid_owner_boot_id(owner_boot_id_))
+    throw std::runtime_error("claimed input_identity_mode requires a 32-character lowercase hexadecimal owner_boot_id");
+  claimed_mode_ = input_identity_mode_ == "claimed";
   ready_publisher_ = rclcpp::Node::create_publisher<std_msgs::msg::Bool>("/h1_2/policy_ready", 10);
   lock_.acquire(domain);
   auto topic = declare_parameter<std::string>("cmd_vel_topic", "/cmd_vel_final", startup_parameter_descriptor());
@@ -129,15 +160,51 @@ PolicyNode(const rclcpp::NodeOptions& options, std::unique_ptr<LowLevelIo> io, s
       has_state_ = true;
     });
   if (!hardware_) create_publisher();
-  velocity_ = create_subscription<geometry_msgs::msg::Twist>(topic, 10, [this](geometry_msgs::msg::Twist::SharedPtr m){
+  velocity_ = create_subscription<geometry_msgs::msg::Twist>(topic, 10, [this](geometry_msgs::msg::Twist::SharedPtr m, const rclcpp::MessageInfo& info){
+      if (claimed_mode_ && (!input_claimed_ || !h1_policy::matches_ros_gid(cmd_writer_gid_, info.get_rmw_message_info().publisher_gid))) return;
       cmd_ = {float(m->linear.x), float(m->linear.y), float(m->angular.z)};
       cmd_at_ = now_seconds();
+      if (claimed_mode_) cmd_after_claim_ = true;
     });
-  gate_heartbeat_ = create_subscription<std_msgs::msg::Bool>("/h1_2/policy_gate_alive", 10, [this](std_msgs::msg::Bool::SharedPtr msg) {
+  gate_heartbeat_ = create_subscription<std_msgs::msg::Bool>("/h1_2/policy_gate_alive", 10, [this](std_msgs::msg::Bool::SharedPtr msg, const rclcpp::MessageInfo& info) {
+      if (claimed_mode_ && (!input_claimed_ || !h1_policy::matches_ros_gid(heartbeat_writer_gid_, info.get_rmw_message_info().publisher_gid))) return;
       gate_alive_ = msg->data;
       gate_at_ = now_seconds();
+      if (claimed_mode_) heartbeat_after_claim_ = true;
       if (!gate_alive_) publish_not_ready();
     });
+  if (claimed_mode_) {
+    claim_input_service_ = create_service<h1_2_policy_interfaces::srv::ClaimPolicyInput>("~/claim_input",
+        [this](const std::shared_ptr<h1_2_policy_interfaces::srv::ClaimPolicyInput::Request> request,
+               std::shared_ptr<h1_2_policy_interfaces::srv::ClaimPolicyInput::Response> response) {
+          const bool valid = request->owner_boot_id == owner_boot_id_ &&
+              h1_policy::nonzero_ros_gid(request->cmd_writer_gid) &&
+              h1_policy::nonzero_ros_gid(request->heartbeat_writer_gid);
+          if (!valid) {
+            input_claimed_ = false;
+            cmd_writer_gid_.fill(0);
+            heartbeat_writer_gid_.fill(0);
+            cmd_ = {0, 0, 0}; cmd_at_ = 0;
+            last_policy_command_ = {0, 0, 0};
+            gate_alive_ = false; gate_at_ = 0;
+            cmd_after_claim_ = false; heartbeat_after_claim_ = false;
+            publish_not_ready();
+            response->success = false;
+            response->reason = "CLAIM_REJECTED; previous input lease cleared";
+            return;
+          }
+          std::copy(request->cmd_writer_gid.begin(), request->cmd_writer_gid.end(), cmd_writer_gid_.begin());
+          std::copy(request->heartbeat_writer_gid.begin(), request->heartbeat_writer_gid.end(), heartbeat_writer_gid_.begin());
+          cmd_ = {0, 0, 0}; cmd_at_ = 0;
+          last_policy_command_ = {0, 0, 0};
+          gate_alive_ = false; gate_at_ = 0;
+          cmd_after_claim_ = false; heartbeat_after_claim_ = false;
+          input_claimed_ = true;
+          publish_not_ready();
+          response->success = true;
+          response->reason = "CLAIMED; matching command and heartbeat required";
+        });
+  }
   for(auto item: {std::pair<const char*, h1_policy::Mode>{"passive", h1_policy::Mode::Passive}, {"fix_stand", h1_policy::Mode::FixStand}, {"arm_hold_stand", h1_policy::Mode::ArmHoldStand}, {"arm_hold", h1_policy::Mode::ArmHold}}) {
     services_.push_back(create_service<std_srvs::srv::Trigger>(std::string("~/") + item.first, [this, mode = item.second](const std::shared_ptr<std_srvs::srv::Trigger::Request>, std::shared_ptr<std_srvs::srv::Trigger::Response> res){
         if (hardware_ && !gate_.can_control()) {
@@ -231,6 +298,11 @@ PolicyNode(const rclcpp::NodeOptions& options, std::unique_ptr<LowLevelIo> io, s
         << " output_transition=" << (transition_ == Transition::Entry ? "entry" : transition_ == Transition::Exit ? "exit" : transition_ == Transition::Hold ? "hold" : "none")
         << " authorized=" << (gate_.authorized() ? "true" : "false")
         << " navigation_enabled=" << (navigation_enabled_ ? "true" : "false")
+        << " input_identity_mode=" << input_identity_mode_
+        << " input_claimed=" << (input_claimed_ ? "true" : "false")
+        << " owner_boot_id=" << (owner_boot_id_.empty() ? "none" : owner_boot_id_)
+        << " cmd_writer_gid=" << (input_claimed_ ? h1_policy::ros_gid_hex(cmd_writer_gid_) : "none")
+        << " heartbeat_writer_gid=" << (input_claimed_ ? h1_policy::ros_gid_hex(heartbeat_writer_gid_) : "none")
         << " continuous_navigation=" << (continuous_navigation_ ? "true" : "false")
         << " entry_angle_gate=" << (trained_guard_ ? "diagnostic_only" : "enforced")
         << " arm_hold_knee_tolerance=" << get_parameter("arm_hold_knee_tolerance").as_double()
@@ -379,7 +451,8 @@ bool gate_fresh() const { return gate_alive_ && now_seconds() >= gate_at_ && now
 void publish_readiness() {
   h1_policy::State s; uint8_t machine = 0, pr = 0;
   const bool next = navigation_enabled_ && active_ && controller_.mode() == h1_policy::Mode::ArmHold &&
-      transition_ == Transition::None && (!hardware_ || (continuous_navigation_ && gate_.authorized() && gate_fresh())) &&
+      transition_ == Transition::None && (!claimed_mode_ || (input_claimed_ && cmd_after_claim_ && heartbeat_after_claim_)) &&
+      (hardware_ ? (continuous_navigation_ && gate_.authorized() && gate_fresh()) : (!claimed_mode_ || gate_fresh())) &&
       io_->output_present() && write_count_ > 0 && read(s, machine, pr);
   if (next && !ready_) ready_since_ = now_seconds();
   ready_ = next;
@@ -445,6 +518,8 @@ void tick(){
     return;
   }
   auto c = hardware_ ? h1_policy::Command{0, 0, 0} : cmd_;
+  if (claimed_mode_ && !hardware_ &&
+      (!input_claimed_ || !ready_ || !gate_fresh() || cmd_at_ <= ready_since_)) c = {0, 0, 0};
   if (hardware_ && navigation_enabled_ && continuous_navigation_ && ready_ && gate_fresh() && cmd_at_ > ready_since_)
     c = cmd_;
   if(now_seconds() < cmd_at_ || now_seconds() - cmd_at_ > .4) c = {0, 0, 0};
@@ -634,6 +709,10 @@ h1_policy::TickProgress progress_;
 bool hardware_ = false, output_enabled_ = false, debug_confirmed_ = false, exclusive_confirmed_ = false, shadow_ = false;
 double max_policy_seconds_ = 0, policy_deadline_ = 0;
 bool navigation_enabled_ = false, continuous_navigation_ = false, ready_ = false, gate_alive_ = false;
+bool claimed_mode_ = false, input_claimed_ = false;
+bool cmd_after_claim_ = false, heartbeat_after_claim_ = false;
+std::string input_identity_mode_ = "legacy", owner_boot_id_;
+std::array<uint8_t, RMW_GID_STORAGE_SIZE> cmd_writer_gid_{}, heartbeat_writer_gid_{};
 double ready_since_ = 0, gate_at_ = 0;
 unsigned shadow_ticks_ = 0;
 Transition transition_ = Transition::None;
@@ -657,6 +736,7 @@ std::unique_ptr<LowLevelIo> io_;
 rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr velocity_;
 rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr ready_publisher_;
 rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr gate_heartbeat_;
+rclcpp::Service<h1_2_policy_interfaces::srv::ClaimPolicyInput>::SharedPtr claim_input_service_;
 std::vector<rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr> services_;
 rclcpp::TimerBase::SharedPtr timer_;
 };

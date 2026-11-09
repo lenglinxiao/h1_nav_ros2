@@ -1,10 +1,10 @@
 # ONNX 导航接入设计提案
 
-状态：2026-11-07，主代理建议，待用户审阅；尚未实现，也不构成现场迁移或运动授权。范围见[总计划](plan.md)，任务见[开发计划](development-plan.md)。
+状态：2026-11-07，用户已要求本地实施方案 A，任务 1A 完成、1B 进行中；不构成现场迁移或运动授权。范围见[总计划](plan.md)，任务及证据见[开发计划](development-plan.md)。prepare 先返回会话接口供客户端启动 backend，activate 再检查 fresh node/backend ready，避免启动依赖循环。
 
 ## 方案选择
 
-方案 A（建议）：独立常驻 `PolicyMotionCoordinator` 拥有速度仲裁、目标准入与会话 epoch，复用现有 gate 的双 action 代理和清理逻辑；policy bridge 保持运动控制与 guard，但新增对输入发布者身份的校验。Nav2 会话可单独重建。方案 B：把仲裁和 action 准入全部嵌入 C++ policy bridge，减少跨进程接口，但将 Nav2 生命周期与安全敏感控制循环耦合。首版建议 A，尚未获用户批准；不新建通用调度框架。
+方案 A（实施）：独立常驻 `PolicyMotionCoordinator` 拥有速度仲裁、目标准入与会话 epoch，复用现有 gate 的双 action 代理和清理逻辑；policy bridge 保持运动控制与 guard，但新增对输入发布者身份的校验。Nav2 会话可单独重建。备选方案 B 将仲裁和 action 准入全部嵌入 C++ policy bridge，会把 Nav2 生命周期与安全敏感控制循环耦合，首版未采用；不新建通用调度框架。
 
 ## 生命周期和接口
 

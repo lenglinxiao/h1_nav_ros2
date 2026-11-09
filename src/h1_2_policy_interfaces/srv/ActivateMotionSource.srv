@@ -1,0 +1,4 @@
+SessionToken token
+---
+bool success
+string reason
