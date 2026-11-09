@@ -2,6 +2,8 @@
 #include <unitree/idl/hg/LowState_.hpp>
 #include <unitree/idl/hg/LowCmd_.hpp>
 #include <functional>
+#include <array>
+#include <cstdint>
 #include <memory>
 #include <string>
 namespace h1_policy {
@@ -14,6 +16,7 @@ public:
   virtual bool write(const unitree_hg::msg::dds_::LowCmd_&) = 0;
   virtual void close_output() = 0;
   virtual bool output_present() const = 0;
+  virtual bool output_guid(std::array<uint8_t, 16>& guid) const = 0;
   // After stop returns no registered callback may execute or start.
   virtual void stop() = 0;
 };

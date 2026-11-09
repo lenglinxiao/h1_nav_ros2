@@ -41,3 +41,7 @@ The runner and `process_guard.py` must be installed together. On Linux, both own
 心跳和速度由 20 ms 定时器发送，依赖新鲜遥测和主循环最长 0.15 秒的状态授权租约；状态服务阻塞时租约到期即停止发布。桥接门控超时 0.2 秒、速度超时 0.4 秒是后备保护，Python 时间窗口不保证物理上在 0.5 秒停步。`summary.json` 分别记录桥接状态中是否观察到非零 `policy_cmd` 和归零后 ArmHold 的零 `policy_cmd`；两者均不能证明实际迈步，须由现场观察。该入口的软件测试不等于实机验证。
 
 人工试验现支持固定 `--manual-motion forward|turn_left`：默认 forward 为 `(0.12,0,0)`，turn_left 为 `(0,0,0.1)`，单次窗口由 `--manual-pulse-seconds` 指定0.5–3.0秒；租约、保护和受支撑交接仍适用。2026-11-07左转软件窗口观察非零及归零，用户确认已左转并归零站稳，仅此单次参数有现场证据，见 [转向计划](../../docs/h1_2-onnx-turn-test/plan.md)。
+
+### Persistent policy owner (local implementation, not installed)
+
+`policy_owner.py` supervises the policy node, coordinator, and monitor independently of navigation clients. It does not authorize motor output or restart failed children. On stop or startup failure, it queries `/h1_2/policy/runtime_identity`; it only terminates the owned process group after a valid status confirms `authorized=false`, no writer, and a zero 16-byte LowCmd writer GUID. An unavailable or active status keeps the owner and children alive. The systemd template uses an infinite stop timeout so systemd cannot force-kill an active policy after a short grace period. This local implementation has not been installed or validated with a live policy node; hardware handover remains a separate operator action.

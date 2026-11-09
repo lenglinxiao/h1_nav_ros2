@@ -9,6 +9,7 @@
 #include <std_msgs/msg/bool.hpp>
 #include <std_srvs/srv/trigger.hpp>
 #include <h1_2_policy_interfaces/srv/claim_policy_input.hpp>
+#include <h1_2_policy_interfaces/srv/policy_runtime_identity.hpp>
 #include <rmw/types.h>
 #include <unitree/robot/channel/channel_factory.hpp>
 #include <unitree/robot/channel/channel_publisher.hpp>
@@ -19,14 +20,18 @@
 #include <Eigen/Geometry>
 #include <algorithm>
 #include <chrono>
+#include <array>
+#include <charconv>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
+#include <fstream>
+#include <iomanip>
+#include <limits>
 #include <memory>
 #include <mutex>
-#include <array>
-#include <iomanip>
+#include <openssl/evp.h>
 #include <sstream>
-#include <vector>
 #include <fcntl.h>
 #include <sys/file.h>
 #include <unistd.h>
@@ -43,15 +48,102 @@ inline bool nonzero_ros_gid(const std::vector<uint8_t>& gid) {
   return gid.size() == RMW_GID_STORAGE_SIZE &&
       std::any_of(gid.begin(), gid.end(), [](uint8_t byte) { return byte != 0; });
 }
-inline bool matches_ros_gid(const std::array<uint8_t, RMW_GID_STORAGE_SIZE>& expected,
-                            const rmw_gid_t& actual) {
-  return std::equal(expected.begin(), expected.end(), actual.data);
-}
-inline std::string ros_gid_hex(const std::array<uint8_t, RMW_GID_STORAGE_SIZE>& gid) {
+inline std::string ros_gid_hex(const std::vector<uint8_t>& gid) {
   std::ostringstream out;
   out << std::hex << std::setfill('0');
   for (uint8_t byte : gid) out << std::setw(2) << static_cast<unsigned>(byte);
   return out.str();
+}
+inline std::string sha256_finish(EVP_MD_CTX* context, bool ok) {
+  if (!context) return {};
+  std::array<unsigned char, EVP_MAX_MD_SIZE> digest{};
+  unsigned int length = 0;
+  ok = ok && EVP_DigestFinal_ex(context, digest.data(), &length) == 1;
+  EVP_MD_CTX_free(context);
+  if (!ok) return {};
+  std::ostringstream hex;
+  hex << std::hex << std::setfill('0');
+  for (unsigned int i = 0; i < length; ++i) hex << std::setw(2) << static_cast<unsigned>(digest[i]);
+  return hex.str();
+}
+inline std::string sha256_text(const std::string& text) {
+  EVP_MD_CTX* context = EVP_MD_CTX_new();
+  if (!context) return {};
+  bool ok = EVP_DigestInit_ex(context, EVP_sha256(), nullptr) == 1;
+  if (ok) ok = EVP_DigestUpdate(context, text.data(), text.size()) == 1;
+  return sha256_finish(context, ok);
+}
+inline std::string sha256_file(const std::string& path) {
+  if (path.empty()) return {};
+  std::ifstream input(path, std::ios::binary);
+  if (!input) return {};
+  EVP_MD_CTX* context = EVP_MD_CTX_new();
+  if (!context) return {};
+  bool ok = EVP_DigestInit_ex(context, EVP_sha256(), nullptr) == 1;
+  std::array<char, 64 * 1024> buffer{};
+  while (ok && input) {
+    input.read(buffer.data(), buffer.size());
+    const auto count = input.gcount();
+    if (count > 0) ok = EVP_DigestUpdate(context, buffer.data(), static_cast<size_t>(count)) == 1;
+  }
+  return sha256_finish(context, ok && input.eof());
+}
+inline std::string json_number(double value) {
+  std::array<char, 64> buffer{};
+  const auto result = std::to_chars(buffer.data(), buffer.data() + buffer.size(), value,
+                                    std::chars_format::general);
+  if (result.ec != std::errc{}) return {};
+  std::string text(buffer.data(), result.ptr);
+  if (text.find_first_of(".eE") == std::string::npos) text += ".0";
+  return text;
+}
+inline std::string json_number_array(const std::vector<double>& values) {
+  std::ostringstream json;
+  json << '[';
+  for (size_t i = 0; i < values.size(); ++i) {
+    if (i) json << ',';
+    json << json_number(values[i]);
+  }
+  json << ']';
+  return json.str();
+}
+inline std::string json_string_array(const std::vector<std::string>& values) {
+  std::ostringstream json;
+  json << '[';
+  for (size_t i = 0; i < values.size(); ++i) {
+    if (i) json << ',';
+    json << '"' << values[i] << '"';
+  }
+  json << ']';
+  return json.str();
+}
+inline std::string training_profile_sha256(const std::vector<std::string>& names,
+                                           const std::vector<double>& speeds,
+                                           const std::vector<double>& lower,
+                                           const std::vector<double>& upper,
+                                           const std::vector<double>& defaults,
+                                           const std::string& urdf_sha256) {
+  if (names.size() != 27 || speeds.size() != 27 || lower.size() != 27 ||
+      upper.size() != 27 || defaults.size() != 27 || urdf_sha256.empty()) return {};
+  std::ostringstream json;
+  json << "{\"default_positions_sdk\":" << json_number_array(defaults)
+       << ",\"joint_names_sdk\":" << json_string_array(names)
+       << ",\"position_lower_sdk\":" << json_number_array(lower)
+       << ",\"position_upper_sdk\":" << json_number_array(upper)
+       << ",\"speed_limits_sdk\":" << json_number_array(speeds)
+       << ",\"urdf_sha256\":\"" << urdf_sha256 << "\"}";
+  return sha256_text(json.str());
+}
+inline std::string runtime_file_path(const std::string& path) {
+  if (path.empty()) return {};
+  std::error_code error;
+  const auto canonical = std::filesystem::canonical(path, error);
+  return error ? path : canonical.string();
+}
+inline std::string executable_file_path() {
+  std::array<char, 4096> path{};
+  const auto size = readlink("/proc/self/exe", path.data(), path.size() - 1);
+  return size > 0 ? std::string(path.data(), static_cast<size_t>(size)) : std::string{};
 }
 inline rcl_interfaces::msg::ParameterDescriptor startup_parameter_descriptor() {
   rcl_interfaces::msg::ParameterDescriptor descriptor;
@@ -72,7 +164,7 @@ private: int fd_ = -1;
 class PolicyNode : public rclcpp::Node {
 public:
 PolicyNode(const rclcpp::NodeOptions& options, std::unique_ptr<LowLevelIo> io, std::function<double()> clock)
- : Node("h1_2_policy_node", options), controller_(declare_parameter<std::string>("model_path", "/home/llx/policy.onnx", startup_parameter_descriptor()), declare_parameter<double>("arm_hold_knee_tolerance", .07, startup_parameter_descriptor())), clock_(std::move(clock)), io_(std::move(io)) {
+ : Node("h1_2_policy_node", options), model_path_(declare_parameter<std::string>("model_path", "/home/llx/policy.onnx", startup_parameter_descriptor())), controller_(model_path_, declare_parameter<double>("arm_hold_knee_tolerance", .07, startup_parameter_descriptor())), clock_(std::move(clock)), io_(std::move(io)) {
   if (!io_ || !clock_) throw std::runtime_error("IO and monotonic clock required");
   auto profile = declare_parameter<std::string>("profile", "sim", startup_parameter_descriptor());
   hardware_ = profile == "hardware";
@@ -88,7 +180,16 @@ PolicyNode(const rclcpp::NodeOptions& options, std::unique_ptr<LowLevelIo> io, s
   auto upper = declare_parameter<std::vector<double>>("train_guard_position_upper_sdk", {}, startup_parameter_descriptor());
   auto defaults = declare_parameter<std::vector<double>>("train_guard_default_positions_sdk", {}, startup_parameter_descriptor());
   auto names = declare_parameter<std::vector<std::string>>("train_guard_joint_names_sdk", {}, startup_parameter_descriptor());
+  train_guard_speeds_ = speeds;
+  train_guard_lower_ = lower;
+  train_guard_upper_ = upper;
+  train_guard_defaults_ = defaults;
+  train_guard_names_ = names;
   guard_hash_ = declare_parameter<std::string>("train_guard_profile_hash", "", startup_parameter_descriptor());
+  owner_boot_id_ = declare_parameter<std::string>("owner_boot_id", "", startup_parameter_descriptor());
+  owner_pid_ = declare_parameter<int>("owner_pid", 0, startup_parameter_descriptor());
+  urdf_path_ = declare_parameter<std::string>("urdf_path", "", startup_parameter_descriptor());
+  if (owner_pid_ < 0) throw std::runtime_error("owner_pid cannot be negative");
   if (protection_profile_ != "legacy" && protection_profile_ != "train_20261106")
     throw std::runtime_error("invalid protection_profile");
   if (protection_profile_ == "train_20261106") {
@@ -126,16 +227,14 @@ PolicyNode(const rclcpp::NodeOptions& options, std::unique_ptr<LowLevelIo> io, s
   if (max_policy_seconds_ > 0 && (!hardware_ || joint_command_mode_ != "position_pd" ||
                                    continuous_navigation_ || max_policy_steps_ == 0))
     throw std::runtime_error("max_policy_seconds requires hardware position_pd with a finite policy step budget");
-  input_identity_mode_ = declare_parameter<std::string>("input_identity_mode", "legacy", startup_parameter_descriptor());
-  owner_boot_id_ = declare_parameter<std::string>("owner_boot_id", "", startup_parameter_descriptor());
-  if (input_identity_mode_ != "legacy" && input_identity_mode_ != "claimed")
-    throw std::runtime_error("input_identity_mode must be legacy or claimed");
-  if (input_identity_mode_ == "claimed" && !h1_policy::valid_owner_boot_id(owner_boot_id_))
-    throw std::runtime_error("claimed input_identity_mode requires a 32-character lowercase hexadecimal owner_boot_id");
-  claimed_mode_ = input_identity_mode_ == "claimed";
   ready_publisher_ = rclcpp::Node::create_publisher<std_msgs::msg::Bool>("/h1_2/policy_ready", 10);
   lock_.acquire(domain);
   auto topic = declare_parameter<std::string>("cmd_vel_topic", "/cmd_vel_final", startup_parameter_descriptor());
+  input_identity_mode_ = declare_parameter<std::string>("input_identity_mode", "legacy", startup_parameter_descriptor());
+  if (input_identity_mode_ != "legacy" && input_identity_mode_ != "claimed")
+    throw std::runtime_error("input_identity_mode must be legacy or claimed");
+  if (input_identity_mode_ == "claimed" && !h1_policy::valid_owner_boot_id(owner_boot_id_))
+    throw std::runtime_error("claimed input mode requires a lowercase 32-character owner_boot_id");
   io_->start(domain, interface, [this](const LS& msg) {
       std::lock_guard<std::mutex> l(mutex_);
 
@@ -161,50 +260,118 @@ PolicyNode(const rclcpp::NodeOptions& options, std::unique_ptr<LowLevelIo> io, s
     });
   if (!hardware_) create_publisher();
   velocity_ = create_subscription<geometry_msgs::msg::Twist>(topic, 10, [this](geometry_msgs::msg::Twist::SharedPtr m, const rclcpp::MessageInfo& info){
-      if (claimed_mode_ && (!input_claimed_ || !h1_policy::matches_ros_gid(cmd_writer_gid_, info.get_rmw_message_info().publisher_gid))) return;
+      std::lock_guard<std::mutex> l(mutex_);
+      if (!input_message_allowed(info, false)) return;
       cmd_ = {float(m->linear.x), float(m->linear.y), float(m->angular.z)};
       cmd_at_ = now_seconds();
-      if (claimed_mode_) cmd_after_claim_ = true;
     });
   gate_heartbeat_ = create_subscription<std_msgs::msg::Bool>("/h1_2/policy_gate_alive", 10, [this](std_msgs::msg::Bool::SharedPtr msg, const rclcpp::MessageInfo& info) {
-      if (claimed_mode_ && (!input_claimed_ || !h1_policy::matches_ros_gid(heartbeat_writer_gid_, info.get_rmw_message_info().publisher_gid))) return;
+      std::lock_guard<std::mutex> l(mutex_);
+      if (!input_message_allowed(info, true)) return;
       gate_alive_ = msg->data;
       gate_at_ = now_seconds();
-      if (claimed_mode_) heartbeat_after_claim_ = true;
       if (!gate_alive_) publish_not_ready();
     });
-  if (claimed_mode_) {
-    claim_input_service_ = create_service<h1_2_policy_interfaces::srv::ClaimPolicyInput>("~/claim_input",
+  if (input_identity_mode_ == "claimed") {
+    claim_input_service_ = create_service<h1_2_policy_interfaces::srv::ClaimPolicyInput>(
+        "/h1_2/policy/claim_input",
         [this](const std::shared_ptr<h1_2_policy_interfaces::srv::ClaimPolicyInput::Request> request,
                std::shared_ptr<h1_2_policy_interfaces::srv::ClaimPolicyInput::Response> response) {
-          const bool valid = request->owner_boot_id == owner_boot_id_ &&
-              h1_policy::nonzero_ros_gid(request->cmd_writer_gid) &&
-              h1_policy::nonzero_ros_gid(request->heartbeat_writer_gid);
-          if (!valid) {
+          std::lock_guard<std::mutex> l(mutex_);
+          const auto expected_size = static_cast<size_t>(RMW_GID_STORAGE_SIZE);
+          if (!h1_policy::valid_owner_boot_id(request->owner_boot_id) ||
+              request->owner_boot_id != owner_boot_id_ ||
+              request->cmd_writer_gid.size() != expected_size ||
+              request->heartbeat_writer_gid.size() != expected_size ||
+              !h1_policy::nonzero_ros_gid(request->cmd_writer_gid) ||
+              !h1_policy::nonzero_ros_gid(request->heartbeat_writer_gid)) {
             input_claimed_ = false;
-            cmd_writer_gid_.fill(0);
-            heartbeat_writer_gid_.fill(0);
-            cmd_ = {0, 0, 0}; cmd_at_ = 0;
-            last_policy_command_ = {0, 0, 0};
-            gate_alive_ = false; gate_at_ = 0;
-            cmd_after_claim_ = false; heartbeat_after_claim_ = false;
-            publish_not_ready();
+            claimed_owner_boot_id_.clear();
+            claimed_cmd_gid_.clear();
+            claimed_heartbeat_gid_.clear();
+            cmd_ = {0, 0, 0};
+            cmd_at_ = 0;
             response->success = false;
-            response->reason = "CLAIM_REJECTED; previous input lease cleared";
+            response->reason = "CLAIM_REJECTED; owner identity or full nonzero ROS GIDs are invalid";
+            publish_not_ready();
             return;
           }
-          std::copy(request->cmd_writer_gid.begin(), request->cmd_writer_gid.end(), cmd_writer_gid_.begin());
-          std::copy(request->heartbeat_writer_gid.begin(), request->heartbeat_writer_gid.end(), heartbeat_writer_gid_.begin());
-          cmd_ = {0, 0, 0}; cmd_at_ = 0;
-          last_policy_command_ = {0, 0, 0};
-          gate_alive_ = false; gate_at_ = 0;
-          cmd_after_claim_ = false; heartbeat_after_claim_ = false;
+          claimed_owner_boot_id_ = request->owner_boot_id;
+          claimed_cmd_gid_ = request->cmd_writer_gid;
+          claimed_heartbeat_gid_ = request->heartbeat_writer_gid;
           input_claimed_ = true;
+          cmd_ = {0, 0, 0};
+          cmd_at_ = 0;
+          gate_alive_ = false;
+          gate_at_ = 0;
+          last_policy_command_ = {0, 0, 0};
           publish_not_ready();
           response->success = true;
-          response->reason = "CLAIMED; matching command and heartbeat required";
+          response->reason = "input writers claimed; cached command and heartbeat cleared";
         });
   }
+  runtime_identity_service_ = create_service<h1_2_policy_interfaces::srv::PolicyRuntimeIdentity>(
+      "/h1_2/policy/runtime_identity",
+      [this](const std::shared_ptr<h1_2_policy_interfaces::srv::PolicyRuntimeIdentity::Request>,
+             std::shared_ptr<h1_2_policy_interfaces::srv::PolicyRuntimeIdentity::Response> response) {
+        response->owner_boot_id = owner_boot_id_;
+        response->owner_pid = static_cast<uint32_t>(owner_pid_);
+        response->policy_pid = static_cast<uint32_t>(getpid());
+        response->node_fqn = get_fully_qualified_name();
+        response->model_path = runtime_file_path(model_path_);
+        response->model_sha256 = sha256_file(response->model_path);
+        response->urdf_path = runtime_file_path(urdf_path_);
+        response->urdf_sha256 = sha256_file(response->urdf_path);
+        response->executable_path = executable_file_path();
+        response->executable_sha256 = sha256_file(response->executable_path);
+        response->profile_sha256 = protection_profile_ == "train_20261106"
+            ? training_profile_sha256(train_guard_names_, train_guard_speeds_, train_guard_lower_,
+                                      train_guard_upper_, train_guard_defaults_, response->urdf_sha256)
+            : std::string{};
+        size_t domain_id = 0;
+        const auto domain_result = rcl_context_get_domain_id(
+            get_node_base_interface()->get_context()->get_rcl_context().get(), &domain_id);
+        const bool domain_valid = domain_result == RCL_RET_OK &&
+            domain_id <= static_cast<size_t>(std::numeric_limits<int32_t>::max());
+        response->ros_domain_id = domain_valid ? static_cast<int32_t>(domain_id) : -1;
+        const char* localhost_env = std::getenv("ROS_LOCALHOST_ONLY");
+        const bool localhost_valid = !localhost_env || std::strcmp(localhost_env, "0") == 0 || std::strcmp(localhost_env, "1") == 0;
+        response->ros_localhost_only = localhost_env && std::strcmp(localhost_env, "1") == 0;
+        response->authorized = gate_.authorized();
+        response->writer_present = io_->output_present();
+        response->lowcmd_writer_gid.fill(0);
+        bool writer_guid_available = false;
+        if (response->writer_present) {
+          std::array<uint8_t, 16> writer_guid{};
+          if (io_->output_guid(writer_guid)) {
+            std::copy(writer_guid.begin(), writer_guid.end(), response->lowcmd_writer_gid.begin());
+            writer_guid_available = true;
+          }
+        }
+        std::vector<std::string> missing;
+        if (response->owner_boot_id.empty()) missing.emplace_back("OWNER_BOOT_ID_UNAVAILABLE");
+        if (response->owner_pid == 0) missing.emplace_back("OWNER_PID_UNAVAILABLE");
+        if (response->policy_pid == 0 || response->node_fqn.empty()) missing.emplace_back("PROCESS_IDENTITY_UNAVAILABLE");
+        if (!domain_valid) missing.emplace_back("ROS_DOMAIN_ID_UNAVAILABLE");
+        if (!localhost_valid) missing.emplace_back("ROS_LOCALHOST_ONLY_INVALID");
+        if (response->model_path.empty() || response->model_sha256.empty()) missing.emplace_back("MODEL_HASH_UNAVAILABLE");
+        if (response->urdf_path.empty() || response->urdf_sha256.empty()) missing.emplace_back("URDF_HASH_UNAVAILABLE");
+        if (response->executable_path.empty() || response->executable_sha256.empty()) missing.emplace_back("EXECUTABLE_HASH_UNAVAILABLE");
+        if (response->profile_sha256.empty()) missing.emplace_back("PROFILE_HASH_UNAVAILABLE");
+        else if (response->profile_sha256 != guard_hash_) missing.emplace_back("PROFILE_HASH_MISMATCH");
+        if (response->authorized && !response->writer_present) missing.emplace_back("AUTHORIZED_WRITER_UNAVAILABLE");
+        if (response->writer_present && !writer_guid_available) missing.emplace_back("LOWCMD_GUID_UNAVAILABLE");
+        response->valid = missing.empty();
+        if (response->valid) response->reason = "OK";
+        else {
+          std::ostringstream reason;
+          for (size_t i = 0; i < missing.size(); ++i) {
+            if (i) reason << ',';
+            reason << missing[i];
+          }
+          response->reason = reason.str();
+        }
+      });
   for(auto item: {std::pair<const char*, h1_policy::Mode>{"passive", h1_policy::Mode::Passive}, {"fix_stand", h1_policy::Mode::FixStand}, {"arm_hold_stand", h1_policy::Mode::ArmHoldStand}, {"arm_hold", h1_policy::Mode::ArmHold}}) {
     services_.push_back(create_service<std_srvs::srv::Trigger>(std::string("~/") + item.first, [this, mode = item.second](const std::shared_ptr<std_srvs::srv::Trigger::Request>, std::shared_ptr<std_srvs::srv::Trigger::Response> res){
         if (hardware_ && !gate_.can_control()) {
@@ -298,15 +465,15 @@ PolicyNode(const rclcpp::NodeOptions& options, std::unique_ptr<LowLevelIo> io, s
         << " output_transition=" << (transition_ == Transition::Entry ? "entry" : transition_ == Transition::Exit ? "exit" : transition_ == Transition::Hold ? "hold" : "none")
         << " authorized=" << (gate_.authorized() ? "true" : "false")
         << " navigation_enabled=" << (navigation_enabled_ ? "true" : "false")
-        << " input_identity_mode=" << input_identity_mode_
-        << " input_claimed=" << (input_claimed_ ? "true" : "false")
-        << " owner_boot_id=" << (owner_boot_id_.empty() ? "none" : owner_boot_id_)
-        << " cmd_writer_gid=" << (input_claimed_ ? h1_policy::ros_gid_hex(cmd_writer_gid_) : "none")
-        << " heartbeat_writer_gid=" << (input_claimed_ ? h1_policy::ros_gid_hex(heartbeat_writer_gid_) : "none")
         << " continuous_navigation=" << (continuous_navigation_ ? "true" : "false")
         << " entry_angle_gate=" << (trained_guard_ ? "diagnostic_only" : "enforced")
         << " arm_hold_knee_tolerance=" << get_parameter("arm_hold_knee_tolerance").as_double()
         << " navigation_ready=" << (ready_ ? "true" : "false")
+        << " input_identity_mode=" << input_identity_mode_
+        << " input_claimed=" << (input_claimed_ ? "true" : "false")
+        << " owner_boot_id=" << (owner_boot_id_.empty() ? "none" : owner_boot_id_)
+        << " cmd_writer_gid=" << (input_claimed_ ? h1_policy::ros_gid_hex(claimed_cmd_gid_) : "none")
+        << " heartbeat_writer_gid=" << (input_claimed_ ? h1_policy::ros_gid_hex(claimed_heartbeat_gid_) : "none")
         << " policy_cmd=" << last_policy_command_[0] << "," << last_policy_command_[1] << "," << last_policy_command_[2]
         << " shadow=" << (shadow_ ? "true" : "false")
         << " publisher_present=" << (io_->output_present() ? "true" : "false")
@@ -434,6 +601,13 @@ void begin_exit(const h1_policy::State& s) {
 void create_publisher() {
   io_->open_output();
 }
+bool input_message_allowed(const rclcpp::MessageInfo& info, bool heartbeat) const {
+  if (input_identity_mode_ == "legacy") return true;
+  if (!input_claimed_) return false;
+  const auto& gid = info.get_rmw_message_info().publisher_gid;
+  const auto& claimed = heartbeat ? claimed_heartbeat_gid_ : claimed_cmd_gid_;
+  return std::equal(claimed.begin(), claimed.end(), gid.data);
+}
 void inhibit() {
   publish_not_ready();
   last_policy_command_ = {0, 0, 0};
@@ -447,12 +621,14 @@ void publish_not_ready() {
   ready_ = false;
   if (ready_publisher_) { std_msgs::msg::Bool msg; msg.data = false; ready_publisher_->publish(msg); }
 }
-bool gate_fresh() const { return gate_alive_ && now_seconds() >= gate_at_ && now_seconds() - gate_at_ < .2; }
+bool gate_fresh() const {
+  std::lock_guard<std::mutex> l(mutex_);
+  return gate_alive_ && now_seconds() >= gate_at_ && now_seconds() - gate_at_ < .2;
+}
 void publish_readiness() {
   h1_policy::State s; uint8_t machine = 0, pr = 0;
   const bool next = navigation_enabled_ && active_ && controller_.mode() == h1_policy::Mode::ArmHold &&
-      transition_ == Transition::None && (!claimed_mode_ || (input_claimed_ && cmd_after_claim_ && heartbeat_after_claim_)) &&
-      (hardware_ ? (continuous_navigation_ && gate_.authorized() && gate_fresh()) : (!claimed_mode_ || gate_fresh())) &&
+      transition_ == Transition::None && (!hardware_ || (continuous_navigation_ && gate_.authorized() && gate_fresh())) &&
       io_->output_present() && write_count_ > 0 && read(s, machine, pr);
   if (next && !ready_) ready_since_ = now_seconds();
   ready_ = next;
@@ -517,12 +693,19 @@ void tick(){
     RCLCPP_ERROR(get_logger(), "LowState stale or invalid; publication stopped, manual recovery required");
     return;
   }
-  auto c = hardware_ ? h1_policy::Command{0, 0, 0} : cmd_;
-  if (claimed_mode_ && !hardware_ &&
-      (!input_claimed_ || !ready_ || !gate_fresh() || cmd_at_ <= ready_since_)) c = {0, 0, 0};
-  if (hardware_ && navigation_enabled_ && continuous_navigation_ && ready_ && gate_fresh() && cmd_at_ > ready_since_)
-    c = cmd_;
-  if(now_seconds() < cmd_at_ || now_seconds() - cmd_at_ > .4) c = {0, 0, 0};
+  h1_policy::Command cached_command;
+  double cached_command_at = 0;
+  bool fresh_gate = false;
+  {
+    std::lock_guard<std::mutex> l(mutex_);
+    cached_command = cmd_;
+    cached_command_at = cmd_at_;
+    fresh_gate = gate_alive_ && now_seconds() >= gate_at_ && now_seconds() - gate_at_ < .2;
+  }
+  auto c = hardware_ ? h1_policy::Command{0, 0, 0} : cached_command;
+  if (hardware_ && navigation_enabled_ && continuous_navigation_ && ready_ && fresh_gate && cached_command_at > ready_since_)
+    c = cached_command;
+  if(now_seconds() < cached_command_at || now_seconds() - cached_command_at > .4) c = {0, 0, 0};
   for(auto x:c) if(!std::isfinite(x)) {
       if (hardware_) inhibit(); else { controller_.fault(); active_ = false; }
       return;
@@ -545,7 +728,9 @@ void tick(){
             << " trained_guard_tick=" << event->tick << " trained_guard_elapsed=" << event->elapsed
             << " trained_guard_warmup=" << (event->warmup ? "true" : "false");
         guard_event_status_ = out.str();
-        publish_not_ready(); cmd_ = {0, 0, 0}; last_policy_command_ = {0, 0, 0};
+        publish_not_ready();
+        { std::lock_guard<std::mutex> l(mutex_); cmd_ = {0, 0, 0}; }
+        last_policy_command_ = {0, 0, 0};
         transition_ = Transition::None; transition_started_ = false; release_.reset(); release_blocked_ = false;
         if (!controller_.transition(h1_policy::Mode::Passive, s, now_seconds())) throw std::runtime_error("guard Passive transition failed");
         RCLCPP_WARN(get_logger(), "training guard latched; native damping requested: %s", guard_event_status_.c_str());
@@ -694,12 +879,15 @@ void tick(){
   }
 }
 ProcessLock lock_;
+std::string model_path_;
 h1_policy::Controller controller_;
 h1_policy::HardwareGate gate_;
 h1_policy::PolicyBudget budget_;
 int max_policy_steps_ = 0;
 std::string joint_command_mode_;
 std::string protection_profile_, guard_hash_;
+std::vector<double> train_guard_speeds_, train_guard_lower_, train_guard_upper_, train_guard_defaults_;
+std::vector<std::string> train_guard_names_;
 std::unique_ptr<h1_policy::TrainedGuard> trained_guard_;
 std::string guard_event_status_ = "trained_guard_reason=none trained_guard_sdk_index=-1 trained_guard_value=0 trained_guard_limit=0 trained_guard_tick=0 trained_guard_elapsed=0 trained_guard_warmup=false";
 double guard_prearm_max_ = 0;
@@ -709,10 +897,6 @@ h1_policy::TickProgress progress_;
 bool hardware_ = false, output_enabled_ = false, debug_confirmed_ = false, exclusive_confirmed_ = false, shadow_ = false;
 double max_policy_seconds_ = 0, policy_deadline_ = 0;
 bool navigation_enabled_ = false, continuous_navigation_ = false, ready_ = false, gate_alive_ = false;
-bool claimed_mode_ = false, input_claimed_ = false;
-bool cmd_after_claim_ = false, heartbeat_after_claim_ = false;
-std::string input_identity_mode_ = "legacy", owner_boot_id_;
-std::array<uint8_t, RMW_GID_STORAGE_SIZE> cmd_writer_gid_{}, heartbeat_writer_gid_{};
 double ready_since_ = 0, gate_at_ = 0;
 unsigned shadow_ticks_ = 0;
 Transition transition_ = Transition::None;
@@ -726,8 +910,13 @@ double transition_start_ = 0;
 uint64_t limited_frames_ = 0;
 uint64_t write_count_ = 0;
 bool active_ = false, has_state_ = false;
+std::string input_identity_mode_ = "legacy", claimed_owner_boot_id_;
+std::string owner_boot_id_, urdf_path_;
+int owner_pid_ = 0;
+bool input_claimed_ = false;
+std::vector<uint8_t> claimed_cmd_gid_, claimed_heartbeat_gid_;
 h1_policy::FaultLatch fault_;
-std::mutex mutex_;
+mutable std::mutex mutex_;
 LS state_msg_{};
 double received_ = 0, cmd_at_ = 0;
 h1_policy::Command cmd_{}, last_policy_command_{};
@@ -737,6 +926,7 @@ rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr velocity_;
 rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr ready_publisher_;
 rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr gate_heartbeat_;
 rclcpp::Service<h1_2_policy_interfaces::srv::ClaimPolicyInput>::SharedPtr claim_input_service_;
+rclcpp::Service<h1_2_policy_interfaces::srv::PolicyRuntimeIdentity>::SharedPtr runtime_identity_service_;
 std::vector<rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr> services_;
 rclcpp::TimerBase::SharedPtr timer_;
 };

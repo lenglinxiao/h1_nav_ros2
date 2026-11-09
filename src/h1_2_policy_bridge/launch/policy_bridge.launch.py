@@ -9,6 +9,10 @@ def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument('model_path', default_value='/home/llx/policy.onnx'),
         DeclareLaunchArgument('cmd_vel_topic', default_value='/cmd_vel_final'),
+        DeclareLaunchArgument('input_identity_mode', default_value='legacy'),
+        DeclareLaunchArgument('owner_boot_id', default_value=''),
+        DeclareLaunchArgument('owner_pid', default_value='0'),
+        DeclareLaunchArgument('urdf_path', default_value=''),
         DeclareLaunchArgument('profile', default_value='sim'),
         DeclareLaunchArgument('joint_command_mode', default_value=PythonExpression([
             "'position_pd' if '", LaunchConfiguration('profile'), "' == 'hardware' else 'torque'"
@@ -33,6 +37,10 @@ def generate_launch_description():
                  'operator_confirmed_exclusive_control': ParameterValue(LaunchConfiguration('operator_confirmed_exclusive_control'), value_type=bool),
                  'model_path': LaunchConfiguration('model_path'),
                  'cmd_vel_topic': LaunchConfiguration('cmd_vel_topic'),
+                 'input_identity_mode': LaunchConfiguration('input_identity_mode'),
+                 'owner_boot_id': LaunchConfiguration('owner_boot_id'),
+                 'owner_pid': ParameterValue(LaunchConfiguration('owner_pid'), value_type=int),
+                 'urdf_path': LaunchConfiguration('urdf_path'),
                  'network_interface': LaunchConfiguration('network_interface'),
                  'dds_domain': ParameterValue(LaunchConfiguration('dds_domain'), value_type=int),
              }]),

@@ -30,6 +30,10 @@ class LaunchParametersTest(unittest.TestCase):
         self.assertEqual(params['joint_command_mode'], 'torque')
         self.assertEqual(params['network_interface'], 'lo')
         self.assertEqual(params['dds_domain'], 42)
+        self.assertEqual(params['input_identity_mode'], 'legacy')
+        self.assertEqual(params['owner_boot_id'], '')
+        self.assertEqual(params['owner_pid'], 0)
+        self.assertEqual(params['urdf_path'], '')
         self.assertEqual(params['max_policy_steps'], 0)
         self.assertIsInstance(params['max_policy_steps'], int)
         self.assertIs(params['continuous_policy_navigation'], False)
@@ -59,6 +63,17 @@ class LaunchParametersTest(unittest.TestCase):
 
     def test_sim_position_pd_option(self):
         self.assertEqual(self.evaluate({'joint_command_mode': 'position_pd'})['joint_command_mode'], 'position_pd')
+
+    def test_claimed_input_identity_mode_is_forwarded(self):
+        params = self.evaluate({'input_identity_mode': 'claimed'})
+        self.assertEqual(params['input_identity_mode'], 'claimed')
+
+    def test_runtime_identity_owner_and_urdf_metadata_are_forwarded(self):
+        params = self.evaluate({'owner_boot_id': 'owner-boot', 'owner_pid': '123',
+                                'urdf_path': '/opt/h1/robot.urdf'})
+        self.assertEqual(params['owner_boot_id'], 'owner-boot')
+        self.assertEqual(params['owner_pid'], 123)
+        self.assertEqual(params['urdf_path'], '/opt/h1/robot.urdf')
 
     def test_joint_mode_defaults_follow_profile(self):
         self.assertEqual(self.evaluate({'profile': 'sim'})['joint_command_mode'], 'torque')

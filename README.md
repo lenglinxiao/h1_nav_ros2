@@ -260,6 +260,16 @@ mkdir -p maps
   pcd=$PWD/maps/h1_2_lab.pcd
 ```
 
+离线导航启动时可选择运动控制后端，默认 `unitree`；选择 `policy` 会在本次导航进程启动时启用 ONNX 后端，不支持运行中切换。当前 `mode=online` camera_init 入口仍使用 Unitree 后端：
+
+```bash
+./run_ai_slam_nav.sh mode=navigation \
+  motion_backend=policy \
+  map=$PWD/maps/h1_2_lab.yaml \
+  localization=global_gicp \
+  pcd=$PWD/maps/h1_2_lab.pcd
+```
+
 `global_gicp` 会先订阅 `/cloud_registered_body` 和 `/slam_odom`，在 PCD 地图上全局初始化，然后持续发布 `map -> camera_init`。如果记忆点文件里有 `START`，自动初始位姿节点也会发布 `/initialpose` 辅助收敛；需要手动干预时仍可在 RViz 里用 `2D Pose Estimate`。完成定位后再发送普通目标点；后续新增记忆点和循环巡航模块时，也应在这个 `map` 坐标系下保存 A/B/C 等演示点。
 
 `global_gicp` 常用调参入口：

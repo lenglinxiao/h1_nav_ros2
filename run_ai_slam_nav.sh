@@ -16,6 +16,7 @@ MAP_FILE=""
 MAP_SAVE_PREFIX=""
 PCD_SAVE_PREFIX="maps/h1_2_lab"
 LOCALIZATION_BACKEND="global_gicp"
+MOTION_BACKEND="unitree"
 PCD_MAP_FILE=""
 INITIAL_POSE_NAME="START"
 MEMORY_ROUTE="A,B"
@@ -85,6 +86,7 @@ Usage:
   ./run_ai_slam_nav.sh mode=save_pcd_map pcd_prefix=maps/h1_2_lab
   ./run_ai_slam_nav.sh mode=navigation map=/absolute/path/to/map.yaml localization=global_gicp pcd=/absolute/path/to/map.pcd
   ./run_ai_slam_nav.sh mode=navigation map=/absolute/path/to/map.yaml localization=icp pcd=/absolute/path/to/map.pcd
+  ./run_ai_slam_nav.sh mode=navigation motion_backend=policy map=/absolute/path/to/map.yaml localization=icp pcd=/absolute/path/to/map.pcd
   ./run_ai_slam_nav.sh mode=navigation map=/absolute/path/to/map.yaml pcd=/absolute/path/to/map.pcd initial_pose=START memory_route=A,B,C gesture_route=B:wave_hand,C:shake_hand auto_start_route=true
 
 Modes:
@@ -95,6 +97,7 @@ Modes:
   mode=navigation  Offline fixed-map Nav2 navigation. Requires map=...
   pcd_prefix=...   Prefix for FAST-LIO2 PCD map save. Default: maps/h1_2_lab.
   localization=... Offline localization backend: global_gicp or icp. Default: global_gicp.
+  motion_backend=... Startup motion controller: unitree or policy. Default: unitree (navigation mode only).
   pcd=...          3D PCD map for offline localization.
   initial_pose=... START memory point used for automatic PCD localization initialization. Default: START.
   memory_route=... Route names for memory route runner. Default: A,B.
@@ -139,6 +142,9 @@ for arg in "$@"; do
     localization=*)
       LOCALIZATION_BACKEND="${arg#localization=}"
       ;;
+    motion_backend=*)
+      MOTION_BACKEND="${arg#motion_backend=}"
+      ;;
     pcd=*)
       PCD_MAP_FILE="${arg#pcd=}"
       ;;
@@ -182,6 +188,16 @@ done
 
 if [[ "${MODE}" == "mapping" ]]; then
   MODE="online"
+fi
+
+if [[ "${MOTION_BACKEND}" != "unitree" && "${MOTION_BACKEND}" != "policy" ]]; then
+  echo "Invalid motion backend: ${MOTION_BACKEND}. Use motion_backend=unitree or motion_backend=policy."
+  exit 2
+fi
+
+if [[ "${MOTION_BACKEND}" == "policy" && "${MODE}" != "navigation" ]]; then
+  echo "policy motion backend is only supported with mode=navigation."
+  exit 2
 fi
 
 if [[ ! -f "${CYCLONEDDS_CONFIG}" ]]; then
@@ -346,6 +362,7 @@ echo "Starting H1-2 Nav2 navigation with map: ${MAP_FILE}"
 NAV_LAUNCH_ARGS=(
   "map:=${MAP_FILE}"
   "localization_backend:=${LOCALIZATION_BACKEND}"
+  "motion_backend:=${MOTION_BACKEND}"
   "pcd_map:=${PCD_MAP_FILE}"
   "start_livox_driver:=false"
   "map_file_path:=${PCD_SAVE_PREFIX}.pcd"

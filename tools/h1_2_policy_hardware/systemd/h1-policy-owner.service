@@ -1,0 +1,14 @@
+[Unit]
+Description=H1-2 persistent policy navigation owner
+After=network.target
+
+[Service]
+Type=simple
+EnvironmentFile=%h/.config/h1-policy-owner.env
+ExecStart=/bin/bash -lc 'source "$H1_ROS_SETUP" && source "$H1_WORKSPACE_SETUP" && exec /usr/bin/python3 %h/h1_nav2_ros2_ws/tools/h1_2_policy_hardware/policy_owner.py'
+Restart=no
+KillMode=control-group
+TimeoutStopSec=infinity
+
+[Install]
+WantedBy=default.target

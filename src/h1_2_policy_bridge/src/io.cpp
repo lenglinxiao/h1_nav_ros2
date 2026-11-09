@@ -3,6 +3,7 @@
 #include <unitree/robot/channel/channel_publisher.hpp>
 #include <unitree/robot/channel/channel_subscriber.hpp>
 #include <mutex>
+#include <algorithm>
 #include <cstdlib>
 #include <cstdio>
 #include <fstream>
@@ -28,11 +29,12 @@ public:
   }
   void open_output() override {
     auto pub = unitree::robot::ChannelFactory::Instance()->CreateSendChannel<LC>("rt/lowcmd");
+    dds_guid_t guid{};
+    auto writer = pub->GetWriter()->GetNative();
+    const bool have_guid = dds_get_guid(writer.delegate()->get_ddsc_entity(), &guid) == DDS_RETCODE_OK;
     const char* path = std::getenv("H1_POLICY_WRITER_GUID_FILE");
     if (path && *path) {
-      dds_guid_t guid{};
-      auto writer = pub->GetWriter()->GetNative();
-      if (dds_get_guid(writer.delegate()->get_ddsc_entity(), &guid) != DDS_RETCODE_OK)
+      if (!have_guid)
         throw std::runtime_error("cannot obtain LowCmd writer GUID");
       const std::string temporary = std::string(path) + ".tmp";
       { std::ofstream out(temporary, std::ios::trunc);
@@ -43,11 +45,20 @@ public:
       if (std::rename(temporary.c_str(), path) != 0)
         throw std::runtime_error("cannot publish LowCmd writer GUID");
     }
+    std::lock_guard<std::mutex> lock(output_mutex_);
     pub_ = std::move(pub);
+    guid_present_ = have_guid;
+    if (guid_present_) std::copy(std::begin(guid.v), std::end(guid.v), guid_.begin());
   }
-  bool write(const LC& message) override { return pub_ && pub_->Write(message, 0); }
-  void close_output() override { pub_.reset(); }
-  bool output_present() const override { return bool(pub_); }
+  bool write(const LC& message) override { std::lock_guard<std::mutex> lock(output_mutex_); return pub_ && pub_->Write(message, 0); }
+  void close_output() override { std::lock_guard<std::mutex> lock(output_mutex_); pub_.reset(); guid_present_ = false; guid_.fill(0); }
+  bool output_present() const override { std::lock_guard<std::mutex> lock(output_mutex_); return bool(pub_); }
+  bool output_guid(std::array<uint8_t, 16>& guid) const override {
+    std::lock_guard<std::mutex> lock(output_mutex_);
+    if (!pub_ || !guid_present_) return false;
+    guid = guid_;
+    return true;
+  }
   void stop() override {
     if (callback_state_) {
       std::lock_guard<std::mutex> lock(callback_state_->mutex);
@@ -59,6 +70,9 @@ private:
   std::shared_ptr<CallbackState> callback_state_;
   std::shared_ptr<unitree::robot::ChannelSubscriber<LS>> sub_;
   unitree::robot::ChannelPtr<LC> pub_;
+  mutable std::mutex output_mutex_;
+  std::array<uint8_t, 16> guid_{};
+  bool guid_present_ = false;
 };
 std::unique_ptr<LowLevelIo> make_sdk_io() { return std::make_unique<SdkIo>(); }
 }

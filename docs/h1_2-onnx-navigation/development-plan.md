@@ -1,8 +1,8 @@
 # H1-2 ONNX 导航 Implementation Plan
 
-> **实施状态（2026-11-08）：** 任务 1A、1B 已通过本地验证；当前推进 1C bridge 输入 GID。所有验证仅在本地完成，不连接机器人。任务 1 拆为 1A 类型与纯状态机、1B ROS 协调器/action、1C bridge 输入 GID、1D owner/会话 launch，逐项验证与审查。后续任务仍待办。
+> **实施状态（2026-11-09）：** 任务 1A–1C 已在隔离分支完成本地验证并合入 main；1D owner/session 与 runtime identity 在主工作区整合中。所有验证仅在本地完成，不连接机器人。任务 1 拆为 1A 类型与纯状态机、1B ROS 协调器/action、1C bridge 输入 GID、1D owner/会话 launch，逐项验证与审查。后续任务仍待办。
 
-**Goal:** 建立受保护的常驻 ONNX 控制与可独立启停的 Nav2 会话，停止导航后保持零速 ArmHold。
+**Goal:** 建立受保护的常驻 ONNX 控制与可独立启停的 Nav2 会话，启动时选择 Unitree 或 ONNX 后端，停止导航后保持零速 ArmHold。运行期间不切换控制器。
 
 **Architecture:** 独立 owner 启动并监护 policy、coordinator 和 monitor；coordinator 在同一锁内管理输入仲裁、双 action 准入和完整会话 token。bridge 生产模式按 GID 校验唯一最终命令及心跳，GUI/导航只控制会话进程组。
 
@@ -38,7 +38,8 @@
 - 基线：`65f8adae590dd35508fbeb24265a8e656637e062`；主工作区在本轮开始时干净，本地 `origin/main` 同基线。前轮已记录推送成功，本轮未重新联网推送。
 - 隔离目录：项目内 `.codex_tmp/onnx-navigation-dev`，分支 `feat/onnx-navigation`。旧交接所列 `/tmp` 开发目录与相关实现提交在本轮环境中不可用，不将其测试结果当作当前证据。改用项目内隔离副本保存实现，主目录暂不覆盖。
 - 任务 1A：完成本地验证与审查，提交 `00691a01284269266c895a373e87411f8a85fe81` 与 `c729fe232f03ae9964f362ac592cfcb0a904af7b`。纯状态机定向测试 17 项通过；接口包单独构建成功，两个消息和四个服务的 Python 3.10 原生类型支持加载成功。审查发现的 readiness 快照及 source 比较顺序问题已修复并复审通过。任务 1B 后续完成；1C–1D 及 2–6 未完成。
-- 任务 1B：ROS coordinator、双 action proxy 和本地假节点测试已完成，24 项定向测试通过；`colcon build --packages-up-to h1_2_nav_tools` 5 包构建通过。详细命令与边界见隔离副本 `.superpowers/sdd/development-plan/task-1b-report.md`。下一步 1C，以 1B 提交为基线。
+- 任务 1B：ROS coordinator、双 action proxy 和本地假节点测试已完成，24 项定向测试通过；`colcon build --packages-up-to h1_2_nav_tools` 5 包构建通过。详细命令与边界见隔离副本 `.superpowers/sdd/development-plan/task-1b-report.md`。
+- 任务 1C：bridge claimed GID 输入认领已在隔离分支完成本地验证；当前整合保留 owner ID、完整非零 GID 检查及新旧 writer 过滤测试。整合后的 bridge 构建和 CTest 待复验。
 - 任务 1A 验证命令：`PYTHONPATH=src/h1_2_nav_tools /usr/bin/python3 -m pytest -q src/h1_2_nav_tools/test/test_policy_motion_coordinator.py`（17 passed）；隔离 `colcon build --packages-select h1_2_policy_interfaces` 固定 `Python3_EXECUTABLE` 和 `PYTHON_EXECUTABLE` 为 `/usr/bin/python3`，原生类型支持逐类检查非空。过程报告与复审记录在隔离副本 `.superpowers/sdd/development-plan/task-1a-{report,review,fix1-review}.md`。未运行机器人或 ROS 图。
 - 启动顺序澄清：prepare 在旧会话隔离、零速 barrier 后返回新 namespace，客户端据此启动 Nav2；node/backend readiness 在 activate 时再次检查。若 prepare 先等待尚未启动的 backend，就会形成启动循环。此澄清不放开运动准入。
 - 本地验证边界：离线单元测试、FakeIO、本机独立 ROS 域中的假节点；不创建实际 Unitree LowCmd writer，不进行迁移、授权、撤权或切模式。当前未连接机器人，历史现场记录不能证明当前状态。
@@ -48,6 +49,8 @@
 **文件：** 新建 `policy_motion_coordinator.py`、`policy_owner.py`、`policy_nav_session.launch.py`、`tools/h1_2_policy_hardware/systemd/h1-policy-owner.service`、`tools/h1_2_policy_hardware/systemd/h1-policy-owner.env.example`、`src/h1_2_policy_interfaces/`、`src/h1_2_nav_tools/test/test_policy_motion_coordinator.py`；修改 `policy_navigation_gate.py`、`setup.py`、bridge `node.hpp` 和 node integration 测试。
 
 **生产/消费接口：** coordinator 实现 `prepare_source(source: str, expected_token: SessionToken) -> PrepareMotionSource.Response`、`activate_source(token: SessionToken) -> ActivateMotionSource.Response`、`hold() -> Trigger.Response`；详见[设计](design.md)中的字段、namespaces 及锁语义。owner 调用 bridge `claim_input(owner_boot_id, cmd_writer_gid, heartbeat_writer_gid) -> ClaimPolicyInput.Response`；bridge 校验两个 ROS opaque GID 的 `uint8[]` 长度等于运行 RMW_GID_STORAGE_SIZE（Humble 当前为 24），并以 `MessageInfo.publisher_gid` 全量核对每条最终 Twist/Bool；原生 DDS LowCmd GUID 保留 16 字节，不混用。输入会话 topic、前后端 action namespace 由 prepare 返回且不复用。owner 常驻组与 Nav2 会话组分离。
+
+**当前进度（2026-11-09）：** 1A–1C 已合入 main。1D owner/session、runtime identity 正在整合；owner 启动握手依次认领 bridge 与 coordinator 的同一组 writer GID，重复 coordinator entry point 已移除。当前整合验证：`colcon build --packages-up-to h1_2_nav_tools` 5 包通过；bridge 单独构建通过，`node_integration` CTest 通过；owner/coordinator/static entrypoint/session launch/bridge launch 定向 pytest 共 47 项通过；`bash -n run_ai_slam_nav.sh stop_ai_slam_nav.sh` 与 `git diff --check` 通过。验证使用 `/opt/ros/humble` 及隔离构建目录 `/tmp/h1nav-owner-colcon-{build,install,log}`，未启动 owner、策略节点、monitor、Nav2 或连接机器人。未完成：完整 fake ROS graph/service 多路径联测、`verify_runtime_identity` 启动准入接线和 scoped review，因此任务 1 仍未完成。
 
 - [ ] 写 `test_hold_wins_activate_and_rejects_goal`、`test_switch_waits_terminal_or_isolation`、`test_old_session_late_samples_and_goals_rejected`、`test_claim_rejects_old_gid_and_clears_command`、`test_hold_heartbeat_enables_zero_ready`、`test_coordinator_restart_never_reuses_session_and_rejects_old_token`、`test_hold_invalidates_inflight_prepare`、`test_later_prepare_invalidates_earlier_prepare`、`test_claim_gid_length_and_truncation_rejected`、`test_owner_survives_ssh_gui_nav_clients_exit`：覆盖竞争、取消终态或组退出/强隔离、捕获旧 token 回调、coordinator 重启后新 boot ID 与旧 token/GID 均被拒、hold 或后继 prepare 抢占旧异步 prepare 后旧结果为 STALE_PREPARE 且不改变 phase 或返回会话接口、无 goal 时 ready、拒绝短/长/截断 ROS GID、SSH/GUI/Nav2 客户端退出后 owner 存活及最终 cmd/heartbeat 各唯一 writer。
 - [ ] 在已加载 ROS Humble 的隔离开发环境运行 `python3 -m pytest src/h1_2_nav_tools/test/test_policy_motion_coordinator.py -q`，预期新增测试因实现缺失失败；bridge GID 测试随现有 node integration 运行，预期对应新增断言失败。
@@ -70,7 +73,9 @@
 
 **依赖：** 任务 2。**文件：** `run_ai_slam_nav.sh`、`src/h1_2_nav_tools/h1_2_nav_tools/h1_2_nav_web_gui.py`、`test/static/test_h1_2_nav_web_gui.py`、`test/unit/test_web_task_profiles.py`。
 
-**接口：** shell `--motion-backend unitree|policy` 默认 unitree；GUI payload `motion_backend` 同值；policy 使用 existing、claimed，先 prepare 并启动返回的 Nav2 会话，activate 成功后 GUI/route 使用返回的 frontend action namespace。禁止全局 action alias；unitree 行为保留。
+**接口：** shell `motion_backend=unitree|policy` 默认 unitree；GUI payload `motion_backend` 同值；后端只在启动时选择，policy 使用 existing、claimed，先 prepare 并启动返回的 Nav2 会话，activate 成功后 GUI/route 使用返回的 frontend action namespace。禁止全局 action alias；unitree 行为保留。在线 camera_init 入口暂不接 policy。
+
+**进度（2026-11-09）：** shell 离线导航参数已实现并通过静态测试；GUI 尚未提供后端选择，任务未完成。在线 camera_init 入口暂未接入 policy。
 
 - [ ] 写 `test_policy_backend_and_session_forwarded`、`test_unitree_default_preserved`、`test_invalid_backend_rejected`；运行 `python3 -m pytest test/static/test_h1_2_nav_web_gui.py test/unit/test_web_task_profiles.py -q`，新增案例预期失败。
 - [ ] 实现入口参数和返回 namespace 的传递；禁止自动发 goal，重跑同命令预期 PASS。

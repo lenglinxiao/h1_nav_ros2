@@ -21,6 +21,18 @@ def test_navigation_script_exposes_icp_localization_arguments():
     assert '"pcd_map:=${PCD_MAP_FILE}"' in script
 
 
+def test_navigation_script_selects_motion_backend_at_startup():
+    script = read_repo_file("run_ai_slam_nav.sh")
+
+    assert 'MOTION_BACKEND="unitree"' in script
+    assert "motion_backend=*)" in script
+    assert '"motion_backend:=${MOTION_BACKEND}"' in script
+    assert '"${MOTION_BACKEND}" != "unitree"' in script
+    assert '"${MOTION_BACKEND}" != "policy"' in script
+    assert "policy motion backend is only supported with mode=navigation" in script
+    assert "motion_backend=policy" in script
+
+
 def test_offline_navigation_launch_accepts_backend_and_pcd_without_touching_online_launch():
     offline = read_repo_file("src/h1_2_slam_bringup/launch/h1_2_nav2_navigation.launch.py")
     online = read_repo_file("src/h1_2_slam_bringup/launch/h1_2_nav2_camera_init_navigation.launch.py")
