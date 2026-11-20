@@ -17,6 +17,7 @@
 ![Fast DDS](https://img.shields.io/badge/Fast_DDS-middleware-6C7A89)
 ![colcon](https://img.shields.io/badge/colcon-build-4B5563)
 ![pytest](https://img.shields.io/badge/pytest-tests-0A9EDC?logo=pytest&logoColor=white)
+![License: MIT](https://img.shields.io/badge/license-MIT-2EA44F)
 
 徽章中的 C++ 版本对应不同子包的标准设置；Unitree SDK 2 和 ONNX Runtime 是相关运动后端的依赖。
 
@@ -49,6 +50,18 @@ source install/setup.bash
 ```bash
 ./run_ai_slam_nav.sh --help
 ```
+
+## Web 控制台
+
+需要通过浏览器操作时，在运行 ROS 2 的 H1-2 主机上 source 工作空间环境后启动 Web 控制台：
+
+```bash
+ros2 run h1_2_nav_tools h1_2_nav_web_gui --host 0.0.0.0 --port 8765
+```
+
+浏览器访问 `http://<主机IP>:8765/`，使用启动日志打印的实际地址。控制台同时使用 HTTP 端口及其后一号端口的 WebSocket 心跳（默认分别为 `8765` 和 `8766`），远程访问时两者都需在可信网络内可达。没有 `--host` 时默认只监听本机回环地址；`0.0.0.0` 会监听所有网络接口。
+
+网页可查看导航、定位和 Policy 状态及日志，配置并启动/停止导航，管理任务点与巡航路线，也可打开 RViz。选择 ONNX 后端时，页面提供分阶段控制桥准备、导航栈启动和巡航入口；具体硬件前置条件见[Policy 硬件适配说明](docs/h1_2-policy-hardware-adaptation.md)。该控制台能够发送实际控制请求，不能代替现场支撑、急停或控制权核验；不要将服务返回成功或页面状态当作机器人安全与动作到位的证明。
 
 ## 固定地图导航
 
@@ -102,15 +115,6 @@ Nav2 的速度链路为 `/cmd_vel` → 平滑器 `/cmd_vel_final` → 选定的�
 
 直接连接 MID360 并在本机启动 Livox 驱动时，还需安装 Livox-SDK2。只通过 DDS 接收已有 Livox 话题时，可不安装 SDK2；具体构建条件见 [`livox_ros_driver2`](src/livox_ros_driver2/README.md)。
 
-## 文档索引
-
-- [ONNX 导航计划与验证记录](docs/h1_2-onnx-navigation/plan.md)
-- [硬件验证清单](docs/h1_2-onnx-navigation/hardware-validation-checklist.md)
-- [Policy 硬件适配说明](docs/h1_2-policy-hardware-adaptation.md)
-- [导航故障记录](docs/h1_2-policy-troubleshooting.md)
-- [人工策略试验工具](tools/h1_2_policy_hardware/README.md)
-- [测试目录说明](test/README.md)
-
 ## 开发检查
 
 运行离线静态测试：
@@ -126,4 +130,4 @@ colcon test --packages-select h1_2_policy_bridge
 colcon test-result --verbose
 ```
 
-本仓库包含第三方源码及硬件相关工具。测试、离线仿真和输出禁用检查不等同于真机控制验证；硬件操作应遵循对应功能文档及现场准入流程。
+MIT 徽章用于标识项目许可；部分 ROS 包和 `third_party` 组件保留各自声明的许可证。测试、离线仿真和输出禁用检查不等同于真机控制验证；硬件操作应遵循对应功能文档及现场准入流程。
