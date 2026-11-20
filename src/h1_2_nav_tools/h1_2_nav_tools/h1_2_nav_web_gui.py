@@ -4,6 +4,7 @@ import fcntl
 import json
 import os
 import signal
+import signal
 import shlex
 import subprocess
 import sys
@@ -49,25 +50,26 @@ LOCALIZATION_MAX_SCORE = 0.15
 LOCALIZATION_STATUS_TIMEOUT_SEC = 10.0
 LOCALIZATION_TF_TARGET_FRAME = "map"
 LOCALIZATION_TF_SOURCE_FRAME = "camera_init"
-GESTURE_OPTIONS = ["", "wave_hand", "shake_hand"]
+GESTURE_OPTIONS = ["", "wave_hand", "shake_hand", "grab_pull"]
 HEARTBEAT_TIMEOUT_SEC = max(0.5, float(os.environ.get("H1_2_WEB_HEARTBEAT_TIMEOUT_SEC", "2.0")))
-# Let the independent stop script deliver StopMove before this Web process
-# interrupts its own navigation process group.
-STOP_COMMAND_GRACE_SEC = 0.5
-
-
 def configure_ros_environment():
     os.environ["ROS_LOCALHOST_ONLY"] = "0"
     os.environ.setdefault("ROS_DOMAIN_ID", "0")
-    os.environ["RMW_IMPLEMENTATION"] = "rmw_cyclonedds_cpp"
+    rmw_implementation = os.environ.get("H1_2_RMW_IMPLEMENTATION", "rmw_cyclonedds_cpp").strip()
+    if rmw_implementation not in ("rmw_cyclonedds_cpp", "rmw_fastrtps_cpp"):
+        raise RuntimeError(f"Unsupported RMW implementation: {rmw_implementation}")
+    os.environ["RMW_IMPLEMENTATION"] = rmw_implementation
     os.environ.pop("ROS_HOSTNAME", None)
     os.environ.pop("ROS_IP", None)
-    workspace_root = find_workspace_root()
-    configured_dds = os.environ.get("H1_2_DDS_CONFIG", "").strip()
-    dds_config = Path(configured_dds).expanduser() if configured_dds else workspace_root / "config" / "cyclonedds_auto.xml"
-    if not dds_config.is_file():
-        raise RuntimeError(f"Cyclone DDS config does not exist: {dds_config}")
-    os.environ["CYCLONEDDS_URI"] = f"file://{dds_config}"
+    if rmw_implementation == "rmw_cyclonedds_cpp":
+        workspace_root = find_workspace_root()
+        configured_dds = os.environ.get("H1_2_DDS_CONFIG", "").strip()
+        dds_config = Path(configured_dds).expanduser() if configured_dds else workspace_root / "config" / "cyclonedds_auto.xml"
+        if not dds_config.is_file():
+            raise RuntimeError(f"Cyclone DDS config does not exist: {dds_config}")
+        os.environ["CYCLONEDDS_URI"] = f"file://{dds_config}"
+    else:
+        os.environ.pop("CYCLONEDDS_URI", None)
     os.environ.pop("FASTRTPS_DEFAULT_PROFILES_FILE", None)
 
 
@@ -330,7 +332,7 @@ class RosServiceBridge:
         if not rclpy.ok():
             configure_ros_environment()
             rclpy.init(args=None)
-        self.node = Node("h1_2_nav_web_gui")
+        self.node = Node(os.environ.get("H1_2_WEB_NODE_NAME", "h1_2_nav_web_gui"))
         self.cv_bridge = CvBridge()
         self.camera_frames = CameraFrameStore()
         self.camera_subscriptions = []
@@ -356,6 +358,7 @@ class RosServiceBridge:
         self.teaching_record_stop_save_client = self.node.create_client(Trigger, "stop_and_save_teaching_path")
         self.gesture_client = self.node.create_client(ExecuteGesture, "/h1_2_loco/execute_gesture")
         self.save_point_client = self.node.create_client(SaveMemoryPoint, "save_memory_point")
+        self.policy_service_lock = threading.Lock()
         self.localization_sub = self.node.create_subscription(
             LocalizationStatus,
             "/icp_localization/status",
@@ -370,8 +373,8 @@ class RosServiceBridge:
         if rclpy.ok():
             rclpy.shutdown()
 
-    def route_start(self):
-        localization = self.localization_status()
+    def route_start(self, online_camera_init=False):
+        localization = self.localization_status(online_camera_init=online_camera_init)
         if not localization["ready"]:
             return {"success": False, "message": localization["message"]}
         return self._call_simple("start_memory_route", self.start_client, StartRoute.Request())
@@ -387,6 +390,107 @@ class RosServiceBridge:
 
     def route_status(self):
         return self._route_status("memory_route_status", self.status_client)
+
+    def policy_route_status(self):
+        return self._call_policy_service("route_status")
+
+    def policy_route_start(self):
+        return self._call_policy_service("route_start")
+
+    def policy_route_stop(self):
+        return self._call_policy_service("route_stop")
+
+    def policy_localization_status(self, online_camera_init=False):
+        return self._call_policy_service("localization", {"online_camera_init": bool(online_camera_init)})
+
+    def policy_save_memory_point(self, name, overwrite=False):
+        return self._call_policy_service(
+            "save_memory_point", {"name": str(name).strip(), "overwrite": bool(overwrite)}
+        )
+
+    def policy_control_status(self):
+        result = self._call_policy_service("policy_status")
+        if not result.get("success"):
+            return {"available": False, "ready": False, "message": result.get("message", "ONNX Policy bridge 状态服务不可用")}
+        fields = {}
+        for token in result.get("message", "").split():
+            if "=" in token:
+                key, value = token.split("=", 1)
+                fields[key] = value
+        control_ready = (
+            fields.get("authorized") == "true"
+            and fields.get("mode") == "ArmHold"
+            and fields.get("publisher_present") == "true"
+            and fields.get("state") == "valid"
+            and fields.get("navigation_enabled") == "true"
+        )
+        ready = control_ready and fields.get("navigation_ready") == "true"
+        if ready:
+            message = "ONNX 已授权，ArmHold 与导航输入就绪"
+        elif control_ready:
+            message = "ONNX 运动控制已进入 ArmHold；等待导航栈输入"
+        elif fields.get("authorized") != "true":
+            message = "ONNX 输出尚未授权"
+        elif fields.get("mode") != "ArmHold":
+            message = f"ONNX 当前模式为 {fields.get('mode', '未知')}，需要 ArmHold"
+        elif fields.get("state") != "valid":
+            message = "Policy LowState 无效"
+        elif fields.get("navigation_ready") != "true":
+            message = "ONNX 导航输入尚未就绪"
+        else:
+            message = "ONNX 硬件输出未就绪"
+        return {
+            "available": True,
+            "control_ready": control_ready,
+            "ready": ready,
+            "mode": fields.get("mode"),
+            "profile": fields.get("profile"),
+            "authorized": fields.get("authorized") == "true",
+            "output_enabled": None if "output_enabled" not in fields else fields["output_enabled"] == "true",
+            "debug_confirmed": None if "operator_confirmed_debug_mode" not in fields else fields["operator_confirmed_debug_mode"] == "true",
+            "exclusive_confirmed": None if "operator_confirmed_exclusive_control" not in fields else fields["operator_confirmed_exclusive_control"] == "true",
+            "publisher_present": fields.get("publisher_present") == "true",
+            "state_valid": fields.get("state") == "valid",
+            "navigation_enabled": fields.get("navigation_enabled") == "true",
+            "continuous_navigation": fields.get("continuous_navigation") == "true",
+            "remote_velocity_enabled": fields.get("remote_velocity_enabled") == "true",
+            "remote_source": fields.get("remote_source", "zero"),
+            "remote_active": fields.get("remote_active") == "true",
+            "navigation_ready": fields.get("navigation_ready") == "true",
+            "output_transition": fields.get("output_transition"),
+            "joint_command_mode": fields.get("joint_command_mode"),
+            "message": message,
+        }
+
+    def policy_control_command(self, step):
+        if step not in ("authorize_output", "fix_stand", "arm_hold_stand", "arm_hold"):
+            return {"success": False, "message": "未知的 Policy 准备步骤。"}
+        return self._call_policy_service(step)
+
+    def _call_policy_service(self, operation, payload=None):
+        env = os.environ.copy()
+        env["RMW_IMPLEMENTATION"] = "rmw_fastrtps_cpp"
+        env["ROS_DOMAIN_ID"] = env.get("ROS_DOMAIN_ID", "0")
+        env["ROS_LOCALHOST_ONLY"] = "0"
+        env.pop("CYCLONEDDS_URI", None)
+        env.pop("FASTRTPS_DEFAULT_PROFILES_FILE", None)
+        command = [sys.executable, "-m", "h1_2_nav_tools.policy_web_client"]
+        request = {"operation": operation}
+        request.update(payload or {})
+        with self.policy_service_lock:
+            try:
+                completed = subprocess.run(
+                    command, env=env, input=json.dumps(request), capture_output=True,
+                    text=True, timeout=12.0, check=False
+                )
+            except (OSError, subprocess.TimeoutExpired) as exc:
+                return {"success": False, "message": f"Fast DDS Policy 服务调用失败：{exc}"}
+        try:
+            response = json.loads(completed.stdout.strip().splitlines()[-1])
+        except (IndexError, json.JSONDecodeError):
+            detail = completed.stderr.strip() or completed.stdout.strip() or f"exit={completed.returncode}"
+            return {"success": False, "message": f"Fast DDS Policy 服务无有效响应：{detail}"}
+        return response
 
     def teaching_route_start(self):
         localization = self.localization_status()
@@ -585,7 +689,37 @@ class RosServiceBridge:
                 self.localization_stable_samples + 1 if stable else 0
             )
 
-    def localization_status(self):
+    def localization_status(self, online_camera_init=False):
+        if online_camera_init:
+            try:
+                transform = self.tf_buffer.lookup_transform(
+                    "camera_init", "body", rclpy.time.Time(), timeout=Duration(seconds=0.1)
+                )
+                stamp = rclpy.time.Time.from_msg(transform.header.stamp)
+                age = max(0.0, (self.node.get_clock().now() - stamp).nanoseconds / 1e9)
+                ready = stamp.nanoseconds > 0 and age <= 0.5
+                return {
+                    "ready": ready,
+                    "frame_id": "camera_init",
+                    "age_sec": round(age, 3),
+                    "stable_samples": 0,
+                    "required_stable_samples": 0,
+                    "score": None,
+                    "message": (
+                        f"在线位姿可用（camera_init→body，{age:.2f}s）"
+                        if ready else f"在线位姿已过期：camera_init→body，{age:.2f}s"
+                    ),
+                }
+            except Exception as exc:
+                return {
+                    "ready": False,
+                    "frame_id": "camera_init",
+                    "age_sec": None,
+                    "stable_samples": 0,
+                    "required_stable_samples": 0,
+                    "score": None,
+                    "message": f"等待在线位姿 camera_init→body：{exc}",
+                }
         with self.localization_lock:
             message = self.latest_localization_status
             stable_samples = self.localization_stable_samples
@@ -811,6 +945,11 @@ class ProcessManager:
         self.workspace_root = workspace_root
         self.logs = logs
         self.nav_process = None
+        self.policy_start_process = None
+        self.motion_backend = "unitree"
+        self.run_mode = "online"
+        self.policy_debug_confirmed = False
+        self.policy_exclusive_confirmed = False
         self.rviz_process = None
         self.voice_process = None
         self.voice_bridge_process = None
@@ -821,8 +960,18 @@ class ProcessManager:
         self._closed = False
 
     def status(self):
+        navigation = self._process_state(self.nav_process)
+        external = self._external_navigation()
+        if not navigation["running"] and external:
+            navigation.update({"running": True, "external": True,
+                               "motion_backend": external["motion_backend"],
+                               "run_mode": external["run_mode"]})
+        elif navigation["running"]:
+            navigation.update({"external": False, "motion_backend": self.motion_backend,
+                               "run_mode": self.run_mode})
         return {
-            "navigation": self._process_state(self.nav_process),
+            "navigation": navigation,
+            "policy_bridge": self._policy_bridge_state(),
             "rviz": self._process_state(self.rviz_process),
             "voice": self._process_state(self.voice_process),
             "voice_bridge": self._process_state(self.voice_bridge_process),
@@ -831,8 +980,72 @@ class ProcessManager:
             "teaching_record": self._process_state(self.teaching_record_process),
         }
 
+    @staticmethod
+    def _policy_bridge_state():
+        pid_file = Path("/tmp/h1_2_policy_bridge.pid")
+        try:
+            pid = int(pid_file.read_text(encoding="ascii").strip())
+            if pid <= 1 or os.getsid(pid) != pid or os.getpgid(pid) != pid:
+                return {"running": False, "external": False}
+            command = Path(f"/proc/{pid}/cmdline").read_bytes().replace(bytes((0,)), b" ").decode(errors="replace")
+            if "policy_bridge.launch.py" not in command:
+                return {"running": False, "external": False}
+            return {"running": True, "external": True, "pid": pid}
+        except (OSError, ValueError, ProcessLookupError):
+            return {"running": False, "external": False}
+
+    def start_policy_bridge(self, payload):
+        with self.lock:
+            if self._is_running(self.policy_start_process):
+                return {"success": False, "message": "ONNX 控制桥正在启动，请等待状态更新。"}
+            if self._policy_bridge_state()["running"]:
+                return {"success": True, "message": "ONNX 控制桥已运行；可继续检查状态并完成准备。"}
+            navigation = self.status()["navigation"]
+            if navigation["running"]:
+                return {"success": False, "message": "当前导航栈已运行；请先确认后端，不能在其上另起 Policy bridge。"}
+            script = self.workspace_root / "run_ai_slam_nav.sh"
+            if not script.is_file():
+                return {"success": False, "message": f"missing script: {script}"}
+            args = [str(script), "mode=policy_bridge_only", "motion_backend=policy"]
+            args.extend((
+                f"confirm_debug_mode={str(payload.get('confirm_debug_mode') is True).lower()}",
+                f"confirm_exclusive_control={str(payload.get('confirm_exclusive_control') is True).lower()}",
+                f"enable_remote_velocity={str(payload.get('enable_remote_velocity') is True).lower()}",
+            ))
+            self.motion_backend = "policy"
+            self.run_mode = str(payload.get("run_mode", "online"))
+            self.policy_debug_confirmed = payload.get("confirm_debug_mode") is True
+            self.policy_exclusive_confirmed = payload.get("confirm_exclusive_control") is True
+            self.policy_start_process = self._start("policy-bridge-start", args)
+            return {"success": True, "message": "ONNX 控制桥启动请求已接受；导航栈与路线尚未启动。"}
+
+    def _external_navigation(self):
+        try:
+            pid_file = Path("/tmp/h1_2_ai_slam_nav.pid")
+            backend_file = Path("/tmp/h1_2_ai_slam_nav.backend")
+            pid = int(pid_file.read_text().strip())
+            backend_pid, backend = backend_file.read_text().split()[:2]
+            if int(backend_pid) != pid or backend not in ("unitree", "policy"):
+                return None
+            if os.getsid(pid) != pid or os.getpgid(pid) != pid:
+                return None
+            command = Path(f"/proc/{pid}/cmdline").read_bytes().replace(bytes((0,)), b" ").decode(errors="replace")
+            if "ros2 launch h1_2_slam_bringup" not in command:
+                return None
+            if "h1_2_nav2_camera_init_navigation.launch.py" in command:
+                run_mode = "online"
+            elif "h1_2_nav2_navigation.launch.py" in command:
+                run_mode = "navigation"
+            else:
+                return None
+            return {"motion_backend": backend, "run_mode": run_mode}
+        except (OSError, ValueError, ProcessLookupError):
+            return None
+
     def start_navigation(self, args):
         with self.lock:
+            if self._external_navigation():
+                return {"success": False, "message": "导航已由其他终端启动，请先接管或停止当前实例。"}
             script = self.workspace_root / "run_ai_slam_nav.sh"
             if not script.is_file():
                 return {"success": False, "message": f"missing script: {script}"}
@@ -842,39 +1055,78 @@ class ProcessManager:
                 return {"success": True, "message": f"{label} process started"}
             if self._is_running(self.nav_process):
                 return {"success": False, "message": "navigation is already running"}
+            self.motion_backend = next(
+                (arg.split("=", 1)[1] for arg in args if arg.startswith("motion_backend=")),
+                "unitree",
+            )
+            self.policy_debug_confirmed = "confirm_debug_mode=true" in args
+            self.policy_exclusive_confirmed = "confirm_exclusive_control=true" in args
+            self.run_mode = next(
+                (arg.split("=", 1)[1] for arg in args if arg.startswith("mode=")),
+                "online",
+            )
+            if self.motion_backend == "policy" and not self._policy_bridge_state()["running"]:
+                return {"success": False, "message": "ONNX 控制桥未运行；请先完成 ONNX ArmHold 准备。"}
             self.nav_process = self._start("nav", [str(script), *args])
             return {"success": True, "message": "navigation process started"}
 
     def stop_all(self, payload=None):
-        script = self.workspace_root / "stop_ai_slam_nav.sh"
-        if not script.is_file():
-            return {"success": False, "message": f"missing script: {script}"}
-        self._start("stop", [str(script)])
-        time.sleep(STOP_COMMAND_GRACE_SEC)
-        if self._is_running(self.nav_process):
-            self._terminate_process(self.nav_process)
+        try:
+            with self.lock:
+                result = self._stop_navigation_stack()
+        except OSError as exc:
+            self.logs.add("web", f"failed to run navigation stop script: {exc}")
+            return {"success": False, "message": f"无法执行导航停止脚本：{exc}"}
+        if not result["success"]:
+            return result
         self.stop_voice_control(payload or {})
         self.stop_teaching_record_runner()
         self.stop_teaching_route_runner()
-        return {"success": True, "message": "stop script started"}
+        return result
+
+    def _stop_navigation_stack(self):
+        script = self.workspace_root / "stop_ai_slam_nav.sh"
+        if not script.is_file():
+            return {"success": False, "message": f"missing script: {script}"}
+
+        navigation = self.status()["navigation"]
+        backend = navigation.get("motion_backend", self.motion_backend)
+        stop_env = {"RMW_IMPLEMENTATION": "rmw_fastrtps_cpp"} if backend == "policy" else None
+        stop_process = self._start("stop", [str(script)], env=stop_env)
+        try:
+            stop_process.wait(timeout=25.0)
+        except subprocess.TimeoutExpired:
+            return {"success": False, "message": "导航停止确认超时；请查看日志，确认 SLAM/Nav2 状态。"}
+        if stop_process.returncode != 0:
+            return {"success": False, "message": "停止脚本未确认导航进程全部退出；请查看停止日志。"}
+
+        if self._is_running(self.nav_process):
+            try:
+                self.nav_process.wait(timeout=2.0)
+            except subprocess.TimeoutExpired:
+                self._terminate_process(self.nav_process)
+                try:
+                    self.nav_process.wait(timeout=2.0)
+                except subprocess.TimeoutExpired:
+                    return {"success": False, "message": "导航启动器进程仍未退出。"}
+        if self._external_navigation() is not None:
+            return {"success": False, "message": "导航 PID 标记仍有效；停止未完成。"}
+
+        message = (
+            "导航已停止；Policy bridge 保持 ArmHold，直到现场支撑并单独撤权。"
+            if backend == "policy"
+            else "SLAM/Nav2 已停止。"
+        )
+        return {"success": True, "message": message}
 
     def stop_navigation(self, reason="requested"):
         with self.lock:
             self.logs.add("web", f"stopping navigation: {reason}")
-            script = self.workspace_root / "stop_ai_slam_nav.sh"
-            stopped = False
-            navigation_running = self._is_running(self.nav_process)
-            if navigation_running and script.is_file():
-                try:
-                    self._start("stop", [str(script)])
-                    time.sleep(STOP_COMMAND_GRACE_SEC)
-                    stopped = True
-                except OSError as exc:
-                    self.logs.add("web", f"failed to run navigation stop script: {exc}")
-            if navigation_running:
-                self._terminate_process(self.nav_process)
-                stopped = True
-            return {"success": stopped, "message": "navigation stop requested" if stopped else "navigation is not running"}
+            try:
+                return self._stop_navigation_stack()
+            except OSError as exc:
+                self.logs.add("web", f"failed to run navigation stop script: {exc}")
+                return {"success": False, "message": f"无法执行导航停止脚本：{exc}"}
 
     def start_voice_control(self, payload=None):
         with self.lock:
@@ -1084,18 +1336,13 @@ class ProcessManager:
             if self._closed:
                 return
             self._closed = True
-            nav_running = self._is_running(self.nav_process)
-            if nav_running:
-                script = self.workspace_root / "stop_ai_slam_nav.sh"
-                if script.is_file():
-                    try:
-                        self._start("stop", [str(script)])
-                        time.sleep(STOP_COMMAND_GRACE_SEC)
-                    except OSError as exc:
-                        self.logs.add("web", f"failed to run navigation stop script: {exc}")
-            if nav_running:
-                self.logs.add("navigation", "terminating on server shutdown")
-                self._terminate_process(self.nav_process)
+            if self.status()["navigation"]["running"]:
+                try:
+                    result = self._stop_navigation_stack()
+                except OSError as exc:
+                    result = {"success": False, "message": f"无法执行导航停止脚本：{exc}"}
+                if not result["success"]:
+                    self.logs.add("web", result["message"])
             for label, process in [
                 ("rviz", self.rviz_process),
                 ("voice-reader", self.voice_process),
@@ -1133,7 +1380,7 @@ class ProcessManager:
                 except (ProcessLookupError, PermissionError):
                     process.kill()
 
-    def _start(self, label, command):
+    def _start(self, label, command, env=None):
         self.logs.add(label, "$ " + " ".join(command))
         process = subprocess.Popen(
             command,
@@ -1143,6 +1390,7 @@ class ProcessManager:
             text=True,
             bufsize=1,
             start_new_session=True,
+            env={**os.environ, **env} if env else None,
         )
         threading.Thread(target=self._read_stream, args=(label, "stdout", process.stdout), daemon=True).start()
         threading.Thread(target=self._read_stream, args=(label, "stderr", process.stderr), daemon=True).start()
@@ -1227,6 +1475,9 @@ class WebGuiApp:
                 continue
             if not self.processes.status()["navigation"]["running"]:
                 continue
+            with self.heartbeat_lock:
+                if self.last_heartbeat is None:
+                    continue
             age = self._heartbeat_age()
             if age <= timeout_sec:
                 continue
@@ -1243,6 +1494,10 @@ class WebGuiApp:
             "map": str(self.workspace_root / "maps" / "h1_2_lab.yaml"),
             "pcd": str(self.workspace_root / "maps" / "h1_2_lab.pcd"),
             "run_mode": "online",
+            "motion_backend": "unitree",
+            "confirm_debug_mode": False,
+            "confirm_exclusive_control": False,
+            "enable_remote_velocity": True,
             "rviz_mode": "auto",
             "rviz_embed_url": "http://127.0.0.1:6080/vnc.html?autoconnect=1&resize=remote",
             "rviz_embed_enabled": True,
@@ -1302,6 +1557,7 @@ class WebGuiApp:
             config.update(saved)
         except (OSError, json.JSONDecodeError):
             pass
+        config["heartbeat_ws_port"] = getattr(self, "heartbeat_ws_port", 0)
         config["memory_route"] = normalize_memory_route(
             config.get("memory_route", "A,B,C")
         )
@@ -1311,6 +1567,7 @@ class WebGuiApp:
             )
         config["camera_preview_enabled"] = False
         config["workflow_version"] = CONFIG_WORKFLOW_VERSION
+        config["enable_remote_velocity"] = bool(config.get("enable_remote_velocity", True))
         config["rviz_embed_url"] = str(config.get("rviz_embed_url", "")).strip()
         config["rviz_embed_enabled"] = bool(config.get("rviz_embed_enabled", True))
         config["camera_preview_enabled"] = False
@@ -1357,6 +1614,7 @@ class WebGuiApp:
         config["rviz_embed_url"] = str(config.get("rviz_embed_url", "")).strip()
         config["rviz_embed_enabled"] = bool(config.get("rviz_embed_enabled", True))
         config["workflow_version"] = CONFIG_WORKFLOW_VERSION
+        config["enable_remote_velocity"] = bool(config.get("enable_remote_velocity", True))
         if "voice_remote_host" in config:
             config["voice_remote_host"] = normalize_ssh_target(config["voice_remote_host"])
         if "voice_workspace" in config:
@@ -1387,23 +1645,253 @@ class WebGuiApp:
             ok, message = self.validate_navigation(payload)
             if not ok:
                 return {"success": False, "message": message}
+            if payload.get("motion_backend", "unitree") == "policy":
+                if not self.processes.status()["policy_bridge"].get("running"):
+                    return {"success": False, "message": "请先启动 ONNX 控制并完成 ArmHold 准备。"}
+                policy = self.ros.policy_control_status()
+                if not policy.get("available") or not policy.get("control_ready"):
+                    return {"success": False, "message": policy.get("message", "ONNX 尚未进入 ArmHold。")}
+                if self.processes.status()["navigation"].get("running"):
+                    route = self.ros.policy_route_status()
+                    if not route.get("success") or route.get("state") != "idle":
+                        return {"success": False, "message": "Policy 路线状态未知或非 idle；未启动导航栈。"}
+                payload = dict(payload)
+                payload["auto_start_route"] = False
             result = self.processes.start_navigation(self.navigation_args(payload))
             if result.get("success") and payload.get("run_mode") in ("online", "navigation"):
                 self.heartbeat_expired = False
-                self.loaded_task = task_execution_snapshot(payload) if payload.get("run_mode") == "navigation" else None
+                self.loaded_task = task_execution_snapshot(payload)
                 if payload.get("run_mode") not in ("save_map", "save_pcd_map"):
                     self.save_config(payload)
+            return result
+
+    def start_policy_control(self, payload):
+        with self.task_lock:
+            if self._heartbeat_age() > self.heartbeat_timeout_sec:
+                return {"success": False, "message": "浏览器心跳未连接或已超时；ONNX 控制桥未启动。"}
+            if not all(payload.get(key) is True for key in (
+                "confirm_debug_mode", "confirm_exclusive_control",
+                "confirm_lowcmd_handoff", "confirm_robot_supported",
+            )):
+                return {"success": False, "message": "请先完成页面上的现场准入确认。"}
+            if payload.get("motion_backend") != "policy":
+                return {"success": False, "message": "ONNX 控制桥启动请求后端不匹配。"}
+            result = self.processes.start_policy_bridge(payload)
+            if result.get("success"):
+                self.heartbeat_expired = False
             return result
 
     def start_selected_task(self, payload):
         with self.task_lock:
             selected = task_execution_snapshot(payload)
-            if self.loaded_task is None or not self.processes.status()["navigation"]["running"]:
+            process_status = self.processes.status()
+            navigation = process_status["navigation"]
+            if self.loaded_task is None and navigation.get("external"):
+                if (payload.get("run_mode") != navigation.get("run_mode") or
+                        payload.get("motion_backend", "unitree") != navigation.get("motion_backend")):
+                    return {"success": False, "message": "网页所选模式与当前终端启动的导航后端不一致。"}
+                if navigation.get("motion_backend") == "policy":
+                    if not (payload.get("confirm_debug_mode") is True and payload.get("confirm_exclusive_control") is True):
+                        return {"success": False, "message": "请重新确认 Debug 模式和独占控制。"}
+                    if selected["gesture_route"] or selected["turn_route"]:
+                        return {"success": False, "message": "Policy 导航当前不支持路线手势或到点转身，请先清空路线动作。"}
+                self.loaded_task = selected
+            if self.loaded_task is None or not navigation["running"]:
                 return {"success": False, "message": "请先启动导航，载入当前任务。"}
             keys = ("id", "memory_route", "gesture_route", "turn_route")
             if any(selected[key] != self.loaded_task[key] for key in keys):
                 return {"success": False, "message": "当前任务或编排与已加载的任务不同。请停止全部后重新启动导航，载入所选任务。"}
-            return self.ros.route_start()
+            if navigation.get("motion_backend") == "policy":
+                policy = self.ros.policy_control_status()
+                if not policy["ready"]:
+                    return {"success": False, "message": policy["message"]}
+                route_status = self.ros.policy_route_status()
+                if not route_status.get("success") or route_status.get("state") != "idle":
+                    return {"success": False, "message": "Policy 路线服务不可用或当前路线未处于 idle。"}
+            online_camera_init = navigation.get("run_mode") == "online"
+            expected_frame = "camera_init" if online_camera_init else "map"
+            points_file = self._task_points_file(self.workspace_root, selected)
+            try:
+                point_data = json.loads(points_file.read_text(encoding="utf-8"))
+            except (OSError, ValueError) as exc:
+                return {"success": False, "message": f"无法读取任务点位：{exc}"}
+            point_frame = str(point_data.get("frame_id", "map"))
+            if point_frame != expected_frame:
+                return {
+                    "success": False,
+                    "message": (
+                        f"当前导航使用 {expected_frame} 坐标系，任务点位文件是 {point_frame}。"
+                        "请在当前导航模式下重新记录点位，或选择对应坐标系的任务。"
+                    ),
+                }
+            if navigation.get("motion_backend") == "policy":
+                localization = self.ros.policy_localization_status(online_camera_init=online_camera_init)
+                if not localization.get("ready"):
+                    return {"success": False, "message": localization.get("message", "Policy 定位未就绪。")}
+                return self.ros.policy_route_start()
+            return self.ros.route_start(online_camera_init=online_camera_init)
+
+    def policy_control_step(self, payload):
+        with self.task_lock:
+            return self._policy_control_step_locked(payload)
+
+    def cancel_policy_startup(self):
+        with self.task_lock:
+            if getattr(self, "heartbeat_expired", False) or self._heartbeat_age() > self.heartbeat_timeout_sec:
+                return {"success": False, "message": "网页心跳未就绪；未停止任何进程。"}
+            processes = self.processes.status()
+            navigation = processes["navigation"]
+            bridge = processes["policy_bridge"]
+            if not bridge.get("running"):
+                return {"success": False, "message": "当前没有运行中的 ONNX 控制桥。"}
+            if navigation.get("running") and navigation.get("motion_backend") != "policy":
+                return {"success": False, "message": "当前运行的是其他导航后端；未停止任何进程。"}
+            policy = self.ros.policy_control_status()
+            if not policy.get("available"):
+                return {"success": False, "message": "Policy 状态未知；先重试状态查询，未停止任何进程。"}
+            if navigation.get("running"):
+                route = self.ros.policy_route_status()
+                if not route.get("success") or route.get("state") != "idle":
+                    return {"success": False, "message": "路线状态未知或非 idle；未停止任何进程。"}
+            if (policy.get("mode") != "Passive" or policy.get("authorized") is not False
+                    or policy.get("publisher_present") is not False
+                    or policy.get("output_transition") != "none" or not policy.get("state_valid")):
+                return {"success": False, "message": "Policy 不是已验证的未授权 Passive 状态；未停止任何进程。"}
+
+            nav_pid, nav_error = (None, None)
+            if navigation.get("running"):
+                nav_pid, nav_error = self._verified_launch_group(
+                    Path("/tmp/h1_2_ai_slam_nav.pid"), "h1_2_ai_slam_nav.backend", "ros2 launch h1_2_slam_bringup"
+                )
+            bridge_pid, bridge_error = self._verified_launch_group(
+                Path("/tmp/h1_2_policy_bridge.pid"), None, "policy_bridge.launch.py"
+            )
+            if nav_error or bridge_error:
+                return {"success": False, "message": nav_error or bridge_error}
+
+            if nav_pid is not None and not self._interrupt_launch_group(nav_pid, timeout_sec=8.0):
+                return {"success": False, "message": "Nav2 启动进程未在 8 秒内退出；Policy 未停止，请现场检查。"}
+            if navigation.get("running") and self.processes._is_running(self.processes.nav_process):
+                self.processes.nav_process.kill()
+                try:
+                    self.processes.nav_process.wait(timeout=2.0)
+                except subprocess.TimeoutExpired:
+                    return {"success": False, "message": "Nav2 已停止，但网页启动包装进程未退出；Policy 未停止。"}
+            if not self._interrupt_launch_group(bridge_pid, timeout_sec=5.0):
+                return {"success": False, "message": "Nav2 已停止，但 Policy bridge 未在 5 秒内退出；请现场检查。"}
+            if nav_pid is not None:
+                self._remove_matching_marker(Path("/tmp/h1_2_ai_slam_nav.pid"), str(nav_pid))
+                self._remove_matching_backend_marker(nav_pid)
+            self._remove_matching_marker(Path("/tmp/h1_2_policy_bridge.pid"), str(bridge_pid))
+            self.logs.add("web", "cancelled un-authorized Policy startup while bridge Passive and route idle")
+            message = "未授权的 ONNX 控制桥和导航栈已停止。" if navigation.get("running") else "未授权的 ONNX 控制桥已停止；导航栈未启动。"
+            return {"success": True, "message": message}
+
+    @staticmethod
+    def _verified_launch_group(pid_path, backend_name, command_fragment):
+        try:
+            pid_text = pid_path.read_text(encoding="ascii").strip().split()[0]
+            pid = int(pid_text)
+            if pid <= 1 or (backend_name and pid_path.with_name(backend_name).read_text().split()[1] != "policy"):
+                return None, "启动标记与 Policy 后端不匹配；未停止任何进程。"
+            result = subprocess.run(
+                ["ps", "-o", "sid=", "-o", "pgid=", "-o", "args=", "-p", str(pid)],
+                check=False, capture_output=True, text=True, timeout=1.0,
+            )
+            fields = result.stdout.strip().split(maxsplit=2)
+            if result.returncode != 0 or len(fields) != 3:
+                return None, "找不到启动标记对应的进程；未停止任何进程。"
+            sid, pgid, command = fields
+            if sid != str(pid) or pgid != str(pid) or command_fragment not in command:
+                return None, "启动进程组身份无法验证；未停止任何进程。"
+            return pid, None
+        except (OSError, ValueError, IndexError, subprocess.TimeoutExpired):
+            return None, "缺少有效的启动进程标记；未停止任何进程。"
+
+    @staticmethod
+    def _interrupt_launch_group(pid, timeout_sec):
+        try:
+            os.killpg(pid, signal.SIGINT)
+        except ProcessLookupError:
+            return True
+        deadline = time.monotonic() + timeout_sec
+        while time.monotonic() < deadline:
+            try:
+                os.killpg(pid, 0)
+            except ProcessLookupError:
+                return True
+            time.sleep(0.1)
+        return False
+
+    @staticmethod
+    def _remove_matching_marker(path, expected):
+        try:
+            if path.read_text(encoding="ascii").strip().split()[0] == expected:
+                path.unlink()
+        except (OSError, IndexError):
+            pass
+
+    @staticmethod
+    def _remove_matching_backend_marker(pid):
+        path = Path("/tmp/h1_2_ai_slam_nav.backend")
+        try:
+            if int(path.read_text(encoding="ascii").split()[0]) == pid:
+                path.unlink()
+        except (OSError, ValueError, IndexError):
+            pass
+
+    def _policy_control_step_locked(self, payload):
+        timeout_sec = getattr(self, "heartbeat_timeout_sec", HEARTBEAT_TIMEOUT_SEC)
+        if getattr(self, "heartbeat_expired", False):
+            return {"success": False, "message": "网页心跳曾超时；请显式重启导航实例后再做 Policy 准备。"}
+        if self._heartbeat_age() > timeout_sec:
+            return {"success": False, "message": "浏览器心跳未连接或已超时；Policy 控制请求未发送。"}
+        if not all(payload.get(key) is True for key in (
+            "confirm_debug_mode", "confirm_exclusive_control",
+            "confirm_lowcmd_handoff", "confirm_robot_supported",
+        )):
+            return {"success": False, "message": "请先完成页面上的现场准入确认。"}
+
+        navigation = self.processes.status()["navigation"]
+        if not self.processes.status()["policy_bridge"].get("running"):
+            return {"success": False, "message": "当前没有运行中的 ONNX Policy 控制桥。"}
+        if navigation.get("running") and navigation.get("motion_backend") != "policy":
+            return {"success": False, "message": "当前导航后端不是 ONNX Policy。"}
+        if navigation.get("running"):
+            route_status = self.ros.policy_route_status()
+            if not route_status.get("success") or route_status.get("state") != "idle":
+                return {"success": False, "message": "路线服务不可用或路线正在运行；先停止路线并确认 idle。"}
+
+        step = str(payload.get("step", ""))
+        expected = {
+            "authorize_output": ("Passive", False, False),
+            "fix_stand": ("Passive", True, True),
+            "arm_hold_stand": ("FixStand", True, True),
+            "arm_hold": ("ArmHoldStand", True, True),
+        }
+        if step not in expected:
+            return {"success": False, "message": "未知的 Policy 准备步骤。"}
+        status = self.ros.policy_control_status()
+        if not status.get("available"):
+            return {"success": False, "message": status.get("message", "Policy 状态不可用。")}
+        if (status.get("profile") != "hardware" or status.get("joint_command_mode") != "position_pd"
+                or status.get("output_enabled") is False or status.get("debug_confirmed") is False
+                or status.get("exclusive_confirmed") is False
+                or not status.get("navigation_enabled") or not status.get("continuous_navigation")):
+            return {"success": False, "message": "Policy bridge 配置不满足连续导航准备条件。"}
+        mode, authorized, publisher_present = expected[step]
+        if status.get("mode") != mode or status.get("authorized") is not authorized:
+            return {"success": False, "message": f"当前为 {status.get('mode')} / authorized={status.get('authorized')}，不能执行此步骤。"}
+        if status.get("publisher_present") is not publisher_present:
+            return {"success": False, "message": "Policy LowCmd publisher 状态与当前步骤不匹配。"}
+        if not status.get("state_valid") or status.get("output_transition") != "none":
+            return {"success": False, "message": "LowState 无效或输出转场尚未完成，请刷新状态后再操作。"}
+        if step == "arm_hold" and payload.get("confirm_upright") is not True:
+            return {"success": False, "message": "进入 ArmHold 前需现场确认站立姿态符合本次测试方案。"}
+
+        result = self.ros.policy_control_command(step)
+        self.logs.add("policy", f"web step={step} success={result.get('success', False)}")
+        return result
 
     def reconnect_camera(self, config):
         if self.pc4_profile:
@@ -1523,7 +2011,11 @@ class WebGuiApp:
         name = str(name or "").strip()
         if not name or any(c in name for c in ",:\n\r"):
             return {"success": False, "message": "点位名称无效。"}
-        result = self.ros.save_memory_point(name, overwrite)
+        navigation = self.processes.status()["navigation"]
+        if navigation.get("running") and navigation.get("motion_backend") == "policy":
+            result = self.ros.policy_save_memory_point(name, overwrite)
+        else:
+            result = self.ros.save_memory_point(name, overwrite)
         if not result.get("success"):
             return result
         config = self.default_config()
@@ -1535,10 +2027,20 @@ class WebGuiApp:
             configured = Path(str(profile.get("memory_points_file", ""))).expanduser() if str(profile.get("memory_points_file", "")).strip() else None
             source = target if target.exists() else configured if configured and configured.exists() else None
             data = json.loads(source.read_text(encoding="utf-8")) if source else {"frame_id": "map", "points": {}}
-            points = data.setdefault("points", {})
             pose = result.get("pose")
             if not pose:
                 return {"success": False, "message": "ROS 未返回当前位姿。"}
+            existing_frame = str(data.get("frame_id", "map"))
+            pose_frame = str(pose.get("frame_id", "map"))
+            if data.get("points") and existing_frame != pose_frame:
+                return {
+                    "success": False,
+                    "message": (
+                        f"任务已有点位使用 {existing_frame} 坐标系，当前位姿是 {pose_frame}。"
+                        "请新建任务后在当前导航模式重新记录点位。"
+                    ),
+                }
+            points = data.setdefault("points", {})
             record = points.get(name, {})
             record.update({"position": pose["position"], "orientation": pose["orientation"]})
             points[name] = record
@@ -1571,11 +2073,20 @@ class WebGuiApp:
     def validate_navigation(self, payload):
         normalize_task_profiles(payload)
         mode = str(payload.get("run_mode", "online"))
+        motion_backend = str(payload.get("motion_backend", "unitree"))
         map_path = Path(str(payload.get("map", ""))).expanduser()
         pcd_path = Path(str(payload.get("pcd", ""))).expanduser()
         memory_route = normalize_memory_route(payload.get("memory_route", ""))
         if mode not in ("online", "navigation", "save_map", "save_pcd_map"):
             return False, f"Unsupported mode: {mode}"
+        if motion_backend not in ("unitree", "policy"):
+            return False, "motion_backend must be unitree or policy."
+        if motion_backend == "policy" and mode not in ("online", "navigation"):
+            return False, "Policy backend is available only for online or offline navigation."
+        if motion_backend == "policy" and not (
+            payload.get("confirm_debug_mode") is True and payload.get("confirm_exclusive_control") is True
+        ):
+            return False, "Policy startup requires debug-mode and exclusive-control confirmations."
         if mode == "navigation" and not map_path.is_file():
             return False, f"Map file does not exist: {map_path}"
         if mode == "navigation" and not pcd_path.is_file():
@@ -1604,13 +2115,26 @@ class WebGuiApp:
         normalize_task_profiles(payload)
         mode = str(payload.get("run_mode", "online"))
         args = [f"mode={mode}"]
+        if mode in ("online", "navigation"):
+            backend = str(payload.get("motion_backend", "unitree"))
+            if backend not in ("unitree", "policy"):
+                raise ValueError("motion_backend must be unitree or policy")
+            args.append(f"motion_backend={backend}")
+            if backend == "policy":
+                args.extend((
+                    "confirm_debug_mode=" + str(payload.get("confirm_debug_mode") is True).lower(),
+                    "confirm_exclusive_control=" + str(payload.get("confirm_exclusive_control") is True).lower(),
+                    "enable_remote_velocity=" + str(payload.get("enable_remote_velocity") is True).lower(),
+                ))
         selected = next(item for item in payload["task_profiles"] if item["id"] == payload["selected_task_id"])
+        turn_route = "" if payload.get("motion_backend") == "policy" else payload.get("turn_route", "")
+        gesture_route = "" if payload.get("motion_backend") == "policy" else payload.get("gesture_route", "")
         task_args = [
             f"memory_route={normalize_memory_route(payload.get('memory_route', ''))}",
-            f"gesture_route={payload.get('gesture_route', '')}",
-            f"turn_route={payload.get('turn_route', '')}",
+            f"gesture_route={gesture_route}",
+            f"turn_route={turn_route}",
             f"memory_points_file={self._task_points_file(getattr(self, 'workspace_root', Path('.')), selected)}",
-            f"auto_start_route={str(bool(payload.get('auto_start_route', False))).lower()}",
+            f"auto_start_route={str(bool(payload.get('auto_start_route', False)) and payload.get('motion_backend') != 'policy').lower()}",
             f"return_to_start={str(bool(payload.get('return_to_start', False))).lower()}",
         ]
         def mode_params_path(value):
@@ -1667,15 +2191,32 @@ class RequestHandler(BaseHTTPRequestHandler):
             task_name = parse_qs(parsed.query).get("task_name", [""])[0]
             self._send_json({"points": self.app.memory_points_for_task(task_id, task_name), "gestures": GESTURE_OPTIONS})
         elif parsed.path == "/api/status":
-            route = self.app.ros.route_status()
+            processes = self.app.processes.status()
+            navigation = processes["navigation"]
+            online_camera_init = navigation.get("running") and navigation.get("run_mode") == "online"
+            policy_backend = (
+                navigation.get("running") and navigation.get("motion_backend") == "policy"
+            ) or processes["policy_bridge"].get("running")
+            policy_control = (
+                self.app.ros.policy_control_status()
+                if policy_backend
+                else {"available": False, "ready": False, "message": "未选择 ONNX Policy"}
+            )
+            route = self.app.ros.policy_route_status() if policy_backend else self.app.ros.route_status()
+            localization = (
+                self.app.ros.policy_localization_status(online_camera_init=navigation.get("run_mode") == "online")
+                if policy_backend and navigation.get("running")
+                else self.app.ros.localization_status(online_camera_init=online_camera_init)
+            )
             teaching_route = self.app.ros.teaching_route_status()
             self._send_json(
                 {
                     "route": route,
-                    "loaded_task": self.app.loaded_task if self.app.processes.status()["navigation"]["running"] else None,
+                    "loaded_task": self.app.loaded_task if navigation["running"] else None,
                     "teaching_route": teaching_route,
-                    "localization": self.app.ros.localization_status(),
-                    "processes": self.app.processes.status(),
+                    "localization": localization,
+                    "policy_control": policy_control,
+                    "processes": processes,
                     "camera": self.app.ros.camera_status(),
                     "vision": self.app.ros.vision_status(),
                     "runtime_profile": self.app.runtime_profile,
@@ -1754,10 +2295,21 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._send_json(self.app.save_task_point(payload.get("task_id", ""), payload.get("task_name", ""), payload.get("name", ""), payload.get("overwrite", False)))
         elif parsed.path == "/api/navigation/start":
             self._send_json(self.app.start_navigation_task(payload))
+        elif parsed.path == "/api/policy/start":
+            self._send_json(self.app.start_policy_control(payload))
+        elif parsed.path == "/api/policy/control":
+            self._send_json(self.app.policy_control_step(payload))
+        elif parsed.path == "/api/policy/cancel_startup":
+            self._send_json(self.app.cancel_policy_startup())
         elif parsed.path == "/api/navigation/stop_all":
+            navigation = self.app.processes.status()["navigation"]
             result = self.app.processes.stop_all(payload)
-            self.app.ros.route_stop()
-            self.app.ros.teaching_route_stop()
+            if result.get("success"):
+                if navigation.get("motion_backend") == "policy":
+                    self.app.ros.policy_route_stop()
+                else:
+                    self.app.ros.route_stop()
+                self.app.ros.teaching_route_stop()
             self._send_json(result)
         elif parsed.path == "/api/voice/start":
             self.app.save_config(payload)
@@ -1804,7 +2356,10 @@ class RequestHandler(BaseHTTPRequestHandler):
         elif parsed.path == "/api/route/start":
             self._send_json(self.app.start_selected_task(payload))
         elif parsed.path == "/api/route/stop":
-            self._send_json(self.app.ros.route_stop())
+            navigation = self.app.processes.status()["navigation"]
+            result = (self.app.ros.policy_route_stop() if navigation.get("motion_backend") == "policy"
+                      else self.app.ros.route_stop())
+            self._send_json(result)
         elif parsed.path == "/api/teaching_route/process/start":
             self.app.save_config(payload)
             self._send_json(self.app.processes.start_teaching_route_runner(payload))
@@ -1949,7 +2504,7 @@ INDEX_HTML = r"""<!doctype html>
     .app {
       height: 100vh;
       display: grid;
-      grid-template-rows: 108px minmax(0, 1fr) 290px;
+      grid-template-rows: 108px minmax(220px, 1fr) minmax(140px, 26vh);
     }
     header {
       min-height: 108px;
@@ -2274,9 +2829,56 @@ INDEX_HTML = r"""<!doctype html>
     .runtime-dot.ok { background: #ecfdf5; color: #166534; }
     .runtime-dot.warn { background: #fffbeb; color: #92400e; }
     .runtime-hidden { display: none; }
-    .left-rail, .center-stage, .right-rail { min-height: 0; overflow: auto; }
-    .left-rail > .panel, .center-stage > .panel { min-height: 100%; }
+    .left-rail, .center-stage {
+      height: 100%;
+      max-height: 100%;
+      min-height: 0;
+      overflow: hidden;
+    }
+    .right-rail {
+      height: 100%;
+      max-height: 100%;
+      min-height: 0;
+      overflow-x: hidden;
+      overflow-y: scroll;
+      overscroll-behavior-y: contain;
+      scrollbar-gutter: stable;
+      scrollbar-color: #8492a3 #e9edf2;
+      scrollbar-width: auto;
+    }
+    .left-rail { display: block; }
+    .left-rail > .panel { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+    .left-rail > .panel > .body { flex: 1 1 auto; min-height: 0; overflow-x: hidden; overflow-y: scroll; }
+    .center-stage > .panel { height: 100%; min-height: 0; }
     .center-stage { display: block; }
+    .right-rail { display: block; }
+    .right-rail > .panel + .panel { margin-top: 10px; }
+    .route-panel { display: flex; flex-direction: column; overflow: hidden; }
+    .route-panel .body { flex: 1 1 auto; min-height: 0; overflow-x: hidden; overflow-y: scroll; }
+    .right-rail::-webkit-scrollbar,
+    .left-rail > .panel > .body::-webkit-scrollbar, .route-panel .body::-webkit-scrollbar,
+    footer pre::-webkit-scrollbar, .policy-wizard-modal::-webkit-scrollbar {
+      width: 14px;
+      height: 14px;
+    }
+    .right-rail::-webkit-scrollbar-track,
+    .left-rail > .panel > .body::-webkit-scrollbar-track, .route-panel .body::-webkit-scrollbar-track,
+    footer pre::-webkit-scrollbar-track, .policy-wizard-modal::-webkit-scrollbar-track {
+      background: #e9edf2;
+    }
+    .right-rail::-webkit-scrollbar-thumb,
+    .left-rail > .panel > .body::-webkit-scrollbar-thumb, .route-panel .body::-webkit-scrollbar-thumb,
+    footer pre::-webkit-scrollbar-thumb, .policy-wizard-modal::-webkit-scrollbar-thumb {
+      min-height: 36px;
+      border: 3px solid #e9edf2;
+      border-radius: 8px;
+      background: #8492a3;
+    }
+    .right-rail::-webkit-scrollbar-thumb:hover, .left-rail > .panel > .body::-webkit-scrollbar-thumb:hover,
+    .route-panel .body::-webkit-scrollbar-thumb:hover,
+    footer pre::-webkit-scrollbar-thumb:hover, .policy-wizard-modal::-webkit-scrollbar-thumb:hover {
+      background: #596a7d;
+    }
     .center-controls .body { padding: 10px; }
     .control-grid {
       display: grid;
@@ -2292,14 +2894,29 @@ INDEX_HTML = r"""<!doctype html>
       color: #1d4ed8;
       font-weight: 800;
     }
+    .policy-step-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+    .policy-step-grid .btn { width: 100%; min-height: 36px; padding: 6px; }
+    .policy-checks { display: grid; gap: 7px; }
+    .policy-checks label { display: flex; align-items: flex-start; gap: 7px; line-height: 1.35; }
+    .policy-checks input { margin-top: 2px; flex: 0 0 auto; }
+    .policy-note { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.4; }
+    .policy-control-panel .body { display: grid; gap: 10px; }
+    .policy-summary { display: grid; gap: 0; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+    .policy-summary-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; min-height: 38px; padding: 7px 10px; border-bottom: 1px solid var(--line); }
+    .policy-summary-row:last-child { border-bottom: 0; }
+    .policy-summary-label { min-width: 0; font-size: 13px; font-weight: 650; }
+    .policy-summary-state { color: var(--muted); font-size: 12px; text-align: right; }
+    .policy-summary-row.active { background: #f0f7ff; }
+    .policy-summary-row.done .policy-summary-state { color: #16834a; }
+    .policy-control-panel .policy-start-button { width: 100%; min-height: 40px; }
+    .policy-wizard-section-title { margin: 2px 0 -2px; font-size: 13px; font-weight: 750; }
     .control-grid .btn:hover { background: #dbeafe; border-color: #93c5fd; }
     .control-grid .btn:disabled { background: #f3f7fd; border-color: #d7e3f4; color: #7890b4; }
     .setup-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
     .setup-grid > div { min-width: 0; }
     .left-rail .two { grid-template-columns: 1fr; }
-    .advanced-config { max-height: none; overflow: visible; }
-    .route-panel { min-height: 0; overflow: auto; }
-    .route-panel .body { min-height: 0; overflow: auto; }
+    .advanced-config { max-height: none; }
+    .route-panel { min-height: 0; }
     .route-intro, #task_count { display: none; }
     .task-toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
     .task-toolbar .route-intro { margin: 0; margin-right: auto; }
@@ -2309,9 +2926,31 @@ INDEX_HTML = r"""<!doctype html>
     #task_feedback:empty { display: none; }
     #task_feedback { color: #166534; font-size: 13px; overflow-wrap: anywhere; }
     #task_feedback.error { color: #b42318; }
-    .modal-backdrop { position: fixed; inset: 0; z-index: 20; display: none; place-items: center; padding: 20px; background: rgba(15, 23, 42, .28); }
+    .modal-backdrop { position: fixed; inset: 0; z-index: 20; display: none; place-items: center; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; padding: 12px; background: rgba(15, 23, 42, .28); }
     .modal-backdrop.open { display: grid; }
     .modal { width: min(420px, 100%); background: #fff; border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 18px 50px rgba(15,23,42,.18); padding: 20px; }
+    .policy-wizard-modal { width: calc(100vw - 24px); max-width: 520px; min-width: 0; max-height: calc(100dvh - 24px); overflow-x: hidden; overflow-y: auto; padding: 18px; }
+    .policy-wizard-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    .policy-wizard-head h3 { margin-bottom: 5px; }
+    .policy-wizard-subtitle, .policy-wizard-detail { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
+    .policy-wizard-status { padding: 10px 12px; border: 1px solid var(--line); border-left: 4px solid #d97706; background: #fffaf0; border-radius: 4px; line-height: 1.45; overflow-wrap: anywhere; }
+    .policy-wizard-status.ready { border-left-color: #16834a; background: #f0fdf4; }
+    .policy-wizard-preflight { display: grid; gap: 10px; min-width: 0; padding: 12px; background: #f8fafc; border: 1px solid var(--line); border-radius: 6px; }
+    .policy-wizard-preflight strong { margin-bottom: 1px; }
+    .policy-wizard-preflight label, #confirm_upright_label { display: grid; grid-template-columns: 18px minmax(0, 1fr); align-items: start; gap: 10px; min-width: 0; margin: 0; color: var(--text); font-size: 13px; font-weight: 600; line-height: 1.45; }
+    .policy-wizard-preflight label span, #confirm_upright_label span { min-width: 0; overflow-wrap: anywhere; }
+    .policy-wizard-preflight input[type="checkbox"], #confirm_upright_label input[type="checkbox"] { width: 18px; min-width: 18px; height: 18px; margin: 1px 0 0; padding: 0; flex: none; }
+    #confirm_upright_label { padding: 10px 12px; border: 1px solid var(--line); border-radius: 6px; background: #f8fafc; }
+    .policy-wizard-steps { display: grid; gap: 6px; }
+    .policy-wizard-step { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; align-items: center; gap: 9px; min-height: 42px; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+    .policy-wizard-step[aria-current="step"] { background: #f0f7ff; }
+    .policy-wizard-step.done .policy-step-state { color: #16834a; }
+    .policy-step-number { color: var(--muted); font-variant-numeric: tabular-nums; }
+    .policy-step-title { font-weight: 650; }
+    .policy-step-state { color: var(--muted); font-size: 12px; text-align: right; }
+    .policy-wizard-modal .modal-actions { position: sticky; bottom: -20px; padding: 12px 0 0; background: #fff; }
+    .policy-wizard-recovery { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+    .policy-wizard-recovery .btn { min-height: 34px; }
     .modal h3 { margin: 0 0 16px; font-size: 18px; }
     .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
     .route-table { overflow-x: auto; }
@@ -2351,12 +2990,24 @@ INDEX_HTML = r"""<!doctype html>
     #logs { background: #f8fafc; color: #334155; }
     #logs { user-select: text; }
     @media (max-width: 1220px) {
-      .app { height: auto; min-height: 100vh; grid-template-rows: auto auto 260px; }
+      .app { height: auto; min-height: 100vh; grid-template-rows: auto auto minmax(140px, 24vh); }
       main, footer, .setup-grid { grid-template-columns: 1fr; }
       header { height: auto; padding: 12px 14px; align-items: flex-start; flex-direction: column; }
       .actions { justify-content: flex-start; }
-      .left-rail, .center-stage, .right-rail { overflow: visible; }
+      .left-rail, .center-stage { height: auto; max-height: 70vh; min-height: 0; overflow: hidden; }
+      .right-rail { height: auto; max-height: 70vh; min-height: 0; overflow-x: hidden; overflow-y: scroll; }
+      .left-rail > .panel { height: 70vh; max-height: 70vh; min-height: 0; }
+      .left-rail > .panel > .body { min-height: 0; overflow-y: scroll; }
+      .center-stage > .panel { height: auto; min-height: 0; }
+      .center-stage { display: block; }
+      .route-panel .body { max-height: 58vh; overflow-y: scroll; }
+      .right-rail { display: block; }
       .advanced-config { max-height: none; }
+      .policy-wizard-modal { width: calc(100vw - 16px); max-width: none; max-height: calc(100dvh - 16px); padding: 14px; }
+      .policy-wizard-head { gap: 8px; }
+      .policy-wizard-preflight { padding: 10px; }
+      .policy-wizard-step { grid-template-columns: 22px minmax(0, 1fr); }
+      .policy-step-state { grid-column: 2; text-align: left; }
     }
   </style>
 </head>
@@ -2373,7 +3024,8 @@ INDEX_HTML = r"""<!doctype html>
       </div>
       <div class="actions">
         <button class="btn primary" onclick="startNavigation()">启动当前模式</button>
-        <button class="btn danger" onclick="postAction('/api/navigation/stop_all')">停止全部</button>
+        <button id="start_policy_mode_button" class="btn danger" onclick="startPolicyWizard()">启动 ONNX 模式</button>
+        <button class="btn danger" onclick="stopAll()">停止全部</button>
         <button id="native_rviz_button" class="btn soft" onclick="openNativeRviz()">打开原生 RViz</button>
       </div>
     </header>
@@ -2385,6 +3037,8 @@ INDEX_HTML = r"""<!doctype html>
           <div class="body stack advanced-config">
             <div class="setup-grid">
               <div><label>Run Mode</label><select id="run_mode" onchange="onModeChanged()"><option value="online">在线建图导航</option><option value="navigation">离线地图导航</option></select></div>
+              <div><label>运动后端</label><select id="motion_backend"><option value="unitree">Unitree</option><option value="policy">ONNX Policy</option></select><small id="motion_backend_hint" class="policy-note" hidden>选择仅修改配置；启动与准备请用顶部“启动 ONNX 模式”。</small></div>
+              <label class="check"><input id="enable_remote_velocity" type="checkbox"> ONNX 与遥控器速度共存（摇杆优先，回中后恢复导航）</label>
               <div><label>RViz Mode</label><select id="rviz_mode"><option value="auto">跟随 Run Mode</option><option value="online">在线 RViz</option><option value="offline">离线 RViz</option></select></div>
               <div><label>Map YAML</label><input id="map"></div>
               <div><label>PCD Map</label><input id="pcd"></div>
@@ -2449,9 +3103,22 @@ INDEX_HTML = r"""<!doctype html>
             <button class="btn primary" onclick="gesture('wave_hand')">测试挥手</button>
             <button id="shake_hand_button" class="btn primary" onclick="toggleShakeHand()">出手 / 收手</button>
             <button id="native_rviz_open_button" class="btn primary" onclick="openNativeRviz()">打开原生 RViz</button>
-            <button id="native_rviz_close_button" class="btn primary" onclick="postAction('/api/rviz/close')">关闭 RViz</button>
+            <button id="native_rviz_close_button" class="btn primary" onclick="closeNativeRviz()">关闭 RViz</button>
             <button id="native_rviz_restart_button" class="btn primary" onclick="postAction('/api/rviz/restart', true)">重启 RViz</button>
             <button class="btn primary" onclick="refreshStatus()">刷新状态</button>
+          </div>
+        </section>
+        <section class="panel policy-control-panel" id="policy_control_panel">
+          <div class="panel-head"><span>ONNX Policy 控制</span><span id="policy_mode_badge" class="pill">未启动</span></div>
+          <div class="body stack">
+            <div id="policy_control_status" class="policy-wizard-status" role="status">未启动。选择 ONNX 只是选择后端，不会启动机器人控制。</div>
+            <div class="policy-summary" aria-label="ONNX 控制流程状态">
+              <div id="policy_overview_stack" class="policy-summary-row"><span class="policy-summary-label">1. ONNX 控制桥</span><span id="policy_overview_stack_state" class="policy-summary-state">未启动</span></div>
+              <div id="policy_overview_control" class="policy-summary-row"><span class="policy-summary-label">2. ONNX 运动控制</span><span id="policy_overview_control_state" class="policy-summary-state">未就绪</span></div>
+              <div id="policy_overview_route" class="policy-summary-row"><span class="policy-summary-label">3. 导航栈</span><span id="policy_overview_route_state" class="policy-summary-state">未启动</span></div>
+              <div id="policy_overview_cruise" class="policy-summary-row"><span class="policy-summary-label">4. 巡航任务</span><span id="policy_overview_cruise_state" class="policy-summary-state">未开始</span></div>
+            </div>
+            <p class="policy-note">ONNX 就绪不会自动开始巡航；路线需在任务区单独启动。</p>
           </div>
         </section>
         <section class="panel">
@@ -2505,6 +3172,46 @@ INDEX_HTML = r"""<!doctype html>
       </aside>
     </main>
 
+    <div id="policy_wizard_modal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="policy_wizard_title" onclick="closePolicyWizard(event)">
+      <div class="modal policy-wizard-modal" onclick="event.stopPropagation()">
+        <div class="policy-wizard-head">
+          <div>
+            <h3 id="policy_wizard_title">进入 ONNX 控制模式</h3>
+        <p class="policy-wizard-subtitle">按当前状态完成准备；每一步都会等待桥接状态确认。</p>
+          </div>
+          <span id="policy_wizard_phase" class="pill">待启动</span>
+        </div>
+        <div id="policy_wizard_status" class="policy-wizard-status" role="status" aria-live="polite">先启动 ONNX 控制桥并完成 ArmHold 准备，之后再单独启动导航栈。</div>
+        <p id="policy_wizard_detail" class="policy-wizard-detail"></p>
+        <div class="policy-wizard-preflight">
+          <strong>启动前现场确认</strong>
+          <label><input id="confirm_debug_mode" type="checkbox"><span>机器人当前处于 Debug 模式</span></label>
+          <label><input id="confirm_exclusive_control" type="checkbox"><span>已确认没有其他 LowCmd 控制进程</span></label>
+          <label><input id="confirm_policy_writer" type="checkbox"><span>已现场核实其他 LowCmd writer 已停止，控制权已交给 Policy</span></label>
+          <label><input id="confirm_policy_support" type="checkbox"><span>已按本次测试方案做好机器人支撑，并确认急停可用</span></label>
+        </div>
+        <div class="policy-wizard-section-title">准备进度</div>
+        <div class="policy-wizard-steps" aria-label="ONNX 控制阶段">
+          <div id="policy_step_start" class="policy-wizard-step"><span class="policy-step-number">1</span><span class="policy-step-title">启动 ONNX 控制桥</span><span id="policy_step_start_state" class="policy-step-state">等待启动</span></div>
+          <div id="policy_step_authorize" class="policy-wizard-step"><span class="policy-step-number">2</span><span class="policy-step-title">授权 LowCmd 输出</span><span id="policy_step_authorize_state" class="policy-step-state">等待启动</span></div>
+          <div id="policy_step_fix" class="policy-wizard-step"><span class="policy-step-number">3</span><span class="policy-step-title">FixStand</span><span id="policy_step_fix_state" class="policy-step-state">等待授权</span></div>
+          <div id="policy_step_hold_stand" class="policy-wizard-step"><span class="policy-step-number">4</span><span class="policy-step-title">ArmHoldStand</span><span id="policy_step_hold_stand_state" class="policy-step-state">等待 FixStand</span></div>
+          <div id="policy_step_arm_hold" class="policy-wizard-step"><span class="policy-step-number">5</span><span class="policy-step-title">进入 ArmHold 控制状态</span><span id="policy_step_arm_hold_state" class="policy-step-state">等待站立准备</span></div>
+          <div id="policy_step_navigation" class="policy-wizard-step"><span class="policy-step-number">6</span><span class="policy-step-title">启动导航栈</span><span id="policy_step_navigation_state" class="policy-step-state">等待 ArmHold</span></div>
+        </div>
+        <label id="confirm_upright_label"><input id="confirm_policy_upright" type="checkbox"><span>我已现场确认站立姿态符合本次测试方案</span></label>
+        <p class="policy-note">授权会开始向 LowCmd 发布。网页不能自动识别其他 DDS writer；每次姿态转换前都要现场观察。ArmHold 后再启动导航栈，最后单独点击“开始巡航”。</p>
+        <div class="policy-wizard-recovery">
+          <button id="policy_retry_status" class="btn" onclick="retryPolicyStatus()">重试状态</button>
+          <button id="policy_cancel_startup" class="btn danger" onclick="cancelPolicyStartup()" disabled>取消未授权启动</button>
+        </div>
+        <div class="modal-actions">
+          <button class="btn" onclick="closePolicyWizard()">稍后</button>
+          <button id="policy_wizard_next" class="btn danger" onclick="policyWizardNext()">启动 ONNX 模式</button>
+        </div>
+      </div>
+    </div>
+
     <div id="new_task_modal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="new_task_title" onclick="closeNewTaskModal(event)">
       <div class="modal" onclick="event.stopPropagation()">
         <h3 id="new_task_title">新建任务</h3>
@@ -2533,6 +3240,7 @@ INDEX_HTML = r"""<!doctype html>
     let baseConfig = {};
     let latestStatus = {};
     let connected = false;
+    let statusRefreshInFlight = false;
     let revision = 0;
     let savedRevision = 0;
     let saving = false;
@@ -2557,6 +3265,10 @@ INDEX_HTML = r"""<!doctype html>
         task_profiles: structuredClone(taskProfiles),
         selected_task_id: selectedTaskId,
         run_mode: $("run_mode").value,
+        motion_backend: $("motion_backend").value,
+        confirm_debug_mode: $("confirm_debug_mode").checked,
+        confirm_exclusive_control: $("confirm_exclusive_control").checked,
+        enable_remote_velocity: $("enable_remote_velocity").checked,
         rviz_mode: $("rviz_mode").value,
         map: $("map").value.trim(),
         pcd: $("pcd").value.trim(),
@@ -2607,6 +3319,13 @@ INDEX_HTML = r"""<!doctype html>
       $("voice_stop_button").hidden = pc4Profile;
       $("rviz_mode").disabled = false;
       $("run_mode").value = config.run_mode || "online";
+      $("motion_backend").value = config.motion_backend || "unitree";
+      $("enable_remote_velocity").checked = config.enable_remote_velocity !== false;
+      $("confirm_debug_mode").checked = false;
+      $("confirm_exclusive_control").checked = false;
+      $("confirm_policy_writer").checked = false;
+      $("confirm_policy_support").checked = false;
+      $("confirm_policy_upright").checked = false;
       $("rviz_mode").value = config.rviz_mode || "auto";
       $("map").value = config.map || "";
       $("pcd").value = config.pcd || "";
@@ -2664,6 +3383,9 @@ INDEX_HTML = r"""<!doctype html>
     function onModeChanged() {
       const mode = $("run_mode").value;
       document.body.dataset.mode = mode;
+      const backend = $("motion_backend");
+      backend.disabled = mode !== "online" && mode !== "navigation";
+      if (backend.disabled) backend.value = "unitree";
     }
 
     function currentTask() { return taskProfiles.find(task => task.id === selectedTaskId); }
@@ -2943,18 +3665,31 @@ INDEX_HTML = r"""<!doctype html>
     }
     function taskMatchesLoaded() {
       const loaded = latestStatus.loaded_task, task = currentTask();
-      if (!loaded || !task || !latestStatus.processes?.navigation?.running) return false;
+      const navigation = latestStatus.processes?.navigation;
+      if (!task || !navigation?.running) return false;
       const config = payload();
+      if (!loaded && navigation.external) {
+        return config.run_mode === navigation.run_mode &&
+          config.motion_backend === navigation.motion_backend &&
+          (navigation.motion_backend !== "policy" ||
+            (config.confirm_debug_mode && config.confirm_exclusive_control));
+      }
+      if (!loaded) return false;
       return loaded.id === task.id && loaded.memory_route === config.memory_route && loaded.gesture_route === config.gesture_route && loaded.turn_route === config.turn_route;
     }
     function canStartTask() {
-      return connected && !baseConfig.ui_only && latestStatus.localization?.ready && taskMatchesLoaded();
+      const navigation = latestStatus.processes?.navigation || {};
+      const policyReady = navigation.motion_backend !== "policy" || latestStatus.policy_control?.ready === true;
+      return connected && !baseConfig.ui_only && latestStatus.localization?.ready && policyReady && taskMatchesLoaded();
     }
     function updateTaskReadiness() {
       const loaded = latestStatus.loaded_task;
       $("start_route_button").disabled = !canStartTask();
+      const navigation = latestStatus.processes?.navigation || {};
       const hint = !connected ? "等待连接状态…" : baseConfig.ui_only ? "界面预览模式 · 未连接 ROS" :
-        !loaded || !latestStatus.processes?.navigation?.running ? "尚未加载任务。选择离线地图导航，点击“启动当前模式”加载当前任务。" :
+        navigation.motion_backend === "policy" && !latestStatus.policy_control?.ready ? (latestStatus.policy_control?.message || "等待 ONNX Policy 就绪") :
+        !loaded && navigation.external && taskMatchesLoaded() ? "已连接当前终端导航，可将所选任务提交到此实例。" :
+        !loaded || !navigation.running ? "尚未加载任务。选择导航模式，点击“启动当前模式”加载当前任务。" :
         taskMatchesLoaded() ? `已加载：${loaded.name} · ${latestStatus.localization?.ready ? "定位就绪，可开始巡航" : "等待定位稳定"}` :
         `已加载：${loaded.name}；当前编排尚未加载。请停止全部，再启动当前模式以加载所选任务。`;
       $("loaded_task_hint").textContent = hint;
@@ -2976,6 +3711,7 @@ INDEX_HTML = r"""<!doctype html>
       finally { saving = false; updateSaveState(); }
     }
     async function startNavigation() {
+      if ($("motion_backend").value === "policy") { startPolicyWizard(); return; }
       if (starting) return;
       starting = true; const version = revision; const config = payload();
       try { await preserveScroll(async () => {
@@ -2985,6 +3721,111 @@ INDEX_HTML = r"""<!doctype html>
         showResult(result); appendLog("web", result.message); await refreshStatus();
       }); } catch (error) { showError(error); }
       finally { starting = false; }
+    }
+
+    function startPolicyWizard() {
+      const navigation = latestStatus.processes?.navigation || {};
+      const policyAlreadyRunning = latestStatus.processes?.policy_bridge?.running ||
+        (navigation.running && navigation.motion_backend === "policy");
+      $("motion_backend").value = "policy";
+      if (!policyAlreadyRunning) {
+        for (const id of ["confirm_debug_mode", "confirm_exclusive_control", "confirm_policy_writer", "confirm_policy_support", "confirm_policy_upright"]) $(id).checked = false;
+        markDirty();
+      }
+      $("policy_wizard_modal").classList.add("open");
+      updatePolicyControls();
+      refreshStatus();
+    }
+
+    function closePolicyWizard(event) {
+      if (event && event.target !== $("policy_wizard_modal")) return;
+      $("policy_wizard_modal").classList.remove("open");
+    }
+
+    async function launchPolicyNavigation() {
+      if (starting) return;
+      starting = true;
+      const config = payload();
+      config.motion_backend = "policy";
+      config.auto_start_route = false;
+      config.confirm_lowcmd_handoff = $("confirm_policy_writer").checked;
+      config.confirm_robot_supported = $("confirm_policy_support").checked;
+      $("auto_start_route").checked = false;
+      const version = revision;
+      updatePolicyControls();
+      try {
+        ensureHeartbeatReady();
+        const result = await api("/api/policy/start", {method:"POST", body:JSON.stringify(config)});
+        if (result.success) { savedRevision = version; baseConfig = config; updateSaveState(); }
+        appendLog("web", result.message || "ONNX 控制桥启动请求已发送");
+        $("policy_wizard_status").textContent = result.success
+          ? "ONNX 控制桥启动请求已接受；正在等待状态。导航栈和巡航路线均未启动。"
+          : (result.message || "ONNX 控制桥启动失败。");
+        await refreshStatus();
+      } catch (error) {
+        showError(error);
+        $("policy_wizard_status").textContent = error.message || "启动请求失败。";
+      } finally {
+        starting = false;
+        updatePolicyControls();
+      }
+    }
+
+    async function policyWizardNext() {
+      const bridge = latestStatus.processes?.policy_bridge || {};
+      if (!bridge.running) {
+        const confirmed = $("confirm_debug_mode").checked && $("confirm_exclusive_control").checked &&
+          $("confirm_policy_writer").checked && $("confirm_policy_support").checked;
+        if (!confirmed) {
+          $("policy_wizard_status").textContent = "请先逐项确认 Debug、独占控制、LowCmd writer 交接、支撑和急停状态。";
+          return;
+        }
+        await launchPolicyNavigation();
+        return;
+      }
+      const policy = latestStatus.policy_control || {};
+      if (!policy.available) {
+        $("policy_wizard_status").textContent = policy.message || "正在等待 Policy bridge 状态服务。";
+        await refreshStatus();
+        return;
+      }
+      if (policy.mode === "Passive" && !policy.authorized) return policyControlStep("authorize_output");
+      if (policy.mode === "Passive" && policy.authorized) return policyControlStep("fix_stand");
+      if (policy.mode === "FixStand") return policyControlStep("arm_hold_stand");
+      if (policy.mode === "ArmHoldStand") return policyControlStep("arm_hold");
+      if (policy.control_ready && !latestStatus.processes?.navigation?.running) {
+        return startPolicyNavigationStack();
+      }
+    }
+
+    async function startPolicyNavigationStack() {
+      if (starting) return;
+      const policy = latestStatus.policy_control || {};
+      if (policy.control_ready !== true) {
+        $("policy_wizard_status").textContent = "请先完成 ONNX ArmHold 控制准备。";
+        return;
+      }
+      starting = true;
+      const config = payload();
+      config.motion_backend = "policy";
+      config.auto_start_route = false;
+      $("auto_start_route").checked = false;
+      updatePolicyControls();
+      try {
+        ensureHeartbeatReady();
+        const result = await api("/api/navigation/start", {method:"POST", body:JSON.stringify(config)});
+        appendLog("nav", result.message || "导航栈启动请求已发送");
+        $("policy_wizard_status").textContent = result.success
+          ? "导航栈启动请求已接受。等待 Nav2 与定位就绪后，再单独开始巡航。"
+          : (result.message || "导航栈启动失败。");
+        await refreshStatus();
+      } catch (error) {
+        showError(error);
+        $("policy_wizard_status").textContent = error.message || "导航栈启动请求失败。";
+      } finally {
+        starting = false;
+        updatePolicyControls();
+      }
     }
 
     async function saveSnapshot(mode) {
@@ -3010,6 +3851,28 @@ INDEX_HTML = r"""<!doctype html>
       });
     }
 
+    async function stopAll() {
+      await preserveScroll(async () => {
+        const result = await api("/api/navigation/stop_all", { method: "POST", body: JSON.stringify({}) });
+        appendLog("web", result.message || JSON.stringify(result));
+        await refreshStatus();
+        if (result.success) await closeNativeRviz();
+      });
+    }
+
+    async function closeNativeRviz() {
+      if (baseConfig.pc4_profile === true) {
+        if (/Windows/i.test(navigator.userAgent)) {
+          showError(new Error("本机 RViz 启动器目前配置在 Linux 上位机，请在该上位机打开此页面。"));
+          return;
+        }
+        appendLog("rviz", "正在关闭由网页启动的本机 RViz。");
+        window.location.href = "h1-rviz://close";
+        return;
+      }
+      await postAction("/api/rviz/close");
+    }
+
     async function openNativeRviz() {
       if (baseConfig.pc4_profile === true) {
         if (/Windows/i.test(navigator.userAgent)) {
@@ -3019,8 +3882,9 @@ INDEX_HTML = r"""<!doctype html>
         const selectedMode = $("rviz_mode").value;
         const mode = selectedMode === "offline" ||
           (selectedMode === "auto" && $("run_mode").value === "navigation") ? "offline" : "online";
+        const backend = $("motion_backend").value;
         appendLog("rviz", "正在请求打开本机 RViz；首次使用请允许浏览器打开 H1 Local RViz 应用。");
-        window.location.href = `h1-rviz://open?mode=${mode}`;
+        window.location.href = `h1-rviz://open?mode=${mode}&backend=${backend}`;
         return;
       }
       await postAction("/api/rviz/open", true);
@@ -3076,10 +3940,13 @@ INDEX_HTML = r"""<!doctype html>
     }
 
     async function refreshStatus() {
+      if (statusRefreshInFlight) return;
+      statusRefreshInFlight = true;
       let data;
       try { data = await api("/api/status"); connected = true; }
-      catch (error) { connected = false; updateTaskReadiness(); showError(error); return; }
+      catch (error) { connected = false; updateTaskReadiness(); showError(error); statusRefreshInFlight = false; return; }
       latestStatus = data;
+      updatePolicyControls();
       const route = data.route || {};
       const teachingRoute = data.teaching_route || {};
       $("state").textContent = route.state || "-";
@@ -3100,11 +3967,13 @@ INDEX_HTML = r"""<!doctype html>
       const cruiseReadyCard = $("cruise_ready_card");
       cruiseReadyCard.className = "status-metric " + (localization.ready ? "ready" : "waiting");
       cruiseReadyCard.title = localization.message || "定位未稳定";
-      $("cruise_ready_text").textContent = localization.ready
+      $("cruise_ready_text").textContent = canStartTask()
         ? "● 可开始巡航"
+        : data.processes?.navigation?.motion_backend === "policy" && !data.policy_control?.ready
+          ? "● ONNX 未就绪"
         : indicatorState === "checking"
           ? "● 定位确认中"
-          : "● 不可开始巡航";
+          : "● 不可开始巡航（任务或定位未就绪）";
       const startButton = $("start_route_button");
       startButton.disabled = !localization.ready || !canStartTask();
       startButton.title = localization.message || "定位未稳定";
@@ -3137,6 +4006,166 @@ INDEX_HTML = r"""<!doctype html>
       $("battery_cycles").textContent = battery.cycles == null ? "--" : String(battery.cycles);
       $("processes").textContent = `nav=${processes.navigation?.running ? "running" : "idle"}, rviz=${processes.rviz?.running ? "running" : "idle"}, teaching_record=${processes.teaching_record?.running ? "running" : "idle"}, teaching=${processes.teaching_route?.running ? "running" : "idle"}, voice_reader=${processes.voice?.running ? "running" : "idle"}, voice_bridge=${processes.voice_bridge?.running ? "running" : "idle"}, vision=${processes.vision?.running ? "running" : "idle"}`;
       updateTaskReadiness();
+      statusRefreshInFlight = false;
+    }
+
+    function updatePolicyControls() {
+      const navigation = latestStatus.processes?.navigation || {};
+      const bridge = latestStatus.processes?.policy_bridge || {};
+      const policy = latestStatus.policy_control || {};
+      const isPolicy = bridge.running || (navigation.running && navigation.motion_backend === "policy");
+      const controlReady = policy.control_ready === true;
+      const statusText = !isPolicy ? (navigation.running
+        ? "当前运行的不是 ONNX Policy 导航。打开 ONNX 向导可查看当前模式并重新启动。"
+        : "尚未启动 ONNX。选择后端不会启动控制；请点“启动 ONNX 模式”并按向导逐步操作。") : !policy.available
+        ? (policy.message || "Policy bridge 状态不可用。")
+        : policy.output_enabled === false ? "Policy bridge 启动时未启用硬件输出。"
+        : policy.debug_confirmed === false || policy.exclusive_confirmed === false ? "Policy bridge 启动确认参数不完整。"
+        : `${policy.mode || "未知"} · ${policy.authorized ? "输出已授权" : "尚未授权输出"} · LowCmd ${policy.publisher_present ? "已发布" : "未发布"} · ${policy.state_valid ? "机器人状态有效" : "机器人状态无效"}` +
+          (policy.remote_velocity_enabled ? ` · 遥控器共存：${policy.remote_active ? "遥控器输入" : "导航/回中"}` : "");
+      $("policy_mode_badge").textContent = !isPolicy ? "未启动" : !policy.available ? "等待桥接" : policy.mode || "未知";
+      $("policy_mode_badge").className = "pill " + (controlReady ? "ok" : "warn");
+      $("policy_control_status").textContent = statusText;
+      $("motion_backend_hint").hidden = $("motion_backend").value !== "policy";
+      const routeState = latestStatus.route?.state || "idle";
+      const routeRunning = !["idle", "unavailable", "error", "ui-only", ""].includes(routeState);
+      const canCancelStartup = isPolicy && policy.available &&
+        policy.mode === "Passive" && policy.authorized === false && policy.publisher_present === false &&
+        policy.output_transition === "none" && policy.state_valid === true &&
+        (!navigation.running || (latestStatus.route?.success === true && latestStatus.route?.state === "idle"));
+      const overviewRows = {
+        stack: [bridge.running ? "已启动" : navigation.running ? "其他后端运行中" : "未启动", bridge.running, !bridge.running && !navigation.running],
+        control: [controlReady ? "ArmHold 就绪" : isPolicy ? (policy.mode || "等待桥接") : "未就绪", controlReady, isPolicy && !controlReady],
+        route: [navigation.running && navigation.motion_backend === "policy" ? "已启动" : "未启动", navigation.running && navigation.motion_backend === "policy", controlReady && !navigation.running],
+        cruise: [routeRunning ? "执行中" : "未开始", routeRunning, navigation.running && controlReady && !routeRunning],
+      };
+      for (const [key, [label, done, active]] of Object.entries(overviewRows)) {
+        const row = $("policy_overview_" + key), state = $("policy_overview_" + key + "_state");
+        state.textContent = label;
+        row.classList.toggle("done", done);
+        row.classList.toggle("active", active);
+      }
+      $("start_policy_mode_button").textContent = isPolicy ? "ONNX 控制状态" : "启动 ONNX 模式";
+      $("policy_cancel_startup").disabled = starting || !canCancelStartup;
+      const confirmed = $("confirm_debug_mode").checked && $("confirm_exclusive_control").checked &&
+        $("confirm_policy_writer").checked && $("confirm_policy_support").checked;
+      const canStep = isPolicy && policy.available && policy.profile === "hardware" &&
+        policy.joint_command_mode === "position_pd" && policy.output_enabled !== false && policy.debug_confirmed !== false &&
+        policy.exclusive_confirmed !== false && policy.navigation_enabled && policy.continuous_navigation &&
+        policy.state_valid && policy.output_transition === "none" && confirmed;
+      const activeStep = !isPolicy ? "start" : !policy.available ? "waiting" :
+        !policy.authorized && policy.mode === "Passive" ? "authorize" :
+        policy.mode === "Passive" ? "fix" :
+        policy.mode === "FixStand" ? "hold_stand" :
+        policy.mode === "ArmHoldStand" ? "arm_hold" :
+        policy.mode === "ArmHold" ? (navigation.running ? "navigation" : "complete") : "waiting";
+      const phaseNames = {start:"待启动", waiting:"等待状态", authorize:"待授权", fix:"FixStand", hold_stand:"ArmHoldStand", arm_hold:"进入 ArmHold", complete:"控制已就绪", navigation:"导航已启动"};
+      const phase = $("policy_wizard_phase");
+      phase.textContent = phaseNames[activeStep];
+      phase.className = "pill " + (activeStep === "complete" ? "ok" : "warn");
+      const status = $("policy_wizard_status");
+      status.classList.toggle("ready", activeStep === "complete" || activeStep === "navigation");
+      const detail = $("policy_wizard_detail");
+      const navigationMode = navigation.run_mode === "navigation" ? "离线地图导航" : "在线建图导航";
+      const statusDetails = {
+        start: `当前设置：${navigationMode}。启动 ONNX 只会启动控制桥；完成 ArmHold 后再启动导航栈。`,
+        waiting: "正在等待可验证的 Policy bridge 状态。状态服务不可用、LowState 无效或输出转场中时，不会执行下一步。",
+        authorize: "下一步会开放 Policy 对 LowCmd 的发布。再次确认现场控制权已交接、支撑有效且急停可用。",
+        fix: "输出已授权且 LowCmd publisher 已出现。下一步会请求 FixStand，请现场持续观察机器人。",
+        hold_stand: "FixStand 已完成。下一步会请求 ArmHoldStand；若姿态或支撑不符合预期，请停止并按现场流程处理。",
+        arm_hold: "ArmHoldStand 已完成。先在现场确认机器人姿态符合测试方案，再勾选下方确认并进入 ArmHold。",
+        complete: "ONNX 已进入 ArmHold 控制状态。下一步单独启动导航栈；导航和定位就绪后再点击“开始巡航”。",
+        navigation: "导航栈已启动。等待定位就绪后，在主页面单独点击“开始巡航”。"
+      };
+      status.textContent = isPolicy
+        ? !policy.available ? (policy.message || statusDetails.waiting)
+          : policy.mode === "ArmHold" && controlReady ? statusDetails[activeStep]
+            : !policy.state_valid ? "机器人状态无效，暂停准备流程并检查 LowState。"
+              : policy.output_transition !== "none" ? "Policy 输出状态正在转换，请等待状态稳定后再继续。"
+                : statusDetails[activeStep]
+        : navigation.running ? "检测到其他导航后端正在运行。请先停止当前导航，再启动 ONNX 模式。"
+          : statusDetails.start;
+      detail.textContent = activeStep === "start" && !isPolicy
+        ? "后端选项本身不启动任何进程；确认下方现场条件后，点击“启动 ONNX 模式”。"
+        : statusText;
+      const preflightIds = ["confirm_debug_mode", "confirm_exclusive_control", "confirm_policy_writer", "confirm_policy_support"];
+      for (const id of preflightIds) $(id).disabled = false;
+      const setStep = (id, stateText, done, active) => {
+        const row = $(id), state = $(id + "_state");
+        row.classList.toggle("done", done);
+        if (active) row.setAttribute("aria-current", "step"); else row.removeAttribute("aria-current");
+        state.textContent = stateText;
+      };
+      const mode = policy.mode;
+      const authorized = policy.authorized === true;
+      setStep("policy_step_start", bridge.running ? "已启动" : navigation.running ? "当前后端冲突" : "等待启动", bridge.running, activeStep === "start");
+      setStep("policy_step_authorize", authorized ? "已授权" : isPolicy && policy.available ? "待确认" : "等待启动", authorized, activeStep === "authorize");
+      setStep("policy_step_fix", ["FixStand", "ArmHoldStand", "ArmHold"].includes(mode) ? "已完成" : "待执行", ["FixStand", "ArmHoldStand", "ArmHold"].includes(mode), activeStep === "fix");
+      setStep("policy_step_hold_stand", ["ArmHoldStand", "ArmHold"].includes(mode) ? "已完成" : "待执行", ["ArmHoldStand", "ArmHold"].includes(mode), activeStep === "hold_stand");
+      setStep("policy_step_arm_hold", mode === "ArmHold" && controlReady ? "已就绪" : "待确认", mode === "ArmHold" && controlReady, activeStep === "arm_hold" || activeStep === "complete" || activeStep === "navigation");
+      setStep("policy_step_navigation", navigation.running && navigation.motion_backend === "policy" ? "已启动" : "等待 ArmHold", navigation.running && navigation.motion_backend === "policy", activeStep === "complete" || activeStep === "navigation");
+      $("confirm_upright_label").hidden = activeStep !== "arm_hold";
+      const next = $("policy_wizard_next");
+      const labels = {
+        start: "启动 ONNX 模式", waiting: "等待 Policy 状态", authorize: "确认并授权 LowCmd 输出",
+        fix: "确认并执行 FixStand", hold_stand: "确认并执行 ArmHoldStand",
+        arm_hold: "确认站姿并进入 ArmHold", complete: "启动导航栈", navigation: "导航栈已启动"
+      };
+      next.textContent = starting ? "请求处理中…" : labels[activeStep];
+      next.className = "btn " + (["start", "authorize"].includes(activeStep) ? "danger" : "primary");
+      next.disabled = starting || activeStep === "waiting" || activeStep === "navigation" ||
+        (activeStep === "start" && (!confirmed || navigation.running)) ||
+        (activeStep === "complete" && !controlReady) ||
+        (activeStep !== "start" && !canStep) ||
+        (activeStep === "arm_hold" && !$("confirm_policy_upright").checked) ||
+        (activeStep === "authorize" && (policy.authorized || policy.publisher_present)) ||
+        (activeStep === "fix" && !policy.publisher_present) ||
+        (activeStep === "hold_stand" && !policy.publisher_present);
+    }
+
+    async function policyControlStep(step) {
+      if (starting) return;
+      starting = true;
+      updatePolicyControls();
+      try {
+        const request = {
+          step,
+          confirm_debug_mode: $("confirm_debug_mode").checked,
+          confirm_exclusive_control: $("confirm_exclusive_control").checked,
+          confirm_lowcmd_handoff: $("confirm_policy_writer").checked,
+          confirm_robot_supported: $("confirm_policy_support").checked,
+          confirm_upright: $("confirm_policy_upright").checked
+        };
+        const result = await api("/api/policy/control", {method:"POST", body:JSON.stringify(request)});
+        showResult(result);
+        appendLog("policy", result.message || step);
+        await refreshStatus();
+      } catch (error) { showError(error); }
+      finally { starting = false; updatePolicyControls(); }
+    }
+
+    async function retryPolicyStatus() {
+      if (starting) return;
+      $("policy_retry_status").disabled = true;
+      $("policy_wizard_status").textContent = "正在重新查询 Policy 与路线服务…";
+      try { await refreshStatus(); }
+      finally { $("policy_retry_status").disabled = false; updatePolicyControls(); }
+    }
+
+    async function cancelPolicyStartup() {
+      if (starting || $("policy_cancel_startup").disabled) return;
+      if (!window.confirm("确认取消这次尚未授权的 ONNX 启动？仅当状态为 Passive、未授权、无 LowCmd publisher 且路线 idle 时可执行。")) return;
+      starting = true;
+      updatePolicyControls();
+      try {
+        ensureHeartbeatReady();
+        const result = await api("/api/policy/cancel_startup", {method:"POST", body:JSON.stringify({})});
+        showResult(result);
+        $("policy_wizard_status").textContent = result.message || "取消请求已处理。";
+        appendLog("policy", result.message || "取消未授权启动");
+        await refreshStatus();
+      } catch (error) { showError(error); }
+      finally { starting = false; updatePolicyControls(); }
     }
 
     function appendLog(source, message) {
@@ -3222,6 +4251,8 @@ INDEX_HTML = r"""<!doctype html>
       setInterval(refreshStatus, 1200);
       setInterval(() => pollLogs().catch(() => {}), 700);
       document.querySelectorAll(".left-rail input, .left-rail select").forEach(el => el.addEventListener("change", markDirty));
+      ["confirm_debug_mode", "confirm_exclusive_control", "confirm_policy_writer", "confirm_policy_support", "confirm_policy_upright"]
+        .forEach(id => $(id).addEventListener("change", updatePolicyControls));
     })().catch(showError);
     window.addEventListener("beforeunload", event => {
       if (revision !== savedRevision) { event.preventDefault(); event.returnValue = ""; }

@@ -1,6 +1,14 @@
 # PC4 部署操作
 
-PC4 的 Web 和 ROS 运行时使用 `unitree@192.168.8.6`。PC4 的 WiFi 接口是 `wlxf8ce21a12bfe`，用于 Web/DDS；有线 `eth0` 地址为 `192.168.123.164`，Unitree SDK 运控固定使用它。当前 PC4 可达 `192.168.123.161`。现场启动 Livox 驱动后，`/livox/lidar` 与 `/livox/imu` 已有持续数据；这说明当前话题链路可用，不再以先前的 `.120` ARP 检查结果作为雷达验收结论。
+PC4 的网络地址和接口可能随现场连接变化，启动前用 `ip -brief address` 确认实际活跃接口。当前部署检查中只有 `eth0` 活跃（`192.168.123.164`），原配置绑定的 WiFi 接口已不存在，导致 Cyclone DDS 无法创建 ROS 节点；`config/cyclonedds_pc4.xml` 当前绑定 `eth0`。Web 使用 `8765`，心跳使用 `8766`；不要仅凭历史 IP 假设 WiFi 仍连接。现场启动 Livox 驱动后，`/livox/lidar` 与 `/livox/imu` 曾有持续数据；这说明当时话题链路可用，不作为当前状态保证。
+
+PC4 用户的 `~/.bashrc` 还会加载旧 Go2 工作区，并将 `CYCLONEDDS_URI` 指向 `/home/unitree/slam_config/cyclone_go2_B2_ws/cyclonedds.xml`；该文件绑定已经不存在的 `wlxf8ce21a12bfe`。启动 H1-2 所用的 Livox 驱动时，仅为本进程覆盖 DDS 配置，使用 PC4 当前活动的 `eth0`：
+
+```bash
+RMW_IMPLEMENTATION=rmw_cyclonedds_cpp ROS_DOMAIN_ID=0 ROS_LOCALHOST_ONLY=0 CYCLONEDDS_URI=file:///home/unitree/h1_nav2_ros2_ws/config/cyclonedds_pc4.xml ros2 launch livox_ros_driver2 msg_MID360_launch.py
+```
+
+此写法不会更改用户全局 shell 配置；不要在没有确认 Go2 工作区用途前替换其 `.bashrc` DDS 设置。2026-11-16 已在 PC4 用相同环境运行 `ros2 launch ... --show-args`，解析成功；尚需在驱动进程正常启动后检查 `/livox/lidar` 与 `/livox/imu` 是否持续发布。
 
 首次部署前，确认依赖安装和 SDK/Unitree ROS 工作区已经准备好。以 PC4 用户运行：
 

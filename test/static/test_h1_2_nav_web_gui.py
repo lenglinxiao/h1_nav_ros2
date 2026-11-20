@@ -4,6 +4,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 TOOLS = ROOT / "src" / "h1_2_nav_tools"
 WEB_GUI = TOOLS / "h1_2_nav_tools" / "h1_2_nav_web_gui.py"
+POLICY_WEB_CLIENT = TOOLS / "h1_2_nav_tools" / "policy_web_client.py"
 CAMERA_STREAM = TOOLS / "h1_2_nav_tools" / "camera_stream.py"
 RUN_SCRIPT = ROOT / "run_ai_slam_nav.sh"
 CYCLONEDDS_CONFIG = ROOT / "config" / "cyclonedds_enp45s0.xml"
@@ -86,6 +87,22 @@ def test_h1_2_nav_web_gui_has_robot_status_overview():
     assert "def _send_file" in source
 
 
+def test_navigation_columns_keep_visible_independent_scrollbars_on_narrow_views():
+    source = WEB_GUI.read_text(encoding="utf-8")
+
+    assert ".left-rail, .center-stage, .right-rail" in source
+    assert "overflow-y: scroll;" in source
+    assert "scrollbar-gutter: stable;" in source
+    assert ".left-rail > .panel > .body::-webkit-scrollbar-thumb" in source
+    assert ".left-rail > .panel > .body { flex: 1 1 auto; min-height: 0; overflow-x: hidden; overflow-y: scroll; }" in source
+    assert ".route-panel .body { flex: 1 1 auto; min-height: 0; overflow-x: hidden; overflow-y: scroll; }" in source
+    assert ".left-rail > .panel { display: flex; flex-direction: column; height: 100%; min-height: 0; }" in source
+    assert ".right-rail { display: block; }" in source
+    assert ".left-rail, .center-stage { height: auto; max-height: 70vh; min-height: 0; overflow: hidden; }" in source
+    assert ".right-rail { height: auto; max-height: 70vh; min-height: 0; overflow-x: hidden; overflow-y: scroll; }" in source
+    assert "grid-template-rows: 108px minmax(220px, 1fr) minmax(140px, 26vh);" in source
+
+
 def test_h1_2_nav_web_gui_enforces_single_instance_by_default():
     source = WEB_GUI.read_text(encoding="utf-8")
 
@@ -107,9 +124,9 @@ def test_h1_2_nav_web_gui_has_backend_heartbeat_and_pc4_profile_gates():
     assert "HEARTBEAT_TIMEOUT_SEC" in source
     assert "def _watch_heartbeat(self):" in source
     assert "browser heartbeat timeout" in source
-    assert "STOP_COMMAND_GRACE_SEC" in source
+    assert "stop_process.wait(timeout=25.0)" in source
+    assert 'navigation.get("motion_backend", self.motion_backend)' in source
     assert "__import__(\"time\")" not in source
-    assert "time.sleep(STOP_COMMAND_GRACE_SEC)" in source
     assert 'os.environ.get("H1_2_RUNTIME_PROFILE", "local")' in source
     assert "请在 AI PC 本地启动 RViz" in source
     assert "PC4 第一阶段未启用相机、语音或视觉功能" in source
@@ -132,7 +149,13 @@ def test_h1_2_nav_web_gui_manages_navigation_and_rviz_processes():
     assert 'id="native_rviz_button"' in source
     assert "打开原生 RViz" in source
     assert "function openNativeRviz()" in source
+    assert "async function stopAll()" in source
+    assert 'if (result.success) await closeNativeRviz();' in source
+    assert 'window.location.href = "h1-rviz://close"' in source
     assert 'postAction("/api/rviz/open", true)' in source
+    assert 'h1-rviz://close' in source
+    assert 'if result.get("success"):' in source
+    assert 'function closeNativeRviz()' in source
     assert "subprocess.Popen" in source
     assert "voice_process" in source
     assert "voice_bridge_process" in source
@@ -141,6 +164,18 @@ def test_h1_2_nav_web_gui_manages_navigation_and_rviz_processes():
     assert "voice_remote_host" in source
     assert "Voice SSH" in source
     assert "ssh" in source
+
+
+def test_h1_2_nav_web_gui_exposes_startup_motion_backend_selection():
+    source = WEB_GUI.read_text(encoding="utf-8")
+
+    assert '"motion_backend": "unitree"' in source
+    assert 'id="motion_backend"' in source
+    assert 'value="unitree">Unitree' in source
+    assert 'value="policy">ONNX Policy' in source
+    assert 'motion_backend: $("motion_backend").value' in source
+    assert 'backend.disabled = mode !== "online" && mode !== "navigation"' in source
+    assert 'motion_backend == "policy" and mode not in ("online", "navigation")' in source
 
 
 def test_h1_2_nav_web_gui_uses_ros_services():
@@ -168,6 +203,47 @@ def test_h1_2_nav_web_gui_exposes_expected_api_routes():
     source = WEB_GUI.read_text(encoding="utf-8")
 
     assert "/api/navigation/start" in source
+    assert '"/api/policy/start"' in source
+    assert 'elif parsed.path == "/api/policy/start"' in source
+    assert '"policy_bridge": self._policy_bridge_state()' in source
+    assert 'def start_policy_control(self, payload):' in source
+    assert 'if not policy.get("available") or not policy.get("control_ready")' in source
+    assert 'async function startPolicyNavigationStack()' in source
+    assert 'id="policy_step_navigation"' in source
+    assert 'id="policy_overview_cruise"' in source
+    assert '"/api/policy/control"' in source
+    assert 'id="start_policy_mode_button"' in source
+    assert 'id="policy_overview_stack"' in source
+    assert 'id="policy_overview_control"' in source
+    assert 'id="policy_overview_route"' in source
+    assert 'class="policy-wizard-section-title">准备进度' in source
+    assert 'class="panel policy-control-panel"' in source
+    assert 'id="policy_wizard_modal"' in source
+    assert 'id="policy_wizard_next"' in source
+    assert 'id="policy_retry_status"' in source
+    assert 'id="policy_cancel_startup"' in source
+    assert '"/api/policy/cancel_startup"' in source
+    assert "def cancel_policy_startup(self):" in source
+    assert 'policy.get("mode") != "Passive"' in source
+    assert 'policy.get("authorized") is not False' in source
+    assert 'policy.get("publisher_present") is not False' in source
+    assert 'route.get("state") != "idle"' in source
+    assert "os.killpg(pid, signal.SIGINT)" in source
+    assert "self.processes.nav_process.kill()" in source
+    assert "function startPolicyWizard()" in source
+    assert "function policyWizardNext()" in source
+    assert "function policyControlStep(step)" in source
+    assert 'id="confirm_policy_writer"' in source
+    assert 'id="confirm_policy_writer" type="checkbox"><span>' in source
+    assert '.policy-wizard-preflight input[type="checkbox"], #confirm_upright_label input[type="checkbox"] { width: 18px; min-width: 18px; height: 18px;' in source
+    assert '.policy-wizard-modal { width: calc(100vw - 24px); max-width: 520px; min-width: 0; max-height: calc(100dvh - 24px); overflow-x: hidden; overflow-y: auto;' in source
+    assert 'confirm_lowcmd_handoff' in source
+    assert "policy_control_command(step)" in source
+    assert "选择 ONNX 只是选择后端" in source
+    assert "启动 ONNX 模式" in source
+    assert "启动 ONNX 只会启动控制桥" in source
+    assert "完成 ArmHold 后再启动导航栈" in source
+    assert "rmw_fastrtps_cpp" in source
     assert "/api/navigation/stop_all" in source
     assert "/api/rviz/open" in source
     assert "/api/rviz/close" in source
@@ -408,17 +484,52 @@ def test_h1_2_nav_web_gui_gates_route_start_on_stable_localization():
     assert "startTeachingRecordButton" not in source
 
 
+def test_h1_2_nav_web_gui_uses_online_camera_init_pose_readiness_and_frame_guard():
+    source = WEB_GUI.read_text(encoding="utf-8")
+    policy_client = POLICY_WEB_CLIENT.read_text(encoding="utf-8")
+
+    assert 'def localization_status(self, online_camera_init=False)' in source
+    assert 'lookup_transform(\n                    "camera_init", "body"' in source
+    assert 'online_camera_init = navigation.get("running") and navigation.get("run_mode") == "online"' in source
+    assert 'online_camera_init=online_camera_init' in source
+    assert 'expected_frame = "camera_init" if online_camera_init else "map"' in source
+    assert 'point_frame != expected_frame' in source
+    assert 'if data.get("points") and existing_frame != pose_frame:' in source
+    assert '"run_mode": self.run_mode' in source
+    assert '"policy_status": "/h1_2_policy_node/status"' in policy_client
+    assert '"route_start"' in policy_client
+    assert '"localization"' in policy_client
+    assert 'fields.get("navigation_ready") == "true"' in source
+    assert 'latestStatus.policy_control?.ready === true' in source
+    assert '"● ONNX 未就绪"' in source
+    assert 'if (!loaded && navigation.external)' in source
+    assert '可将所选任务提交到此实例' in source
+
+
 def test_h1_2_nav_web_gui_uses_cli_ros_dds_environment_before_rclpy_init():
     source = WEB_GUI.read_text(encoding="utf-8")
 
     assert "def configure_ros_environment" in source
     assert 'os.environ["ROS_LOCALHOST_ONLY"] = "0"' in source
     assert 'os.environ.setdefault("ROS_DOMAIN_ID", "0")' in source
-    assert 'os.environ["RMW_IMPLEMENTATION"] = "rmw_cyclonedds_cpp"' in source
+    assert 'os.environ.get("H1_2_RMW_IMPLEMENTATION", "rmw_cyclonedds_cpp")' in source
+    assert '"rmw_cyclonedds_cpp", "rmw_fastrtps_cpp"' in source
+    assert 'Node(os.environ.get("H1_2_WEB_NODE_NAME", "h1_2_nav_web_gui"))' in source
     assert '"cyclonedds_auto.xml"' in source
     assert 'os.environ["CYCLONEDDS_URI"] = f"file://{dds_config}"' in source
+    assert 'os.environ.pop("CYCLONEDDS_URI", None)' in source
     assert 'os.environ.pop("FASTRTPS_DEFAULT_PROFILES_FILE", None)' in source
     assert source.index("configure_ros_environment()") < source.index("rclpy.init(args=None)")
+
+
+def test_h1_2_nav_web_gui_detects_owned_external_navigation_process():
+    source = WEB_GUI.read_text(encoding="utf-8")
+
+    assert "def _external_navigation(self)" in source
+    assert 'Path("/tmp/h1_2_ai_slam_nav.pid")' in source
+    assert 'Path("/tmp/h1_2_ai_slam_nav.backend")' in source
+    assert "replace(bytes((0,)), b\" \")" in source
+    assert "os.getsid(pid) != pid or os.getpgid(pid) != pid" in source
 
 
 def test_cyclonedds_config_keeps_the_interface_selectable_without_an_ip_address():
@@ -432,16 +543,29 @@ def test_run_script_still_exposes_online_and_offline_modes():
     script = RUN_SCRIPT.read_text(encoding="utf-8")
 
     assert "mode=online" in script
+    assert 'motion_backend=*)' in script
+    assert '"${MOTION_BACKEND}" == "policy" && "${MODE}" != "navigation" && "${MODE}" != "online"' in script
+    assert '"motion_backend:=${MOTION_BACKEND}"' in script
     assert "mode=navigation" in script
+    assert "mode=policy_bridge_only" in script
+    assert '"start_at_first_route_point:=$( [[ "${MOTION_BACKEND}" == "policy" ]] && echo false' in script
     assert "mode=save_map" in script
     assert "mode=save_pcd_map" in script
+    assert "policy_bridge.launch.py" in script
+    assert 'POLICY_MODEL_PATH="${H1_2_POLICY_MODEL_PATH:-${WORKSPACE_DIR%%/releases/*}/models/h1_2_armhold/policy.onnx}"' in script
+    assert 'model_path:="${POLICY_MODEL_PATH}"' in script
+    assert 'Policy model is not readable:' in script
+    assert "cmd_vel_topic:=/cmd_vel_final" in script
+    assert "cmd_vel_topic:=/cmd_vel_final max_linear_speed:=0.20 max_angular_speed:=0.10" in script
+    assert script.count('"max_linear_speed:=$( [[ "${MOTION_BACKEND}" == "policy" ]] && echo 0.20 || echo 0.12 )"') == 2
+    assert "stop_policy_bridge=true" in script
     assert "params_file=*" in script
     assert '"params_file:=${NAV2_PARAMS_FILE}"' in script
     assert 'H1_2_DDS_CONFIG:-${WORKSPACE_DIR}/config/cyclonedds_auto.xml' in script
     assert script.count('if [[ -n "${NETWORK_INTERFACE}" ]]') == 2
     assert script.count('+=("network_interface:=${NETWORK_INTERFACE}")') == 2
     assert 'export CYCLONEDDS_URI="file://${CYCLONEDDS_CONFIG}"' in script
-    assert 'unset CYCLONEDDS_URI' not in script
+    assert 'unset CYCLONEDDS_URI' in script
 
 
 def test_h1_2_nav_web_gui_does_not_pass_launch_only_min_speed_to_script():

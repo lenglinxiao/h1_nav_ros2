@@ -116,7 +116,9 @@ def test_invalid_navigation_attempt_does_not_clear_expiry_but_success_does():
         save_config=Mock(),
     )
     app._heartbeat_age = MethodType(method_from("WebGuiApp", "_heartbeat_age"), app)
-    start_navigation = method_from("WebGuiApp", "start_navigation_task")
+    start_navigation = method_from(
+        "WebGuiApp", "start_navigation_task", {"task_execution_snapshot": lambda payload: payload}
+    )
 
     assert start_navigation(app, {"run_mode": "save_map"})["success"] is False
     assert app.heartbeat_expired is True

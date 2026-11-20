@@ -27,6 +27,15 @@ def test_memory_route_runner_loads_points_and_route_names():
     assert "parse_route_names" in source
     assert "json.loads" in source
     assert "record_to_pose" in source
+    assert "active navigation " in source
+
+
+def test_online_camera_init_launch_aligns_point_and_pose_frames():
+    launch = (ROOT / "src" / "h1_2_slam_bringup" / "launch" / "h1_2_nav2_camera_init_navigation.launch.py").read_text(encoding="utf-8")
+
+    assert '"target_frame": LaunchConfiguration("global_frame")' in launch
+    assert '"required_tf_target_frame": LaunchConfiguration("global_frame")' in launch
+    assert '"required_tf_source_frame": "body"' in launch
 
 
 def test_memory_route_runner_uses_latest_tf_for_long_running_goals():
@@ -130,13 +139,13 @@ def test_memory_route_can_start_from_first_point_and_send_second_point_first():
     assert 'DeclareLaunchArgument("start_at_first_route_point"' in launch
     assert '"start_at_first_route_point": ParameterValue(' in launch
     assert 'START_AT_FIRST_ROUTE_POINT="true"' in script
-    assert '"start_at_first_route_point:=${START_AT_FIRST_ROUTE_POINT}"' in script
+    assert '"start_at_first_route_point:=$( [[ "${MOTION_BACKEND}" == "policy" ]] && echo false' in script
 
 
 def test_turn_route_uses_travel_direction_as_nav2_arrival_orientation():
     source = RUNNER.read_text(encoding="utf-8")
 
-    assert "if not self.returning_to_start and name in self.turn_route:" in source
+    assert "if not self.returning_to_start:" in source
     assert "self.set_route_arrival_orientation(goal.pose, name)" in source
     assert "previous_name = self.route_names[(self.current_index - 1) % len(self.route_names)]" in source
     assert "arrival_yaw = math.atan2(dy, dx)" in source

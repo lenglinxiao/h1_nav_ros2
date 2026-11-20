@@ -5,6 +5,13 @@
       "trigger_radius": 0.45,
       "gesture": "wave_hand",
       "voice_code": 52
+    },
+    {
+      "point": "CarDoor",
+      "trigger_radius": 0.5,
+      "gesture": "grab_pull",
+      "voice_code": null,
+      "comment": "抓握后拉手势，用于触发问界M9/M8隔空开门"
     }
   ]
 }

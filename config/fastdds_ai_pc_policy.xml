@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dds>
+  <profiles>
+    <transport_descriptors>
+      <transport_descriptor>
+        <transport_id>ai_pc_wired_udp</transport_id>
+        <type>UDPv4</type>
+        <interfaceWhiteList>
+          <address>192.168.123.99</address>
+        </interfaceWhiteList>
+      </transport_descriptor>
+    </transport_descriptors>
+    <participant profile_name="ai_pc_wired_only" is_default_profile="true">
+      <rtps>
+        <useBuiltinTransports>false</useBuiltinTransports>
+        <userTransports>
+          <transport_id>ai_pc_wired_udp</transport_id>
+        </userTransports>
+      </rtps>
+    </participant>
+  </profiles>
+</dds>

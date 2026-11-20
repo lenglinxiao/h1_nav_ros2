@@ -1,3 +1,0 @@
-string owner_boot_id
-string coordinator_boot_id
-uint64 epoch

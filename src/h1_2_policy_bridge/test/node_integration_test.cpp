@@ -8,27 +8,11 @@
 #include <sstream>
 #include <vector>
 #include <unistd.h>
-#include <rmw/types.h>
-#include <h1_2_policy_interfaces/srv/claim_policy_input.hpp>
 
 using namespace std::chrono_literals;
 using Trigger = std_srvs::srv::Trigger;
-using ClaimInput = h1_2_policy_interfaces::srv::ClaimPolicyInput;
 using State = unitree_hg::msg::dds_::LowState_;
 using Command = unitree_hg::msg::dds_::LowCmd_;
-
-template<class Message>
-std::vector<uint8_t> publisher_gid(const typename rclcpp::Publisher<Message>::SharedPtr& publisher) {
-  const auto gid = publisher->get_gid();
-  return std::vector<uint8_t>(gid.data, gid.data + RMW_GID_STORAGE_SIZE);
-}
-
-std::string gid_hex(const std::vector<uint8_t>& gid) {
-  std::ostringstream out;
-  out << std::hex << std::setfill('0');
-  for (uint8_t byte : gid) out << std::setw(2) << static_cast<unsigned>(byte);
-  return out.str();
-}
 
 struct FakeIo final : h1_policy::LowLevelIo {
   StateCallback callback;
@@ -62,7 +46,7 @@ struct Fixture {
   std::shared_ptr<h1_policy::PolicyNode> node;
   rclcpp::Node::SharedPtr client_node;
   rclcpp::executors::SingleThreadedExecutor executor;
-  Fixture(const std::string& model, bool enabled = false, bool sim = false, const std::string& command_mode = "torque", int budget = -1, bool nav = false, bool continuous = false, double max_policy_seconds = 0, bool trained = false, bool claimed = false, std::string owner = "") {
+  Fixture(const std::string& model, bool enabled = false, bool sim = false, const std::string& command_mode = "torque", int budget = -1, bool nav = false, bool continuous = false, double max_policy_seconds = 0, bool trained = false, double max_linear_speed = .2, double max_angular_speed = .5) {
     simulation_profile = sim;
     auto fake = std::make_unique<FakeIo>(); io = fake.get();
     rclcpp::NodeOptions options;
@@ -83,9 +67,9 @@ struct Fixture {
       rclcpp::Parameter("max_policy_steps", budget < 0 ? (enabled ? 2 : 0) : budget),
       rclcpp::Parameter("enable_navigation_commands", nav),
       rclcpp::Parameter("continuous_policy_navigation", continuous),
-      rclcpp::Parameter("input_identity_mode", claimed ? "claimed" : "legacy"),
-      rclcpp::Parameter("owner_boot_id", owner),
       rclcpp::Parameter("max_policy_seconds", max_policy_seconds),
+      rclcpp::Parameter("max_linear_speed", max_linear_speed),
+      rclcpp::Parameter("max_angular_speed", max_angular_speed),
       rclcpp::Parameter("protection_profile", trained ? "train_20261106" : "legacy"),
       rclcpp::Parameter("train_guard_speed_limits_sdk", std::vector<double>(27, 1.0)),
       rclcpp::Parameter("train_guard_position_lower_sdk", std::vector<double>(27, -3.0)),
@@ -144,24 +128,10 @@ struct Fixture {
   typename rclcpp::Publisher<Message>::SharedPtr publisher(const std::string& topic) {
     return client_node->create_publisher<Message>(topic, 10);
   }
-  bool claim(const std::string& owner, const std::vector<uint8_t>& cmd_gid, const std::vector<uint8_t>& heartbeat_gid) {
-    auto client = client_node->create_client<ClaimInput>("/h1_2/policy/claim_input");
-    CHECK(client->wait_for_service(2s));
-    auto request = std::make_shared<ClaimInput::Request>();
-    request->owner_boot_id = owner;
-    request->cmd_writer_gid = cmd_gid;
-    request->heartbeat_writer_gid = heartbeat_gid;
-    auto future = client->async_send_request(request);
-    CHECK(executor.spin_until_future_complete(future, 2s) == rclcpp::FutureReturnCode::SUCCESS);
-    return future.get()->success;
-  }
 };
 
 void disabled_and_shadow(const std::string& model) {
   Fixture f(model); f.state(); f.state();
-  CHECK(f.status().find("input_identity_mode=legacy") != std::string::npos);
-  CHECK(f.status().find("input_claimed=false") != std::string::npos);
-  CHECK(f.status().find("owner_boot_id=none") != std::string::npos);
   CHECK(f.io->opens == 0); CHECK(!f.call("passive").success);
   CHECK(!f.node->set_parameter(rclcpp::Parameter("enable_hardware_output", true)).successful);
   CHECK(!f.node->set_parameter(rclcpp::Parameter("profile", "sim")).successful);
@@ -172,36 +142,6 @@ void disabled_and_shadow(const std::string& model) {
   f.state(true, 1, true); CHECK(f.status().find("state=invalid") != std::string::npos);
   CHECK(!f.call("shadow").success); f.pump();
   CHECK(f.status().find("shadow=false") != std::string::npos); CHECK(f.io->writes.empty());
-}
-
-void runtime_identity_tracks_live_writer(const std::string& model) {
-  using Identity = h1_2_policy_interfaces::srv::PolicyRuntimeIdentity;
-  Fixture f(model, true);
-  f.state(); f.state();
-  auto client = f.client_node->create_client<Identity>("/h1_2/policy/runtime_identity");
-  CHECK(client->wait_for_service(2s));
-  auto read_identity = [&]() {
-    auto future = client->async_send_request(std::make_shared<Identity::Request>());
-    CHECK(f.executor.spin_until_future_complete(future, 2s) == rclcpp::FutureReturnCode::SUCCESS);
-    return *future.get();
-  };
-  auto before = read_identity();
-  CHECK(!before.authorized);
-  CHECK(!before.writer_present);
-  CHECK(std::all_of(before.lowcmd_writer_gid.begin(), before.lowcmd_writer_gid.end(), [](uint8_t byte) { return byte == 0; }));
-  CHECK(before.policy_pid == static_cast<uint32_t>(getpid()));
-  CHECK(before.node_fqn == f.test_namespace + "/h1_2_policy_node");
-  CHECK(before.model_sha256.size() == 64);
-  CHECK(before.executable_sha256.size() == 64);
-  CHECK(!before.valid);
-  CHECK(before.reason.find("OWNER_BOOT_ID_UNAVAILABLE") != std::string::npos);
-
-  CHECK(f.call("authorize_output").success);
-  auto after = read_identity();
-  CHECK(after.authorized);
-  CHECK(after.writer_present);
-  for (size_t i = 0; i < after.lowcmd_writer_gid.size(); ++i)
-    CHECK(after.lowcmd_writer_gid[i] == static_cast<uint8_t>(i + 1));
 }
 
 void authorized_budget(const std::string& model) {
@@ -534,10 +474,8 @@ void position_pd_exit_faults(const std::string& model) {
 
 
 void continuous_navigation_commands(const std::string& model) {
-  Fixture f(model, true, false, "position_pd", 0, true, true); f.state(); f.state();
+  Fixture f(model, true, false, "position_pd", 0, true, true, 0, true, .12, .1); f.state(); f.state();
   auto pub = f.client_node->create_publisher<geometry_msgs::msg::Twist>("/cmd_vel_final", 10);
-  auto heartbeat = f.client_node->create_publisher<std_msgs::msg::Bool>("/h1_2/policy_gate_alive", 10);
-  std_msgs::msg::Bool alive; alive.data = true;
   geometry_msgs::msg::Twist v; v.linear.x = .18; v.angular.z = .3;
   CHECK(f.call("authorize_output").success); f.pump(); CHECK(f.call("fix_stand").success);
   f.pump(); f.advance(3.01); f.pump(); CHECK(f.call("arm_hold_stand").success);
@@ -545,186 +483,19 @@ void continuous_navigation_commands(const std::string& model) {
   pub->publish(v); f.pump(); CHECK(f.call("arm_hold").success);
   f.pump(); CHECK(f.status().find("navigation_ready=false") != std::string::npos);
   CHECK(f.status().find("policy_cmd=0,0,0") != std::string::npos);
-  f.advance(3.01); heartbeat->publish(alive); f.pump(70); CHECK(f.status().find("navigation_ready=true") != std::string::npos);
+  f.advance(3.01); pub->publish(geometry_msgs::msg::Twist{}); f.pump(70);
+  CHECK(f.status().find("navigation_ready=true") != std::string::npos);
   CHECK(f.status().find("policy_cmd=0,0,0") != std::string::npos);
   f.advance(.01); pub->publish(v); f.pump(70);
-  CHECK(f.status().find("policy_cmd=0.18,0,0.3") != std::string::npos);
-  f.advance(.21); f.pump(); CHECK(f.status().find("policy_cmd=0,0,0") != std::string::npos);
-  CHECK(f.status().find("navigation_ready=false") != std::string::npos);
-  heartbeat->publish(alive); f.pump(70); CHECK(f.status().find("navigation_ready=true") != std::string::npos);
-  f.advance(.41); heartbeat->publish(alive); f.pump(70); CHECK(f.status().find("policy_cmd=0,0,0") != std::string::npos);
+  CHECK(f.status().find("policy_cmd=0.12,0,0.1") != std::string::npos);
+  f.advance(.21); pub->publish(geometry_msgs::msg::Twist{}); f.pump();
+  CHECK(f.status().find("policy_cmd=0,0,0") != std::string::npos);
   CHECK(f.status().find("navigation_ready=true") != std::string::npos);
+  f.advance(.41); f.pump(70); CHECK(f.status().find("policy_cmd=0,0,0") != std::string::npos);
+  CHECK(f.status().find("navigation_ready=false") != std::string::npos);
   CHECK(f.call("revoke_output").success); CHECK(f.status().find("navigation_ready=false") != std::string::npos);
 }
 
-void claimed_input_validation(const std::string& model) {
-  const std::string owner(32, 'a');
-  Fixture f(model, false, false, "torque", 0, false, false, 0, false, true, owner);
-  auto cmd = f.publisher<geometry_msgs::msg::Twist>("/cmd_vel_final");
-  auto heartbeat = f.publisher<std_msgs::msg::Bool>("/h1_2/policy_gate_alive");
-  const auto cmd_gid = publisher_gid<geometry_msgs::msg::Twist>(cmd);
-  const auto heartbeat_gid = publisher_gid<std_msgs::msg::Bool>(heartbeat);
-  CHECK(cmd_gid.size() == RMW_GID_STORAGE_SIZE && heartbeat_gid.size() == RMW_GID_STORAGE_SIZE);
-  CHECK(h1_policy::nonzero_ros_gid(cmd_gid) && h1_policy::nonzero_ros_gid(heartbeat_gid));
-  CHECK(!f.claim(std::string(32, 'b'), cmd_gid, heartbeat_gid));
-  for (size_t length : {size_t(1), size_t(16), size_t(23), size_t(25)}) {
-    auto malformed = cmd_gid; malformed.resize(length);
-    CHECK(!f.claim(owner, malformed, heartbeat_gid));
-  }
-  auto zero = std::vector<uint8_t>(RMW_GID_STORAGE_SIZE, 0);
-  CHECK(!f.claim(owner, zero, heartbeat_gid));
-  CHECK(!f.claim(owner, cmd_gid, zero));
-  auto status = f.status();
-  CHECK(status.find("input_identity_mode=claimed") != std::string::npos);
-  CHECK(status.find("input_claimed=false") != std::string::npos);
-  CHECK(status.find("cmd_writer_gid=none") != std::string::npos);
-  CHECK(status.find("heartbeat_writer_gid=none") != std::string::npos);
-  CHECK(status.find("authorized=false") != std::string::npos);
-  CHECK(!f.io->present && f.io->writes.empty());
-  CHECK(f.claim(owner, cmd_gid, heartbeat_gid));
-  status = f.status();
-  CHECK(status.find("input_claimed=true") != std::string::npos);
-  CHECK(status.find("owner_boot_id=" + owner) != std::string::npos);
-  CHECK(status.find("cmd_writer_gid=" + gid_hex(cmd_gid)) != std::string::npos);
-  CHECK(status.find("heartbeat_writer_gid=" + gid_hex(heartbeat_gid)) != std::string::npos);
-  CHECK(status.find("authorized=false") != std::string::npos);
-  CHECK(!f.io->present && f.io->writes.empty());
-  std::array<uint8_t, RMW_GID_STORAGE_SIZE> expected{};
-  std::copy(cmd_gid.begin(), cmd_gid.end(), expected.begin());
-  rmw_gid_t actual{};
-  std::copy(cmd_gid.begin(), cmd_gid.end(), actual.data);
-  CHECK(std::equal(expected.begin(), expected.end(), actual.data));
-  actual.data[16] ^= 1;
-  CHECK(!std::equal(expected.begin(), expected.end(), actual.data));
-  CHECK(!f.claim(std::string(32, 'b'), cmd_gid, heartbeat_gid));
-  status = f.status();
-  CHECK(status.find("input_claimed=false") != std::string::npos);
-  CHECK(status.find("cmd_writer_gid=none") != std::string::npos);
-  CHECK(!f.io->present && f.io->writes.empty());
-}
-
-void reject_invalid_claimed_startup_identity(const std::string& model) {
-  bool rejected = false;
-  try { Fixture f(model, false, false, "torque", 0, false, false, 0, false, true, ""); }
-  catch (const std::runtime_error&) { rejected = true; }
-  CHECK(rejected);
-  rejected = false;
-  try { Fixture f(model, false, false, "torque", 0, false, false, 0, false, true, std::string(31, 'a') + "A"); }
-  catch (const std::runtime_error&) { rejected = true; }
-  CHECK(rejected);
-}
-
-void claimed_input_replacement_clears_and_filters(const std::string& model) {
-  const std::string owner(32, 'c');
-  Fixture f(model, false, true, "torque", 0, true, false, 0, false, true, owner);
-  f.state();
-  auto old_cmd = f.publisher<geometry_msgs::msg::Twist>("/cmd_vel_final");
-  auto old_heartbeat = f.publisher<std_msgs::msg::Bool>("/h1_2/policy_gate_alive");
-  auto old_cmd_gid = publisher_gid<geometry_msgs::msg::Twist>(old_cmd);
-  auto old_heartbeat_gid = publisher_gid<std_msgs::msg::Bool>(old_heartbeat);
-  geometry_msgs::msg::Twist nonzero; nonzero.linear.x = .12;
-  std_msgs::msg::Bool alive; alive.data = true;
-  old_cmd->publish(nonzero); old_heartbeat->publish(alive); f.pump();
-  CHECK(f.call("passive").success); CHECK(f.call("fix_stand").success);
-  f.advance(3.01); CHECK(f.call("arm_hold_stand").success);
-  f.advance(3.01); CHECK(f.call("arm_hold").success); f.pump(40);
-  CHECK(f.status().find("policy_cmd=0,0,0") != std::string::npos);
-
-  CHECK(f.claim(owner, old_cmd_gid, old_heartbeat_gid));
-  CHECK(f.status().find("navigation_ready=false") != std::string::npos);
-  CHECK(f.status().find("policy_cmd=0,0,0") != std::string::npos);
-  old_heartbeat->publish(alive); old_cmd->publish(nonzero); f.pump(50);
-  CHECK(f.status().find("navigation_ready=true") != std::string::npos);
-  f.advance(.01);
-  old_cmd->publish(nonzero); f.pump(40);
-  CHECK(f.status().find("policy_cmd=0.12,0,0") != std::string::npos);
-
-  auto new_cmd = f.publisher<geometry_msgs::msg::Twist>("/cmd_vel_final");
-  auto new_heartbeat = f.publisher<std_msgs::msg::Bool>("/h1_2/policy_gate_alive");
-  auto new_cmd_gid = publisher_gid<geometry_msgs::msg::Twist>(new_cmd);
-  auto new_heartbeat_gid = publisher_gid<std_msgs::msg::Bool>(new_heartbeat);
-  CHECK(new_cmd_gid != old_cmd_gid && new_heartbeat_gid != old_heartbeat_gid);
-  CHECK(f.claim(owner, new_cmd_gid, new_heartbeat_gid));
-  CHECK(f.status().find("navigation_ready=false") != std::string::npos);
-  CHECK(f.status().find("policy_cmd=0,0,0") != std::string::npos);
-
-  new_heartbeat->publish(alive); new_cmd->publish(geometry_msgs::msg::Twist{}); f.pump(50);
-  CHECK(f.status().find("navigation_ready=true") != std::string::npos);
-  f.advance(.01); new_cmd->publish(nonzero); new_heartbeat->publish(alive); f.pump(40);
-  CHECK(f.status().find("policy_cmd=0.12,0,0") != std::string::npos);
-  old_cmd->publish(nonzero); old_heartbeat->publish(alive); f.pump(60);
-  CHECK(f.status().find("navigation_ready=true") != std::string::npos);
-  CHECK(f.status().find("policy_cmd=0.12,0,0") != std::string::npos);
-  new_heartbeat->publish(alive); new_cmd->publish(geometry_msgs::msg::Twist{}); f.pump(50);
-  CHECK(f.status().find("navigation_ready=true") != std::string::npos);
-  f.advance(.01);
-  new_cmd->publish(nonzero); new_heartbeat->publish(alive); f.pump(40);
-  CHECK(f.status().find("policy_cmd=0.12,0,0") != std::string::npos);
-  alive.data = false; old_heartbeat->publish(alive); f.pump(30);
-  CHECK(f.status().find("navigation_ready=true") != std::string::npos);
-}
-static std::vector<uint8_t> gid_bytes(const rmw_gid_t& gid) {
-  return std::vector<uint8_t>(gid.data, gid.data + RMW_GID_STORAGE_SIZE);
-}
-
-void claimed_navigation_inputs(const std::string& model) {
-  using Claim = h1_2_policy_interfaces::srv::ClaimPolicyInput;
-   const std::string owner(32, 'd');
-   Fixture f(model, true, false, "position_pd", 0, true, true, 0, false, true, owner);
-  f.state(); f.state();
-  auto accepted_cmd = f.client_node->create_publisher<geometry_msgs::msg::Twist>("/cmd_vel_final", 10);
-  auto accepted_heartbeat = f.client_node->create_publisher<std_msgs::msg::Bool>("/h1_2/policy_gate_alive", 10);
-  auto old_cmd = f.client_node->create_publisher<geometry_msgs::msg::Twist>("/cmd_vel_final", 10);
-  auto old_heartbeat = f.client_node->create_publisher<std_msgs::msg::Bool>("/h1_2/policy_gate_alive", 10);
-  auto client = f.client_node->create_client<Claim>("/h1_2/policy/claim_input");
-  CHECK(client->wait_for_service(2s));
-  auto claim = [&](const auto& cmd, const auto& heartbeat, size_t cmd_size = RMW_GID_STORAGE_SIZE) {
-    auto request = std::make_shared<Claim::Request>();
-     request->owner_boot_id = owner;
-    request->cmd_writer_gid = gid_bytes(cmd->get_gid());
-    request->heartbeat_writer_gid = gid_bytes(heartbeat->get_gid());
-    request->cmd_writer_gid.resize(cmd_size);
-    auto future = client->async_send_request(request);
-    CHECK(f.executor.spin_until_future_complete(future, 2s) == rclcpp::FutureReturnCode::SUCCESS);
-    return *future.get();
-  };
-  auto malformed = claim(accepted_cmd, accepted_heartbeat, RMW_GID_STORAGE_SIZE - 1);
-  CHECK(!malformed.success);
-  geometry_msgs::msg::Twist velocity; velocity.linear.x = .18; velocity.angular.z = .3;
-  std_msgs::msg::Bool alive; alive.data = true;
-  old_cmd->publish(velocity); old_heartbeat->publish(alive); f.pump();
-  CHECK(f.status().find("navigation_ready=false") != std::string::npos);
-  auto first_claim = claim(accepted_cmd, accepted_heartbeat);
-  CHECK(first_claim.success);
-  old_cmd->publish(velocity); old_heartbeat->publish(alive); f.pump();
-  CHECK(f.status().find("navigation_ready=false") != std::string::npos);
-
-  CHECK(f.call("authorize_output").success); f.pump(); CHECK(f.call("fix_stand").success);
-  f.pump(); f.advance(3.01); f.pump(); CHECK(f.call("arm_hold_stand").success);
-  f.pump(); f.advance(3.01); f.pump(); CHECK(f.call("arm_hold").success); f.pump();
-  f.advance(3.01); f.pump();
-  accepted_heartbeat->publish(alive); f.pump(70);
-  CHECK(f.status().find("navigation_ready=true") != std::string::npos);
-  old_cmd->publish(velocity); old_heartbeat->publish(alive); f.pump(70);
-  CHECK(f.status().find("policy_cmd=0,0,0") != std::string::npos);
-  f.advance(.01); f.pump();
-  accepted_cmd->publish(velocity); f.pump(70);
-  CHECK(f.status().find("policy_cmd=0.18,0,0.3") != std::string::npos);
-
-  auto second_claim = claim(old_cmd, old_heartbeat);
-  CHECK(second_claim.success);
-  f.pump(70);
-  CHECK(f.status().find("policy_cmd=0,0,0") != std::string::npos);
-  CHECK(f.status().find("navigation_ready=false") != std::string::npos);
-  accepted_cmd->publish(velocity); accepted_heartbeat->publish(alive); f.pump(70);
-  CHECK(f.status().find("navigation_ready=false") != std::string::npos);
-  old_heartbeat->publish(alive); f.pump(70);
-  CHECK(f.status().find("navigation_ready=true") != std::string::npos);
-  f.advance(.01); f.pump();
-  old_cmd->publish(velocity); f.pump(70);
-  CHECK(f.status().find("policy_cmd=0.18,0,0.3") != std::string::npos);
-  CHECK(f.call("revoke_output").success);
-}
 
 void reject_continuous_misconfiguration(const std::string& model) {
   bool rejected = false; try { Fixture f(model, true, false, "torque", 0, true, true); } catch (const std::runtime_error&) { rejected = true; } CHECK(rejected);
@@ -828,7 +599,6 @@ int main(int argc, char** argv) {
   rclcpp::init(argc, argv);
   try {
     disabled_and_shadow(argv[1]); authorized_budget(argv[1]);
-    runtime_identity_tracks_live_writer(argv[1]);
     for (int kind = 0; kind < 3; ++kind) fault_case(argv[1], kind);
     slow_open(argv[1]); slow_open_fresh_state(argv[1]); simulation(argv[1]);
     position_pd_simulation(argv[1]); reject_command_modes(argv[1]); position_pd_hardware(argv[1]);
@@ -838,11 +608,8 @@ int main(int argc, char** argv) {
     position_pd_release_newer_nonquiet_sample(argv[1], true, .6f);
     position_pd_release_deadline_after_calculation(argv[1]);
     continuous_navigation_commands(argv[1]); reject_continuous_misconfiguration(argv[1]);
-   claimed_navigation_inputs(argv[1]);
     policy_deadline_before_and_during_step(argv[1], false);
     policy_deadline_before_and_during_step(argv[1], true);
-    claimed_input_validation(argv[1]); reject_invalid_claimed_startup_identity(argv[1]);
-    claimed_input_replacement_clears_and_filters(argv[1]);
     trained_guard_integration(argv[1]); trained_position_limit_integration(argv[1]);
     rclcpp::shutdown(); std::cout << "node integration scenarios passed\n";
   } catch (const std::exception& e) { std::cerr << e.what() << '\n'; rclcpp::shutdown(); return 1; }

@@ -15,6 +15,9 @@ find_package(h1_2_nav_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(Threads REQUIRED)
 
+# YAML-CPP for configuration parsing (optional, we use simple parser)
+# find_package(yaml-cpp REQUIRED)
+
 if(NOT UNITREE_SDK2_ROOT)
   if(DEFINED ENV{UNITREE_SDK2_ROOT})
     set(UNITREE_SDK2_ROOT "$ENV{UNITREE_SDK2_ROOT}")
@@ -46,6 +49,7 @@ target_include_directories(h1_2_loco_udp_daemon PRIVATE
   ${UNITREE_SDK2_ROOT}/include
   ${UNITREE_SDK2_THIRDPARTY_INCLUDE_DIR}
   ${UNITREE_SDK2_THIRDPARTY_INCLUDE_DIR}/ddscxx
+  ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 target_link_libraries(h1_2_loco_udp_daemon
   ${UNITREE_SDK2_LIB}
@@ -58,18 +62,50 @@ set_target_properties(h1_2_loco_udp_daemon PROPERTIES
   INSTALL_RPATH "${UNITREE_SDK2_THIRDPARTY_LIB_DIR};${UNITREE_SDK2_LIB_DIR}"
 )
 
+add_executable(grab_pull_demo src/grab_pull_demo.cpp)
+target_include_directories(grab_pull_demo PRIVATE
+  ${UNITREE_SDK2_ROOT}/include
+  ${UNITREE_SDK2_THIRDPARTY_INCLUDE_DIR}
+  ${UNITREE_SDK2_THIRDPARTY_INCLUDE_DIR}/ddscxx
+  ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+target_link_libraries(grab_pull_demo
+  ${UNITREE_SDK2_LIB}
+  ${UNITREE_DDSCXX_LIB}
+  ${UNITREE_DDSC_LIB}
+  Threads::Threads
+)
+set_target_properties(grab_pull_demo PROPERTIES
+  BUILD_RPATH "${UNITREE_SDK2_THIRDPARTY_LIB_DIR};${UNITREE_SDK2_LIB_DIR}"
+  INSTALL_RPATH "${UNITREE_SDK2_THIRDPARTY_LIB_DIR};${UNITREE_SDK2_LIB_DIR}"
+)
+
 add_executable(gesture_to_h1_2_loco src/gesture_to_h1_2_loco.cpp)
 ament_target_dependencies(gesture_to_h1_2_loco
   h1_2_nav_msgs
   rclcpp
 )
 
-install(TARGETS cmd_vel_to_h1_2_loco h1_2_loco_udp_daemon gesture_to_h1_2_loco
+install(TARGETS cmd_vel_to_h1_2_loco h1_2_loco_udp_daemon gesture_to_h1_2_loco grab_pull_demo
   DESTINATION lib/${PROJECT_NAME}
 )
 
 install(DIRECTORY launch
   DESTINATION share/${PROJECT_NAME}
 )
+
+install(DIRECTORY config
+  DESTINATION share/${PROJECT_NAME}
+)
+
+# Unit tests
+if(BUILD_TESTING)
+  find_package(ament_cmake_gtest REQUIRED)
+
+  ament_add_gtest(test_arm_trajectory test/test_arm_trajectory.cpp)
+  target_include_directories(test_arm_trajectory PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+  )
+endif()
 
 ament_package()

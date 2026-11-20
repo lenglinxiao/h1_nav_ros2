@@ -1,8 +1,0 @@
-string source
-SessionToken expected_token
----
-bool success
-SessionToken token
-string cmd_topic
-string action_namespace
-string reason

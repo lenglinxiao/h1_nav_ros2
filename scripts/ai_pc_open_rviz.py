@@ -3,20 +3,146 @@
 import fcntl
 import ctypes
 import ctypes.util
+import os
 from pathlib import Path
 import re
+import signal
 import subprocess
 import sys
+import time
+from urllib.parse import parse_qs, urlsplit
 
 
 def parse_mode(uri):
-    allowed = {
-        "h1-rviz://open?mode=online": "online",
-        "h1-rviz://open?mode=offline": "offline",
-    }
-    if uri not in allowed:
+    return parse_options(uri)[0]
+
+
+def parse_options(uri):
+    parsed = urlsplit(uri)
+    if parsed.scheme != "h1-rviz" or parsed.netloc != "open" or parsed.path or parsed.fragment:
         raise ValueError("Unsupported RViz link")
-    return allowed[uri]
+    values = parse_qs(parsed.query, keep_blank_values=True, strict_parsing=True)
+    if set(values) - {"mode", "backend"}:
+        raise ValueError("Unsupported RViz link")
+    if any(len(items) != 1 for items in values.values()):
+        raise ValueError("Unsupported RViz link")
+    mode = values.get("mode", [""])[0]
+    backend = values.get("backend", ["unitree"])[0]
+    if mode not in ("online", "offline") or backend not in ("unitree", "policy"):
+        raise ValueError("Unsupported RViz link")
+    return mode, backend
+
+
+def parse_action(uri):
+    parsed = urlsplit(uri)
+    if parsed.scheme != "h1-rviz" or parsed.path or parsed.fragment:
+        raise ValueError("Unsupported RViz link")
+    if parsed.netloc == "close":
+        if parsed.query:
+            raise ValueError("Unsupported RViz link")
+        return "close", None, None
+    if parsed.netloc != "open":
+        raise ValueError("Unsupported RViz link")
+    mode, backend = parse_options(uri)
+    return "open", mode, backend
+
+
+def is_managed_rviz_command(argv):
+    parts = [os.fsdecode(part) for part in argv]
+    if len(parts) >= 4 and Path(parts[0]).name == "ros2":
+        command = parts[1:4]
+    elif len(parts) >= 5 and Path(parts[1]).name == "ros2":
+        command = parts[2:5]
+    else:
+        return False
+    return command == ["launch", "h1_2_slam_bringup", "h1_2_nav2_rviz.launch.py"]
+
+
+def select_unique_managed_rviz_pid(candidates):
+    matches = {
+        pid
+        for pid, sid, pgid, argv in candidates
+        if pid > 1 and sid == pid and pgid == pid and is_managed_rviz_command(argv)
+    }
+    return next(iter(matches)) if len(matches) == 1 else None
+
+
+def _is_managed_rviz_process(pid):
+    if pid <= 1 or os.getsid(pid) != pid or os.getpgid(pid) != pid:
+        return False
+    argv = Path(f"/proc/{pid}/cmdline").read_bytes().split(bytes((0,)))
+    return is_managed_rviz_command([part for part in argv if part])
+
+
+def discover_managed_rviz_pid():
+    candidates = []
+    try:
+        process_entries = Path("/proc").iterdir()
+        for entry in process_entries:
+            if not entry.name.isdecimal():
+                continue
+            pid = int(entry.name)
+            try:
+                argv = entry.joinpath("cmdline").read_bytes().split(bytes((0,)))
+                sid = os.getsid(pid)
+                pgid = os.getpgid(pid)
+            except (OSError, ProcessLookupError):
+                continue
+            candidates.append((pid, sid, pgid, [part for part in argv if part]))
+    except OSError:
+        return None
+    return select_unique_managed_rviz_pid(candidates)
+
+
+def _rviz_group_exists(pid):
+    try:
+        os.killpg(pid, 0)
+        return True
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+
+
+def close_managed_rviz(pid_path, timeout_sec=8.0):
+    pid_path = Path(pid_path)
+    try:
+        pid = int(pid_path.read_text(encoding="ascii").strip())
+    except (OSError, ValueError):
+        pid = None
+    try:
+        if pid is None or not _is_managed_rviz_process(pid):
+            pid = discover_managed_rviz_pid()
+        if pid is None or not _is_managed_rviz_process(pid):
+            return False
+    except (OSError, ProcessLookupError):
+        return False
+
+    try:
+        os.killpg(pid, signal.SIGINT)
+    except ProcessLookupError:
+        return False
+
+    deadline = time.monotonic() + timeout_sec
+    while _rviz_group_exists(pid) and time.monotonic() < deadline:
+        time.sleep(0.1)
+    if _rviz_group_exists(pid):
+        try:
+            os.killpg(pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+        deadline = time.monotonic() + 2.0
+        while _rviz_group_exists(pid) and time.monotonic() < deadline:
+            time.sleep(0.1)
+    if _rviz_group_exists(pid):
+        return False
+
+    try:
+        if pid_path.read_text(encoding="ascii").strip() == str(pid):
+            pid_path.unlink()
+    except OSError:
+        pass
+    return True
 
 
 def raise_rviz_window():
@@ -89,11 +215,18 @@ def main():
     if len(sys.argv) != 2:
         return 2
     try:
-        mode = parse_mode(sys.argv[1])
+        action, mode, backend = parse_action(sys.argv[1])
     except ValueError:
         return 2
     ros_dir = Path.home() / ".ros"
     ros_dir.mkdir(parents=True, exist_ok=True)
+    pid_path = ros_dir / "h1-rviz-launcher.pid"
+    if action == "close":
+        closed = close_managed_rviz(pid_path)
+        with (ros_dir / "h1-rviz-launcher.log").open("a") as log:
+            log.write(f"Managed RViz close requested; closed={closed}\n")
+        return 0 if closed else 1
+
     with (ros_dir / "h1-rviz-launcher.lock").open("a") as lock:
         try:
             fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -104,10 +237,19 @@ def main():
             return 0
         script = Path(__file__).resolve().with_name("ai_pc_start_rviz.sh")
         with (ros_dir / "h1-rviz-launcher.log").open("a") as log:
-            return subprocess.run(
-                ["/bin/bash", str(script), mode], stdout=log,
+            process = subprocess.Popen(
+                ["/bin/bash", str(script), mode, backend], stdout=log,
                 stderr=subprocess.STDOUT, start_new_session=True,
-            ).returncode
+            )
+            pid_path.write_text(f"{process.pid}\n", encoding="ascii")
+            try:
+                return process.wait()
+            finally:
+                try:
+                    if pid_path.read_text(encoding="ascii").strip() == str(process.pid):
+                        pid_path.unlink()
+                except OSError:
+                    pass
 
 
 if __name__ == "__main__":

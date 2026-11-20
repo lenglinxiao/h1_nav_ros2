@@ -1,12 +1,16 @@
 #include <arpa/inet.h>
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <cerrno>
+#include <condition_variable>
 #include <csignal>
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
+#include <memory>
+#include <mutex>
 #include <netinet/in.h>
 #include <sstream>
 #include <string>
@@ -16,12 +20,35 @@
 
 #include "unitree/robot/channel/channel_factory.hpp"
 #include "unitree/robot/h1/loco/h1_loco_client.hpp"
+#include "arm_gesture_player.hpp"
+#include "grab_pull_config.hpp"
 
 namespace {
 volatile std::sig_atomic_t running = 1;
 
+// 手势播放状态
+struct GesturePlaybackState {
+  std::atomic<bool> is_playing{false};
+  std::atomic<bool> abort_requested{false};
+  std::mutex mutex;
+  std::condition_variable cv;
+  std::thread worker_thread;
+
+  int result_code = 0;
+  std::string result_message;
+  bool result_ready = false;
+
+  sockaddr_in client_addr{};
+  socklen_t client_addr_len = 0;
+};
+
+GesturePlaybackState gesture_state;
+std::unique_ptr<h1_2_arm_gesture::ArmGesturePlayer> arm_player;
+std::string grab_pull_config_path;
+
 void handle_signal(int) {
   running = 0;
+  gesture_state.abort_requested.store(true);
 }
 
 double clamp(double value, double low, double high) {
@@ -40,6 +67,52 @@ std::string rest_of_line(std::istringstream& in) {
     rest.erase(0, 1);
   }
   return rest;
+}
+
+// 工作线程函数
+void gesture_worker_thread(int sock) {
+  using namespace h1_2_grab_pull;
+
+  // 加载配置
+  GrabPullConfig config;
+  std::string error;
+  if (!GrabPullConfig::load_from_file(grab_pull_config_path, config, error)) {
+    std::lock_guard<std::mutex> lock(gesture_state.mutex);
+    gesture_state.result_code = -5;
+    gesture_state.result_message = error;
+    gesture_state.result_ready = true;
+    gesture_state.cv.notify_one();
+    return;
+  }
+
+  // 添加"收回"段
+  h1_2_arm_trajectory::MotionSegment return_seg;
+  return_seg.nominal_duration = 1.5;
+  return_seg.hand_shape = h1_2_arm_trajectory::HandShape::Open;
+  // target_pose将在播放时设置为初始姿势
+
+  auto segments = config.motion_sequence;
+  // 注意：这里需要在运行时获取initial pose，暂时留空最后一段
+  // 实际实现中应该在player内部处理
+
+  // 播放手势
+  auto result = arm_player->play_gesture(segments, config.trajectory_config);
+
+  // 保存结果
+  {
+    std::lock_guard<std::mutex> lock(gesture_state.mutex);
+    gesture_state.result_code = result.error_code;
+    gesture_state.result_message = result.message;
+    gesture_state.result_ready = true;
+    gesture_state.cv.notify_one();
+  }
+
+  // 发送响应
+  const std::string status = (result.error_code == 0) ? "ok " : "error ";
+  const std::string response = status + std::to_string(result.error_code) + " " + result.message;
+  send_response(sock, gesture_state.client_addr, gesture_state.client_addr_len, response);
+
+  gesture_state.is_playing.store(false);
 }
 
 }  // namespace
@@ -74,6 +147,7 @@ int main(int argc, char** argv) {
     else if (arg == "--max-yaw") max_yaw = std::atof(next());
     else if (arg == "--shake-hand-duration") shake_hand_duration = std::atof(next());
     else if (arg == "--command-timeout") command_timeout = std::atof(next());
+    else if (arg == "--grab-pull-config") grab_pull_config_path = next();
     else if (arg == "--auto-start") auto_start = true;
     else if (arg == "--auto-start-value") {
       std::string value = next();
@@ -89,6 +163,14 @@ int main(int argc, char** argv) {
   std::signal(SIGTERM, handle_signal);
 
   unitree::robot::ChannelFactory::Instance()->Init(domain_id, network_interface);
+
+  // 初始化arm_sdk播放器
+  arm_player = std::make_unique<h1_2_arm_gesture::ArmGesturePlayer>();
+  if (!arm_player->init_dds(domain_id, network_interface)) {
+    std::cerr << "Failed to initialize arm gesture player: " << arm_player->last_error() << std::endl;
+    return 1;
+  }
+
   unitree::robot::h1::LocoClient client;
   client.Init();
   client.SwitchMoveMode(true);
@@ -126,6 +208,7 @@ int main(int argc, char** argv) {
   char buf[256];
   auto last_control = std::chrono::steady_clock::now();
   bool timed_out = false;
+
   while (running) {
     if (!timed_out &&
         std::chrono::duration<double>(std::chrono::steady_clock::now() - last_control).count() > command_timeout) {
@@ -134,6 +217,7 @@ int main(int argc, char** argv) {
       timed_out = true;
       std::cout << "Control command timeout; StopMove ret=" << ret << std::endl;
     }
+
     sockaddr_in peer{};
     socklen_t peer_len = sizeof(peer);
     const ssize_t n = recvfrom(sock, buf, sizeof(buf) - 1, 0,
@@ -153,19 +237,34 @@ int main(int argc, char** argv) {
     std::istringstream in{std::string(buf)};
     std::string cmd;
     in >> cmd;
+
     if (cmd == "start") {
       const auto ret = client.Start();
       started = (ret == 0);
       std::cout << "Start ret=" << ret << std::endl;
       send_response(sock, peer, peer_len,
                     std::string(ret == 0 ? "ok " : "error ") + std::to_string(ret) + " start");
+
     } else if (cmd == "stop") {
+      // 如果正在播放手势，请求中止
+      if (gesture_state.is_playing.load()) {
+        gesture_state.abort_requested.store(true);
+        arm_player->request_abort();
+      }
+
       const auto ret = client.StopMove();
       started = false;
       std::cout << "StopMove ret=" << ret << std::endl;
       send_response(sock, peer, peer_len,
                     std::string(ret == 0 ? "ok " : "error ") + std::to_string(ret) + " stop");
+
     } else if (cmd == "vel") {
+      // 播放手势期间拒绝速度命令
+      if (gesture_state.is_playing.load()) {
+        send_response(sock, peer, peer_len, "error -3 gesture in progress");
+        continue;
+      }
+
       double vx = 0.0, vy = 0.0, wz = 0.0, duration = 0.5;
       bool valid = static_cast<bool>(in >> vx >> vy >> wz);
       if (valid) {
@@ -200,6 +299,7 @@ int main(int argc, char** argv) {
       } else if (std::abs(vx) > 1e-4 || std::abs(vy) > 1e-4 || std::abs(wz) > 1e-4) {
         std::cout << "SetVelocity OK vx=" << vx << " vy=" << vy << " wz=" << wz << std::endl;
       }
+
     } else if (cmd == "gesture") {
       std::string name;
       in >> name;
@@ -210,7 +310,41 @@ int main(int argc, char** argv) {
 
       int ret = 0;
       std::string message;
-      if (name == "wave_hand") {
+
+      if (name == "grab_pull") {
+        // 检查是否正在播放
+        if (gesture_state.is_playing.load()) {
+          send_response(sock, peer, peer_len, "error -3 gesture already in progress");
+          continue;
+        }
+
+        // 检查是否收到状态
+        if (!arm_player->wait_for_state(2.0)) {
+          send_response(sock, peer, peer_len, "error -6 " + arm_player->last_error());
+          continue;
+        }
+
+        // 停止运控移动
+        client.StopMove();
+
+        // 保存客户端地址
+        gesture_state.client_addr = peer;
+        gesture_state.client_addr_len = peer_len;
+        gesture_state.abort_requested.store(false);
+        gesture_state.result_ready = false;
+        gesture_state.is_playing.store(true);
+
+        // 启动工作线程
+        if (gesture_state.worker_thread.joinable()) {
+          gesture_state.worker_thread.join();
+        }
+        gesture_state.worker_thread = std::thread(gesture_worker_thread, sock);
+
+        std::cout << "Gesture grab_pull started in background" << std::endl;
+        // 不立即回复，由工作线程完成后回复
+        continue;
+
+      } else if (name == "wave_hand") {
         client.StopMove();
         ret = client.WaveHand();
         message = "wave_hand sent";
@@ -255,8 +389,22 @@ int main(int argc, char** argv) {
       const std::string status = (ret == 0) ? "ok " : "error ";
       std::cout << "Gesture " << name << " ret=" << ret << " " << message << std::endl;
       send_response(sock, peer, peer_len, status + std::to_string(ret) + " " + message);
+
     } else {
       send_response(sock, peer, peer_len, "error -2 unsupported command " + cmd + " " + rest_of_line(in));
+    }
+  }
+
+  // 清理
+  std::cout << "Shutting down..." << std::endl;
+
+  if (gesture_state.is_playing.load()) {
+    std::cout << "Aborting gesture playback..." << std::endl;
+    gesture_state.abort_requested.store(true);
+    arm_player->request_abort();
+
+    if (gesture_state.worker_thread.joinable()) {
+      gesture_state.worker_thread.join();
     }
   }
 

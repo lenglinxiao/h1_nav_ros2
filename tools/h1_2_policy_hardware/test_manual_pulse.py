@@ -2,6 +2,23 @@ import unittest
 from manual_pulse import ManualPulse, ManualSettle
 
 class ManualPulseTests(unittest.TestCase):
+    def test_web_speed_vectors_are_directional_and_bounded(self):
+        self.assertEqual(ManualPulse(1., 'forward', .05).command, (.05, 0., 0.))
+        self.assertEqual(ManualPulse(1., 'backward', .05).command, (-.05, 0., 0.))
+        self.assertEqual(ManualPulse(1., 'turn_left', .04).command, (0., 0., .04))
+        self.assertEqual(ManualPulse(1., 'turn_right', .04).command, (0., 0., -.04))
+        for motion, speed in (('forward', .1201), ('backward', .13), ('turn_left', .1001),
+                              ('turn_right', .2), ('forward', 0.), ('forward', float('nan'))):
+            with self.assertRaises(ValueError):
+                ManualPulse(1., motion, speed)
+
+    def test_right_turn_is_bounded_in_the_negative_yaw_direction(self):
+        p = ManualPulse(1., 'turn_right')
+        p.authorize(0., True)
+        p.start(.01)
+        self.assertEqual(p.output(.02, True), (0., 0., -.1))
+        self.assertIsNone(p.output(1.01, True))
+
     def test_left_turn_expired_lease_cannot_replay(self):
         p = ManualPulse(3., 'turn_left'); p.authorize(0., True); p.start(.01)
         self.assertEqual(p.output(.02, True), (0., 0., .1))

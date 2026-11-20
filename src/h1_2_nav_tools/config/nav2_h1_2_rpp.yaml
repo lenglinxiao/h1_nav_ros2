@@ -78,10 +78,10 @@ controller_server:
       stateful: true
     FollowPath:
       plugin: "nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController"
-      desired_linear_vel: 0.10
-      lookahead_dist: 0.45
-      min_lookahead_dist: 0.30
-      max_lookahead_dist: 0.70
+      desired_linear_vel: 0.15
+      lookahead_dist: 0.25
+      min_lookahead_dist: 0.15
+      max_lookahead_dist: 0.35
       lookahead_time: 1.2
       rotate_to_heading_angular_vel: 0.25
       transform_tolerance: 0.3

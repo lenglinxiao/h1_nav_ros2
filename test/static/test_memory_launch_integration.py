@@ -30,7 +30,7 @@ def test_checked_in_demo_memory_points_are_in_offline_map_frame():
 
 
 
-def test_online_navigation_launch_stores_memory_points_in_map_frame():
+def test_online_navigation_launch_stores_memory_points_in_configured_frame():
     source = read(BRINGUP / "h1_2_nav2_camera_init_navigation.launch.py")
 
     assert 'DeclareLaunchArgument("memory_points_file"' in source
@@ -38,7 +38,7 @@ def test_online_navigation_launch_stores_memory_points_in_map_frame():
     assert 'executable="memory_point_manager"' in source
     assert 'executable="memory_route_runner"' in source
     assert '"odom_topic": LaunchConfiguration("odom_topic")' in source
-    assert '"target_frame": "map"' in source
+    assert '"target_frame": LaunchConfiguration("global_frame")' in source
     assert '"route_names": LaunchConfiguration("memory_route")' in source
     assert '"priority_cmd_topic": "/cmd_vel_voice"' in source
 

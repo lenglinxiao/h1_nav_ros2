@@ -1,4 +1,6 @@
-# ONNX 导航接入设计提案
+# ONNX 导航接入历史设计提案
+
+> **已被取代（2026-11-12）：** 本文方案 A 及其 Owner/Coordinator、token/epoch、prepare/activate、claim、action proxy 和独立 Nav2 session 接口均不再是当前设计。当前实现以[总计划](plan.md)顶部的架构收敛决定为准；本文仅保留历史设计背景。
 
 状态：2026-11-07，用户已要求本地实施方案 A，任务 1A 完成、1B 进行中；不构成现场迁移或运动授权。范围见[总计划](plan.md)，任务及证据见[开发计划](development-plan.md)。prepare 先返回会话接口供客户端启动 backend，activate 再检查 fresh node/backend ready，避免启动依赖循环。
 

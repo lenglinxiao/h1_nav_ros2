@@ -3,8 +3,8 @@
   <Domain id="any">
     <General>
       <Interfaces>
-        <!-- PC4 WiFi for remote DDS. Unitree SDK remains on eth0. -->
-        <NetworkInterface name="wlxf8ce21a12bfe"/>
+        <!-- PC4 robot network; verify this interface is active before startup. -->
+        <NetworkInterface name="eth0"/>
       </Interfaces>
       <AllowMulticast>spdp</AllowMulticast>
     </General>

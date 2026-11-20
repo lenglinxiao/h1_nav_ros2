@@ -1,0 +1,115 @@
+# 抓握后拉手势配置文件
+# 文档参考：docs/grasp_door.md
+
+# 时间参数（单位：秒）
+timing:
+  control_period: 0.02           # 控制周期
+  takeover_duration: 1.0         # 接管时长
+  handback_duration: 2.0         # 正常交还时长
+  abort_handback_duration: 1.0   # 中止时交还时长
+
+# 速度限制
+limits:
+  max_joint_velocity: 0.5        # 关节最大速度（rad/s），上车后可提高到1.0
+
+# 右臂增益（肩pitch, 肩roll, 肩yaw, 肘, 腕roll, 腕pitch, 腕yaw）
+right_arm_gains:
+  kp: [120.0, 120.0, 120.0, 80.0, 50.0, 50.0, 50.0]
+  kd: [2.0, 2.0, 2.0, 1.5, 1.0, 1.0, 1.0]
+  tau_ff: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]  # 重力前馈，初值为0
+
+# 左臂增益（保持不动）
+left_arm_gains:
+  kp: [120.0, 120.0, 120.0, 80.0, 50.0, 50.0, 50.0]
+  kd: [2.0, 2.0, 2.0, 1.5, 1.0, 1.0, 1.0]
+  tau_ff: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+# 腰部增益
+waist_gains:
+  kp: 200.0
+  kd: 2.0
+  tau_ff: 0.0
+
+# 关键姿势（右臂7个关节角度，单位：rad）
+# 顺序：肩pitch, 肩roll, 肩yaw, 肘, 腕roll, 腕pitch, 腕yaw
+poses:
+  # 胸前姿势
+  chest:
+    joints: [-0.20, -0.23, 0.90, -0.55, 0.0, 0.0, 0.0]
+    description: "手臂抬到胸前"
+
+  # 到位姿势（门把手前，待示教后填写）
+  ready:
+    joints: [-0.20, -0.23, 0.90, -0.55, 0.0, 0.0, 0.0]  # 初值同chest
+    description: "手伸到门把手前，掌心朝门"
+
+  # 后拉姿势（待示教后填写）
+  pull_back:
+    joints: [-0.20, -0.23, 0.90, -0.55, 0.0, 0.0, 0.0]  # 初值同chest
+    description: "握拳后向后拉10-15cm"
+
+# Dex5灵巧手配置
+dex5:
+  topic_name: "rt/dex5/right/cmd"  # 待验证
+
+  # 手指增益
+  finger_gains:
+    kp: 0.10
+    kd: 0.001
+
+  # 拇指首关节增益
+  thumb_base_gains:
+    kp: 1.0
+    kd: 0.02
+
+  # 张开手型（20个关节角度，单位：rad）
+  open_hand: [0.0, 0.0, 0.0, 0.0,    # 食指
+              0.0, 0.0, 0.0, 0.0,    # 中指
+              0.0, 0.0, 0.0, 0.0,    # 无名指
+              0.0, 0.0, 0.0, 0.0,    # 小指
+              0.0, 0.0, 0.0, 0.0]    # 拇指
+
+  # 握拳手型（官方行程的80%）
+  fist_hand: [0.0, 1.25, 1.33, 1.13,  # 食指
+              0.0, 1.25, 1.33, 1.13,  # 中指
+              0.0, 1.25, 1.33, 1.13,  # 无名指
+              0.0, 1.25, 1.33, 1.13,  # 小指
+              0.3, 1.0, 0.9, 0.8]     # 拇指
+
+# 动作序列
+# 每段包含：target（目标姿势）、duration（名义用时，秒）、hand（手型）
+motion_sequence:
+  - target: "chest"
+    duration: 1.0
+    hand: "open"
+    description: "抬到胸前"
+
+  - target: "ready"
+    duration: 1.0
+    hand: "open"
+    description: "伸到门把手前"
+
+  - target: "ready"
+    duration: 0.3
+    hand: "open"
+    description: "停稳"
+
+  - target: "ready"
+    duration: 0.4
+    hand: "fist"
+    description: "握拳"
+
+  - target: "pull_back"
+    duration: 0.8
+    hand: "fist"
+    description: "后拉"
+
+  - target: "pull_back"
+    duration: 0.2
+    hand: "open"
+    description: "松手"
+
+  - target: "initial"
+    duration: 1.5
+    hand: "open"
+    description: "收回起始姿势"

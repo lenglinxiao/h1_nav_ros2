@@ -4,11 +4,25 @@ import xml.etree.ElementTree as ET
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.conditions import IfCondition
+from launch.actions import OpaqueFunction
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import LaunchConfiguration, PythonExpression
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 from nav2_common.launch import RewrittenYaml
+
+
+def validate_motion_backend(context):
+    backend = LaunchConfiguration("motion_backend").perform(context)
+    if backend not in ("unitree", "policy"):
+        raise RuntimeError("motion_backend must be 'unitree' or 'policy'")
+    if backend == "policy":
+        if LaunchConfiguration("turn_route").perform(context).strip():
+            raise RuntimeError("turn_route is unavailable with policy until turning is commissioned")
+        if LaunchConfiguration("gesture_route").perform(context).strip():
+            raise RuntimeError("gesture_route requires the Unitree motion backend")
+    return []
 
 
 def generate_launch_description():
@@ -55,6 +69,7 @@ def generate_launch_description():
     return LaunchDescription(
         [
             DeclareLaunchArgument("params_file", default_value=default_nav2_params),
+            DeclareLaunchArgument("motion_backend", default_value="unitree"),
             DeclareLaunchArgument("use_sim_time", default_value="false"),
             DeclareLaunchArgument("autostart", default_value="true"),
             DeclareLaunchArgument("start_livox_driver", default_value="false"),
@@ -92,6 +107,7 @@ def generate_launch_description():
             DeclareLaunchArgument("turn_route", default_value=""),
             DeclareLaunchArgument("gesture_route", default_value=""),
             DeclareLaunchArgument("gesture_hold_sec", default_value="3.0"),
+            OpaqueFunction(function=validate_motion_backend),
             DeclareLaunchArgument("start_at_first_route_point", default_value="false"),
             DeclareLaunchArgument("arrival_wait_sec", default_value="2.0"),
             DeclareLaunchArgument("blocked_retry_wait_sec", default_value="5.0"),
@@ -205,6 +221,9 @@ def generate_launch_description():
                     {
                         "goal_topic": LaunchConfiguration("goal_topic"),
                         "action_name": "navigate_to_pose",
+                        "required_tf_target_frame": LaunchConfiguration("global_frame"),
+                        "required_tf_source_frame": "body",
+                        "required_tf_max_age_sec": 0.5,
                     }
                 ],
             ),
@@ -217,7 +236,7 @@ def generate_launch_description():
                     {
                         "points_file": LaunchConfiguration("memory_points_file"),
                         "odom_topic": LaunchConfiguration("odom_topic"),
-                        "target_frame": "map",
+                        "target_frame": LaunchConfiguration("global_frame"),
                     }
                 ],
             ),
@@ -248,6 +267,8 @@ def generate_launch_description():
                             LaunchConfiguration("max_retries_per_goal"), value_type=int
                         ),
                         "action_name": "navigate_to_pose",
+                        "required_tf_target_frame": LaunchConfiguration("global_frame"),
+                        "required_tf_source_frame": "body",
                     }
                 ],
             ),
@@ -269,6 +290,9 @@ def generate_launch_description():
             ),
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource(loco_bridge_launch),
+                condition=IfCondition(PythonExpression([
+                    "'", LaunchConfiguration("motion_backend"), "' == 'unitree'"
+                ])),
                 launch_arguments={
                     "cmd_topic": "/cmd_vel_final",
                     "enabled": LaunchConfiguration("enable_sport_bridge"),

@@ -3,7 +3,7 @@
   <Domain id="any">
     <General>
       <Interfaces>
-        <NetworkInterface name="wlp0s20f3"/>
+        <NetworkInterface name="enp43s0"/>
       </Interfaces>
       <AllowMulticast>spdp</AllowMulticast>
     </General>

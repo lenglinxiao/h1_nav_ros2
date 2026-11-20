@@ -139,6 +139,9 @@ def generate_launch_description():
                     {
                         "goal_topic": LaunchConfiguration("goal_topic"),
                         "action_name": "navigate_to_pose",
+                        "required_tf_target_frame": "map",
+                        "required_tf_source_frame": "body",
+                        "required_tf_max_age_sec": 0.5,
                     }
                 ],
             ),

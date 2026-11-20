@@ -3,11 +3,10 @@ import xml.etree.ElementTree as ET
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, GroupAction, IncludeLaunchDescription, OpaqueFunction
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, OpaqueFunction
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, PythonExpression
-from launch_ros.actions import SetRemap
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 from launch_ros.substitutions import FindPackageShare
@@ -23,23 +22,10 @@ def validate_motion_backend(context):
         localization = LaunchConfiguration("localization_backend").perform(context)
         if localization not in ("icp", "global_gicp"):
             raise RuntimeError("policy motion_backend requires localization_backend=icp or global_gicp")
-        profile = LaunchConfiguration("policy_profile").perform(context)
-        interface = LaunchConfiguration("policy_network_interface").perform(context)
-        domain_text = LaunchConfiguration("policy_dds_domain").perform(context)
-        if profile not in ("sim", "hardware"):
-            raise RuntimeError("policy_profile must be 'sim' or 'hardware'")
-        try:
-            domain = int(domain_text)
-        except ValueError as exc:
-            raise RuntimeError("policy_dds_domain must be an integer in [0, 232]") from exc
-        if not 0 <= domain <= 232:
-            raise RuntimeError("policy_dds_domain must be in [0, 232]")
-        if profile == "sim" and (interface != "lo" or domain != 42):
-            raise RuntimeError("sim policy requires policy_network_interface=lo and policy_dds_domain=42")
-        if profile == "hardware" and (not interface or interface == "lo"):
-            raise RuntimeError("hardware policy requires a non-loopback policy_network_interface")
         if LaunchConfiguration("gesture_route").perform(context).strip():
             raise RuntimeError("gesture_route must be empty with the policy backend")
+        if LaunchConfiguration("turn_route").perform(context).strip():
+            raise RuntimeError("turn_route must be empty with the policy backend until turns are commissioned")
     return []
 
 
@@ -99,19 +85,6 @@ def generate_launch_description():
         [
             DeclareLaunchArgument("map"),
             DeclareLaunchArgument("motion_backend", default_value="unitree"),
-            DeclareLaunchArgument("policy_model_path", default_value="/home/llx/policy.onnx"),
-            DeclareLaunchArgument("policy_profile", default_value="sim"),
-            DeclareLaunchArgument("policy_network_interface", default_value="lo"),
-            DeclareLaunchArgument("policy_dds_domain", default_value="42"),
-            DeclareLaunchArgument("policy_joint_command_mode", default_value=PythonExpression([
-                "'position_pd' if '", LaunchConfiguration("policy_profile"), "' == 'hardware' else 'torque'"
-            ])),
-            DeclareLaunchArgument("policy_enable_hardware_output", default_value="false"),
-            DeclareLaunchArgument("policy_operator_confirmed_debug_mode", default_value="false"),
-            DeclareLaunchArgument("policy_operator_confirmed_exclusive_control", default_value="false"),
-            DeclareLaunchArgument("policy_max_policy_steps", default_value="0"),
-            DeclareLaunchArgument("policy_continuous_policy_navigation", default_value="false"),
-            DeclareLaunchArgument("policy_enable_navigation_commands", default_value="false"),
             DeclareLaunchArgument("localization_backend", default_value="global_gicp"),
             DeclareLaunchArgument("pcd_map", default_value=""),
             DeclareLaunchArgument("params_file", default_value=default_nav2_params),
@@ -141,6 +114,7 @@ def generate_launch_description():
             DeclareLaunchArgument("domain_id", default_value="0"),
             DeclareLaunchArgument("max_linear_speed", default_value="0.20"),
             DeclareLaunchArgument("max_angular_speed", default_value="0.5"),
+            DeclareLaunchArgument("network_interface", default_value="eth0"),
             DeclareLaunchArgument("min_linear_speed", default_value="0.0"),
             DeclareLaunchArgument("robot_pelvis_z", default_value="1.03"),
             DeclareLaunchArgument("goal_topic", default_value="/goal_pose"),
@@ -368,39 +342,8 @@ def generate_launch_description():
                     }
                 ],
             ),
-            GroupAction(
-                condition=IfCondition(PythonExpression([
-                    "'", LaunchConfiguration("motion_backend"), "' == 'policy' and ('",
-                    LaunchConfiguration("localization_backend"), "' == 'icp' or '",
-                    LaunchConfiguration("localization_backend"), "' == 'global_gicp')"
-                ])),
-                actions=[
-                    SetRemap(src="/navigate_to_pose", dst="/h1_2/nav2/navigate_to_pose"),
-                    SetRemap(src="/navigate_through_poses", dst="/h1_2/nav2/navigate_through_poses"),
-                    *[SetRemap(src=f"/{name}/_action/{endpoint}",
-                               dst=f"/h1_2/nav2/{name}/_action/{endpoint}")
-                      for name in ("navigate_to_pose", "navigate_through_poses")
-                      for endpoint in ("send_goal", "get_result", "cancel_goal", "feedback", "status")],
-                    IncludeLaunchDescription(
-                        PythonLaunchDescriptionSource(nav2_navigation_launch),
-                        condition=pcd_backend_condition,
-                        launch_arguments={
-                            "use_sim_time": LaunchConfiguration("use_sim_time"),
-                            "params_file": LaunchConfiguration("params_file"),
-                            "autostart": LaunchConfiguration("autostart"),
-                            "use_composition": LaunchConfiguration("use_composition"),
-                            "map_subscribe_transient_local": "true",
-                        }.items(),
-                    ),
-                ],
-            ),
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource(nav2_navigation_launch),
-                condition=IfCondition(PythonExpression([
-                    "'", LaunchConfiguration("motion_backend"), "' == 'unitree' and ('",
-                    LaunchConfiguration("localization_backend"), "' == 'icp' or '",
-                    LaunchConfiguration("localization_backend"), "' == 'global_gicp')"
-                ])),
                 launch_arguments={
                     "use_sim_time": LaunchConfiguration("use_sim_time"),
                     "params_file": LaunchConfiguration("params_file"),
@@ -408,18 +351,6 @@ def generate_launch_description():
                     "use_composition": LaunchConfiguration("use_composition"),
                     "map_subscribe_transient_local": "true",
                 }.items(),
-            ),
-            Node(
-                package="h1_2_nav_tools",
-                executable="policy_navigation_gate",
-                name="policy_navigation_gate",
-                output="screen",
-                condition=IfCondition(PythonExpression([
-                    "'", LaunchConfiguration("motion_backend"), "' == 'policy' and ('",
-                    LaunchConfiguration("localization_backend"), "' == 'icp' or '",
-                    LaunchConfiguration("localization_backend"), "' == 'global_gicp')"
-                ])),
-                parameters=[{"ready_timeout": 0.2}],
             ),
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource(icp_localization_launch),
@@ -477,6 +408,9 @@ def generate_launch_description():
                     {
                         "goal_topic": LaunchConfiguration("goal_topic"),
                         "action_name": "navigate_to_pose",
+                        "required_tf_target_frame": "map",
+                        "required_tf_source_frame": "body",
+                        "required_tf_max_age_sec": 0.5,
                     }
                 ],
             ),
@@ -587,26 +521,6 @@ def generate_launch_description():
                     "gesture_service_name": LaunchConfiguration("gesture_service_name"),
                     "gesture_timeout": LaunchConfiguration("gesture_timeout_sec"),
                     "shake_hand_duration": LaunchConfiguration("shake_hand_duration"),
-                }.items(),
-            ),
-            IncludeLaunchDescription(
-                PythonLaunchDescriptionSource(PathJoinSubstitution([
-                    FindPackageShare("h1_2_policy_bridge"), "launch", "policy_bridge.launch.py"
-                ])),
-                condition=IfCondition(PythonExpression(["'", LaunchConfiguration("motion_backend"), "' == 'policy'"])),
-                launch_arguments={
-                    "model_path": LaunchConfiguration("policy_model_path"),
-                    "cmd_vel_topic": "/cmd_vel_final",
-                    "network_interface": LaunchConfiguration("policy_network_interface"),
-                    "dds_domain": LaunchConfiguration("policy_dds_domain"),
-                    "profile": LaunchConfiguration("policy_profile"),
-                    "joint_command_mode": LaunchConfiguration("policy_joint_command_mode"),
-                    "enable_hardware_output": LaunchConfiguration("policy_enable_hardware_output"),
-                    "operator_confirmed_debug_mode": LaunchConfiguration("policy_operator_confirmed_debug_mode"),
-                    "operator_confirmed_exclusive_control": LaunchConfiguration("policy_operator_confirmed_exclusive_control"),
-                    "max_policy_steps": LaunchConfiguration("policy_max_policy_steps"),
-                    "continuous_policy_navigation": LaunchConfiguration("policy_continuous_policy_navigation"),
-                    "enable_navigation_commands": LaunchConfiguration("policy_enable_navigation_commands"),
                 }.items(),
             ),
         ]

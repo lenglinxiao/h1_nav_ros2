@@ -72,8 +72,9 @@ def test_invalid_profiles_rejected(module, config, change):
         module.normalize_task_profiles(config)
 
 
-def app_without_ros(module):
+def app_without_ros(module, workspace_root=None):
     app = module.WebGuiApp.__new__(module.WebGuiApp)
+    app.workspace_root = workspace_root or Path.cwd()
     app.task_lock = threading.RLock()
     app.heartbeat_lock = threading.Lock()
     app.last_heartbeat = time.monotonic()
@@ -84,7 +85,146 @@ def app_without_ros(module):
     app.processes = Mock()
     app.processes.status.return_value = {'navigation':{'running':True}}
     app.ros = Mock()
+    app.ros.policy_route_status.return_value = {'success': True, 'state': 'idle'}
+    app.logs = Mock()
     return app
+
+
+def policy_confirmations():
+    return {
+        'confirm_debug_mode': True,
+        'confirm_exclusive_control': True,
+        'confirm_lowcmd_handoff': True,
+        'confirm_robot_supported': True,
+    }
+
+
+def policy_status(mode='Passive', authorized=False, publisher_present=False):
+    return {
+        'available': True, 'profile': 'hardware', 'joint_command_mode': 'position_pd',
+        'output_enabled': True, 'debug_confirmed': True, 'exclusive_confirmed': True,
+        'navigation_enabled': True, 'continuous_navigation': True, 'state_valid': True,
+        'output_transition': 'none', 'mode': mode, 'authorized': authorized,
+        'publisher_present': publisher_present,
+    }
+
+
+def test_policy_web_requires_confirmations_live_policy_and_expected_state(module):
+    app = app_without_ros(module)
+    app.processes.status.return_value = {'navigation': {'running': True, 'motion_backend': 'policy'}, 'policy_bridge': {'running': True}}
+    app.ros.policy_control_status.return_value = policy_status()
+    app.ros.policy_control_command.return_value = {'success': True, 'message': 'ok'}
+
+    missing_confirmation = app.policy_control_step({'step': 'authorize_output'})
+    assert missing_confirmation['success'] is False
+    app.ros.policy_control_command.assert_not_called()
+
+    payload = policy_confirmations() | {'step': 'authorize_output'}
+    app.processes.status.return_value = {'navigation': {'running': True, 'motion_backend': 'unitree'}, 'policy_bridge': {'running': False}}
+    assert app.policy_control_step(payload)['success'] is False
+    app.ros.policy_control_command.assert_not_called()
+
+    app.processes.status.return_value = {'navigation': {'running': True, 'motion_backend': 'policy'}, 'policy_bridge': {'running': True}}
+    app.ros.policy_control_status.return_value = policy_status(mode='FixStand', authorized=True, publisher_present=True)
+    assert app.policy_control_step(payload)['success'] is False
+    app.ros.policy_control_command.assert_not_called()
+
+
+def test_policy_web_allows_only_ordered_manual_state_transitions(module):
+    app = app_without_ros(module)
+    app.processes.status.return_value = {'navigation': {'running': True, 'motion_backend': 'policy'}, 'policy_bridge': {'running': True}}
+    app.ros.policy_control_command.return_value = {'success': True, 'message': 'ok'}
+    confirmations = policy_confirmations()
+    states = [
+        policy_status(),
+        policy_status(mode='Passive', authorized=True, publisher_present=True),
+        policy_status(mode='FixStand', authorized=True, publisher_present=True),
+        policy_status(mode='ArmHoldStand', authorized=True, publisher_present=True),
+    ]
+    steps = ['authorize_output', 'fix_stand', 'arm_hold_stand', 'arm_hold']
+    for step, status in zip(steps, states):
+        app.ros.policy_control_status.return_value = status
+        payload = confirmations | {'step': step, 'confirm_upright': step == 'arm_hold'}
+        assert app.policy_control_step(payload)['success'] is True
+    assert [call.args[0] for call in app.ros.policy_control_command.call_args_list] == steps
+
+
+def test_policy_web_requires_onsite_upright_confirmation_for_arm_hold(module):
+    app = app_without_ros(module)
+    app.processes.status.return_value = {
+        'navigation': {'running': True, 'motion_backend': 'policy'},
+        'policy_bridge': {'running': True},
+    }
+    app.ros.policy_control_status.return_value = policy_status(
+        mode='ArmHoldStand', authorized=True, publisher_present=True
+    )
+    payload = policy_confirmations() | {'step': 'arm_hold', 'confirm_upright': False}
+    assert app.policy_control_step(payload)['success'] is False
+    app.ros.policy_control_command.assert_not_called()
+
+
+def test_policy_navigation_start_requires_arm_hold_and_never_autostarts_route(module):
+    app = app_without_ros(module)
+    app.processes.status.return_value = {
+        'navigation': {'running': False}, 'policy_bridge': {'running': True}
+    }
+    app.validate_navigation = Mock(return_value=(True, ''))
+    app.navigation_args = Mock(return_value=['mode=online', 'motion_backend=policy'])
+    app.processes.start_navigation.return_value = {'success': True}
+    app.ros.policy_control_status.return_value = {
+        'available': True, 'control_ready': False,
+        'message': 'ONNX 运动控制尚未进入 ArmHold'
+    }
+    payload = {'motion_backend': 'policy', 'run_mode': 'test', 'auto_start_route': True}
+
+    blocked = app.start_navigation_task(payload)
+    assert blocked['success'] is False
+    app.processes.start_navigation.assert_not_called()
+
+    app.ros.policy_control_status.return_value = {'available': True, 'control_ready': True}
+    started = app.start_navigation_task(payload)
+    assert started['success'] is True
+    app.processes.start_navigation.assert_called_once()
+    app.navigation_args.assert_called_once()
+    assert app.navigation_args.call_args.args[0]['auto_start_route'] is False
+
+
+def test_policy_control_can_be_prepared_before_navigation(module):
+    app = app_without_ros(module)
+    app.processes.status.return_value = {
+        'navigation': {'running': False}, 'policy_bridge': {'running': True}
+    }
+    app.ros.policy_control_status.return_value = policy_status()
+    app.ros.policy_control_command.return_value = {'success': True, 'message': 'ok'}
+    result = app.policy_control_step(policy_confirmations() | {'step': 'authorize_output'})
+    assert result['success'] is True
+
+
+def test_policy_web_blocks_controls_after_heartbeat_timeout(module):
+    app = app_without_ros(module)
+    app.heartbeat_expired = True
+    result = app.policy_control_step(policy_confirmations() | {'step': 'authorize_output'})
+    assert result['success'] is False
+    app.ros.policy_control_command.assert_not_called()
+
+
+def test_watchdog_does_not_latch_timeout_before_first_browser_heartbeat(module):
+    app = app_without_ros(module)
+    app.last_heartbeat = None
+
+    class StopAfterOneCheck:
+        calls = 0
+
+        def wait(self, _interval):
+            self.calls += 1
+            return self.calls > 1
+
+    app.watchdog_stop = StopAfterOneCheck()
+    app._watch_heartbeat()
+
+    assert app.heartbeat_expired is False
+    app.processes.stop_navigation.assert_not_called()
+    app.ros.route_stop.assert_not_called()
 
 
 def test_launch_uses_selected_task_and_only_marks_success_loaded(module, config):
@@ -118,8 +258,11 @@ def test_pc4_launch_keeps_configured_gesture_route(module, config):
     assert 'gesture_route=B:wave_hand' in args
 
 
-def test_cruise_rejects_changed_task_order_action_and_stopped_navigation(module, config):
-    app = app_without_ros(module)
+def test_cruise_rejects_changed_task_order_action_and_stopped_navigation(module, config, tmp_path):
+    app = app_without_ros(module, tmp_path)
+    points_file = module.WebGuiApp._task_points_file(tmp_path, {'id': 'one', 'name': '迎宾'})
+    points_file.parent.mkdir(parents=True)
+    points_file.write_text(json.dumps({'frame_id': 'map', 'points': {'A': {}, 'B': {}}}))
     app.loaded_task = module.task_execution_snapshot(config)
     for change in [lambda c: c.update(selected_task_id='two'),
                    lambda c: c['task_profiles'][0]['steps'].reverse(),
@@ -136,6 +279,48 @@ def test_cruise_rejects_changed_task_order_action_and_stopped_navigation(module,
     assert app.ros.route_start.call_count == 1
 
 
+def test_web_can_attach_a_matching_policy_route_to_an_externally_started_nav_stack(module, config, tmp_path):
+    app = app_without_ros(module, tmp_path)
+    app.loaded_task = None
+    app.processes.status.return_value = {'navigation': {
+        'running': True, 'external': True, 'run_mode': 'online', 'motion_backend': 'policy'
+    }}
+    config.update(run_mode='online', motion_backend='policy',
+                  confirm_debug_mode=True, confirm_exclusive_control=True)
+    config['task_profiles'][0]['steps'] = [
+        {'point': 'B', 'gesture': '', 'turn': ''},
+        {'point': 'A', 'gesture': '', 'turn': ''},
+    ]
+    points_file = module.WebGuiApp._task_points_file(tmp_path, {'id': 'one', 'name': '迎宾'})
+    points_file.parent.mkdir(parents=True)
+    points_file.write_text(json.dumps({'frame_id': 'camera_init', 'points': {'A': {}, 'B': {}}}))
+    app.ros.policy_control_status.return_value = {'ready': True, 'message': 'ready'}
+    app.ros.policy_localization_status.return_value = {'ready': True, 'message': 'ready'}
+    app.ros.policy_route_start.return_value = {'success': True}
+
+    result = app.start_selected_task(config)
+
+    assert result['success'] is True
+    assert app.loaded_task['id'] == 'one'
+    app.ros.policy_route_start.assert_called_once()
+
+
+def test_web_refuses_to_attach_route_to_a_different_external_backend(module, config):
+    app = app_without_ros(module)
+    app.loaded_task = None
+    app.processes.status.return_value = {'navigation': {
+        'running': True, 'external': True, 'run_mode': 'online', 'motion_backend': 'unitree'
+    }}
+    config.update(run_mode='online', motion_backend='policy',
+                  confirm_debug_mode=True, confirm_exclusive_control=True)
+
+    result = app.start_selected_task(config)
+
+    assert result['success'] is False
+    assert '后端不一致' in result['message']
+    app.ros.route_start.assert_not_called()
+
+
 def test_save_reload_keeps_all_profiles_and_selected_task(module, config, tmp_path):
     app = app_without_ros(module)
     app.workspace_root = tmp_path
@@ -147,6 +332,17 @@ def test_save_reload_keeps_all_profiles_and_selected_task(module, config, tmp_pa
     assert loaded['task_profiles'] == config['task_profiles']
     assert loaded['memory_route'] == 'C'
     assert loaded['gesture_route'] == 'C:shake_hand'
+
+
+def test_saved_heartbeat_port_cannot_override_active_websocket_port(module, config, tmp_path):
+    app = app_without_ros(module)
+    app.workspace_root = tmp_path
+    app.ui_only = False
+    app.heartbeat_ws_port = 8776
+    config['heartbeat_ws_port'] = 8766
+    app.save_config(config)
+
+    assert app.default_config()['heartbeat_ws_port'] == 8776
 
 
 def test_navigation_rejects_missing_task_points_before_start(module, config, tmp_path):
@@ -232,3 +428,32 @@ def test_navigation_args_preserves_custom_profile(module, config, tmp_path, mode
     params_arg = next(arg for arg in app.navigation_args(config) if arg.startswith("params_file="))
 
     assert Path(params_arg.removeprefix("params_file=")) == custom_profile
+
+
+def test_motion_backend_defaults_to_unitree_and_forwards_selection(module, config, tmp_path):
+    app = app_without_ros(module)
+    app.workspace_root = tmp_path
+    app.ui_only = False
+
+    assert app.default_config()["motion_backend"] == "unitree"
+    config["motion_backend"] = "policy"
+    config["auto_start_route"] = True
+    config["enable_remote_velocity"] = True
+    args = app.navigation_args(config)
+    assert "motion_backend=policy" in args
+    assert "enable_remote_velocity=true" in args
+    assert "auto_start_route=false" in args
+
+    config["motion_backend"] = "unitree"
+    assert "motion_backend=unitree" in app.navigation_args(config)
+
+
+def test_policy_backend_is_available_for_online_navigation(module, config):
+    app = app_without_ros(module)
+    config.update(run_mode="online", motion_backend="policy",
+                  confirm_debug_mode=True, confirm_exclusive_control=True)
+
+    ok, message = app.validate_navigation(config)
+
+    assert ok, message
+    assert "motion_backend=policy" in app.navigation_args(config)

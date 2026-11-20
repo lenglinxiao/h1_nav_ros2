@@ -1,0 +1,9 @@
+/**:
+  ros__parameters:
+    protection_profile: train_20261106
+    train_guard_joint_names_sdk: [left_hip_yaw_joint, left_hip_pitch_joint, left_hip_roll_joint, left_knee_joint, left_ankle_pitch_joint, left_ankle_roll_joint, right_hip_yaw_joint, right_hip_pitch_joint, right_hip_roll_joint, right_knee_joint, right_ankle_pitch_joint, right_ankle_roll_joint, torso_joint, left_shoulder_pitch_joint, left_shoulder_roll_joint, left_shoulder_yaw_joint, left_elbow_joint, left_wrist_roll_joint, left_wrist_pitch_joint, left_wrist_yaw_joint, right_shoulder_pitch_joint, right_shoulder_roll_joint, right_shoulder_yaw_joint, right_elbow_joint, right_wrist_roll_joint, right_wrist_pitch_joint, right_wrist_yaw_joint]
+    train_guard_speed_limits_sdk: [4.0, 4.5, 2.5, 9.0, 7.5, 6.0, 4.0, 4.5, 2.5, 9.5, 8.0, 5.5, 1.0, 1.5, 1.0, 1.0, 2.0, 0.5, 1.0, 1.0, 1.0, 1.0, 1.0, 1.5, 0.5, 1.0, 1.0]
+    train_guard_position_lower_sdk: [-0.43, -1.0, -0.43, 0.3, -0.897334, -0.261799, -0.43, -1.0, -0.45, 0.3, -0.897334, -0.261799, -0.3, -0.06999999999999995, -0.35, -0.35, 0.17000000000000004, -0.35, -0.35, -0.35, -0.55, -0.58, 0.55, -0.9, -0.35, -0.35, -0.35]
+    train_guard_position_upper_sdk: [0.43, 0.0, 0.45, 1.7, 0.0, 0.261799, 0.43, 0.0, 0.43, 1.7, 0.0, 0.261799, 0.4, 0.63, 0.35, 0.35, 0.87, 0.35, 0.35, 0.35, 0.14999999999999997, 0.11999999999999997, 1.25, -0.20000000000000007, 0.35, 0.35, 0.35]
+    train_guard_default_positions_sdk: [0.027, -0.45, 0.0, 0.9, -0.45, 0.0, -0.027, -0.45, 0.0, 0.9, -0.475, 0.0, 0.0, 0.28, 0.0, 0.0, 0.52, 0.0, 0.0, 0.0, -0.2, -0.23, 0.9, -0.55, 0.0, 0.0, 0.0]
+    train_guard_profile_hash: f47bae87fe47d4743dea5b748acc79ff3d4f6c69df339fc34e662d92b8436284

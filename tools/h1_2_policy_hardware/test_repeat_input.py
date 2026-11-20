@@ -30,3 +30,14 @@ class RepeatInputTests(unittest.TestCase):
     def test_busy_revoke_is_preserved(self):
         os.write(self.master, b'WALK\nREVOKE\n')
         self.assertEqual(self.reader.poll(False), 'REVOKE')
+
+    def test_structured_trials_opt_in_and_discard_busy_input(self):
+        self.reader.allow_trials = True
+        request = 'TRIAL {"motion":"turn_left","speed":0.05,"duration":1}\n'
+        os.write(self.master, request.encode())
+        self.assertIsNone(self.reader.poll(False))
+        os.write(self.master, (request + request).encode())
+        self.assertEqual(self.reader.poll(True), request.strip())
+        self.assertIsNone(self.reader.poll(True))
+        os.write(self.master, (request + 'REVOKE\n').encode())
+        self.assertEqual(self.reader.poll(True), 'REVOKE')

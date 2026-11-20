@@ -10,6 +10,7 @@
 #include <fstream>
 #include <iomanip>
 #include <memory>
+#include <map>
 #include <mutex>
 #include <thread>
 #include <sstream>
@@ -30,6 +31,7 @@ struct Capture {
   Clock::time_point received{};
   Clock::time_point command_received{};
 };
+struct WriterStats { unsigned long samples = 0; Clock::time_point last_received{}; };
 template<class T> bool crc_ok(T value) {
   return value.crc() == crc32_core(reinterpret_cast<uint32_t*>(&value), (sizeof(value) >> 2) - 1);
 }
@@ -55,6 +57,7 @@ int main(int argc, char** argv) {
   ::dds::sub::DataReader<LC> reader(subscriber, topic, qos);
   LC policy_command{};
   unsigned long policy_commands=0, policy_bad_crc=0, unknown_commands=0;
+  std::map<std::string, WriterStats> writer_samples;
   Clock::time_point policy_received{};
   std::string expected_guid;
   states.InitChannel([data](const void* p) {
@@ -85,6 +88,11 @@ int main(int argc, char** argv) {
         std::ostringstream hex;
         for (auto byte : endpoint->key.v) hex << std::hex << std::setw(2) << std::setfill('0') << unsigned(byte);
         guid=hex.str(); dds_builtintopic_free_endpoint(endpoint);
+      }
+      if (!guid.empty()) {
+        auto& writer = writer_samples[guid];
+        ++writer.samples;
+        writer.last_received = Clock::now();
       }
       bool own=!expected_guid.empty() && guid==expected_guid;
       const auto& command=sample.data();
@@ -132,7 +140,17 @@ int main(int argc, char** argv) {
         <<",\"policy_commands\":"<<policy_commands<<",\"policy_bad_crc\":"<<policy_bad_crc
         <<",\"policy_command_age\":"<<policy_age<<",\"policy_finite\":"<<(policy_finite?"true":"false")
         <<",\"policy_native_damping\":"<<(policy_damping?"true":"false")<<",\"policy_tau_max\":"<<policy_tau_max
-        <<",\"unknown_commands\":"<<unknown_commands
+        <<",\"unknown_commands\":"<<unknown_commands<<",\"lowcmd_writers\":[";
+      bool first_writer = true;
+      for (const auto& writer : writer_samples) {
+        out << (first_writer ? "" : ",") << "{\"guid\":\"" << writer.first
+            << "\",\"samples\":" << writer.second.samples
+            << ",\"last_seen_age\":"
+            << std::chrono::duration<double>(Clock::now() - writer.second.last_received).count()
+            << "}";
+        first_writer = false;
+      }
+      out << "]"
         <<",\"bad_crc\":"<<errors<<",\"peak_dq\":"<<peak<<",\"age\":"<<age
         <<",\"peak_dq_by_joint\":[";
       for(int i=0;i<27;++i) out<<(i?",":"")<<joint_peaks[i];

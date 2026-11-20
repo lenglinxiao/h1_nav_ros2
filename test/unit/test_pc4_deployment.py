@@ -57,6 +57,22 @@ class TestPc4DeploymentAssets(unittest.TestCase):
         self.assertIn("kill -KILL", script)
         self.assertNotIn("pkill", script)
 
+    def test_policy_stop_sources_ros_setup_without_nounset_failure(self):
+        script = self.read("stop_ai_slam_nav.sh")
+        self.assertIn("set +u\n      source /opt/ros/humble/setup.bash", script)
+        self.assertIn('source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/install/setup.bash"\n      set -u', script)
+        self.assertNotIn("rg -q", script)
+        self.assertIn('publisher_present=false', script)
+        self.assertIn('authorized=false', script)
+
+    def test_stop_pid_must_match_a_known_h1_navigation_launch(self):
+        script = self.read("stop_ai_slam_nav.sh")
+        self.assertIn("is_h1_navigation_launch()", script)
+        self.assertIn("h1_2_nav2_camera_init_navigation.launch.py", script)
+        self.assertIn("h1_2_nav2_navigation.launch.py", script)
+        self.assertIn("h1_2_nav2_slam_navigation.launch.py", script)
+        self.assertIn('! is_h1_navigation_launch "${launch_args}"', script)
+
     def test_rviz_uses_configured_domain_and_nav_yaml_has_no_developer_path(self):
         launch = self.read("src/h1_2_slam_bringup/launch/h1_2_nav2_rviz.launch.py")
         params = self.read("src/h1_2_nav_tools/config/nav2_h1_2_camera_init.yaml")

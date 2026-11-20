@@ -1,6 +1,8 @@
-# H1-2 ONNX 导航 Implementation Plan
+# H1-2 ONNX 导航历史实施记录
 
-> **实施状态（2026-11-09）：** 任务 1A–1C 已在隔离分支完成本地验证并合入 main；1D owner/session 与 runtime identity 在主工作区整合中。所有验证仅在本地完成，不连接机器人。任务 1 拆为 1A 类型与纯状态机、1B ROS 协调器/action、1C bridge 输入 GID、1D owner/会话 launch，逐项验证与审查。后续任务仍待办。
+> **方案已被取代（2026-11-12）：** 本文以下任务拆分描述的是曾采用的 Owner/Coordinator/session 方案，相关运行时已按用户要求从当前代码删除。当前架构和剩余验收以[总计划](plan.md)顶部“架构收敛决定/简化实现进度”为准；不要按本文旧任务恢复这些接口。
+
+> **实施状态（2026-11-11）：** 任务 1A–1D 和任务 2 的 owner/runtime identity 已完成首轮验证。任务 3/4 已接上 GUI、启动、动态 action namespace 与 hold-first 停止；任务 5 已加 fail-closed 速度包络、Policy 专属 Nav2 参数和人工脉冲选项；任务 6 已加入 mock-first commissioning CLI、fake ROS lifecycle 测试与[板端核对清单](hardware-validation-checklist.md)。在线 camera_init Policy 接入已部署到PC4独立RC5；构建、启动参数、离线验收通过。雷达开启时实测点云进入FAST-LIO，动态栅格连续发布`/map`；`/slam_odom`/TF和长稳仍待确认。未启动Owner/Nav2/运控；LowCmd writer身份和速度包络仍未验收。证据见[RC5记录](rc5-online-mapping-delivery.md)。
 
 **Goal:** 建立受保护的常驻 ONNX 控制与可独立启停的 Nav2 会话，启动时选择 Unitree 或 ONNX 后端，停止导航后保持零速 ArmHold。运行期间不切换控制器。
 
@@ -50,13 +52,14 @@
 
 **生产/消费接口：** coordinator 实现 `prepare_source(source: str, expected_token: SessionToken) -> PrepareMotionSource.Response`、`activate_source(token: SessionToken) -> ActivateMotionSource.Response`、`hold() -> Trigger.Response`；详见[设计](design.md)中的字段、namespaces 及锁语义。owner 调用 bridge `claim_input(owner_boot_id, cmd_writer_gid, heartbeat_writer_gid) -> ClaimPolicyInput.Response`；bridge 校验两个 ROS opaque GID 的 `uint8[]` 长度等于运行 RMW_GID_STORAGE_SIZE（Humble 当前为 24），并以 `MessageInfo.publisher_gid` 全量核对每条最终 Twist/Bool；原生 DDS LowCmd GUID 保留 16 字节，不混用。输入会话 topic、前后端 action namespace 由 prepare 返回且不复用。owner 常驻组与 Nav2 会话组分离。
 
-**当前进度（2026-11-09）：** 1A–1C 已合入 main。1D owner 启动准入现先构造运行 manifest、查询 bridge runtime identity，通过 PID、文件 hash、训练 profile、ROS 域及未授权/no-writer 状态检查后，才分别 claim bridge 与 coordinator；启动 profile hash 与 bridge canonical JSON 同规范并绑定 URDF hash。整合后 owner/coordinator/launch/bridge 定向 pytest 57 项通过；bridge 与 nav tools 依赖构建 6 包通过；bridge `node_integration` CTest 通过。验证均为 localhost/Mock/FakeIO 或离线检查，没有启动 owner、策略节点、monitor、Nav2 或连接机器人。仍待 scoped review 与目标部署路径核验；现场未验证。
+**当前进度（2026-11-09）：** 1A–1D 与 owner/runtime identity 的实现和前序验证已整合。nav launch 接入 `policy_nav_session_manager`：prepare 后按 coordinator 返回的 token/topic 启动独立 `policy_nav_session.launch.py`，activate 后 route/action client 使用 token namespace；旧综合 launch 不再为 Policy 模式启动 bridge/gate。新增单个 fake ROS 生命周期测试，覆盖 coordinator prepare、fake Nav2 readiness、activate、通过 token action namespace 完成一个 goal，以及 hold 后确认 session 子进程退出；同时修复 `use_sim_time` 重复声明和子进程仍存活却标记 stopped 的问题。owner 可选读取 `H1_POLICY_OWNER_NAV_ENVELOPE_FILE`，无文件时保持 nav 禁用。未运行真实 owner、Nav2 或控制器；生产配置、owner 安装与目标板路径尚未核验。
 
-- [ ] 写 `test_hold_wins_activate_and_rejects_goal`、`test_switch_waits_terminal_or_isolation`、`test_old_session_late_samples_and_goals_rejected`、`test_claim_rejects_old_gid_and_clears_command`、`test_hold_heartbeat_enables_zero_ready`、`test_coordinator_restart_never_reuses_session_and_rejects_old_token`、`test_hold_invalidates_inflight_prepare`、`test_later_prepare_invalidates_earlier_prepare`、`test_claim_gid_length_and_truncation_rejected`、`test_owner_survives_ssh_gui_nav_clients_exit`：覆盖竞争、取消终态或组退出/强隔离、捕获旧 token 回调、coordinator 重启后新 boot ID 与旧 token/GID 均被拒、hold 或后继 prepare 抢占旧异步 prepare 后旧结果为 STALE_PREPARE 且不改变 phase 或返回会话接口、无 goal 时 ready、拒绝短/长/截断 ROS GID、SSH/GUI/Nav2 客户端退出后 owner 存活及最终 cmd/heartbeat 各唯一 writer。
-- [ ] 在已加载 ROS Humble 的隔离开发环境运行 `python3 -m pytest src/h1_2_nav_tools/test/test_policy_motion_coordinator.py -q`，预期新增测试因实现缺失失败；bridge GID 测试随现有 node integration 运行，预期对应新增断言失败。
-- [ ] 实现上述 typed 接口、独立进程组、systemd 用户服务模板、同锁状态机、会话 namespace 和 bridge claimed 模式；服务不得自动重启重新授权，启动保持输出未授权、故障须维护恢复；hold 优先递增 epoch 与 operation_generation；每次接受 prepare 递增并捕获 generation，所有 await 回调及返回前在锁内核对 generation 和完整 token，过期返回 STALE_PREPARE；只有 barrier、清理、node 和后端 ready 后 activate 成功。手动模式在旧 Nav2 组确认退出或旧会话强隔离后可激活，不能确认则 hold。历史 Twist 模式兼容，生产显式 claimed。
-- [ ] 在隔离开发 checkout 中配置实际可用的 `ORT_ROOT`、`UNITREE_SDK2_ROOT`、`H1_POLICY_TEST_MODEL_PATH`（路径按运行机架构核对，变量见 bridge README），分别确认 ORT 库、SDK 库和模型可读。运行 `colcon build --packages-select h1_2_policy_interfaces h1_2_policy_bridge h1_2_nav_tools --cmake-args -DBUILD_TESTING=ON -DORT_ROOT="$ORT_ROOT" -DUNITREE_SDK2_ROOT="$UNITREE_SDK2_ROOT" -DH1_POLICY_TEST_MODEL_PATH="$H1_POLICY_TEST_MODEL_PATH"`，预期三个包构建成功；随后 `source install/setup.bash` 并执行 `ros2 interface show h1_2_policy_interfaces/srv/PrepareMotionSource`，预期字段与设计一致。这一步生成 ROSIDL 类型，不启动节点；不得使用正在运行控制器的安装目录。
-- [ ] 重跑 pytest，并运行 `colcon test --packages-select h1_2_policy_bridge --ctest-args -R '^node_integration$'` 后 `colcon test-result --verbose`；预期受影响测试通过。`colcon test` 不代替前一步构建。产出常驻控制栈和隔离会话；回退为停用新生产模式，已部署实例仅经安全交接后恢复备份。
+- [x] 完成 coordinator 状态机、typed 接口、独立 owner/session 进程边界、完整会话 token、claimed GID、prepare/activate/hold 和 fail-closed 启动实现；系统服务不自动重启，输出初始关闭，故障不自动恢复授权。
+- [x] 已有必要定向覆盖：hold 与旧 token、prepare generation 竞争、重启 token、readiness barrier、迟到 goal/ready-loss、owner identity 与唯一/完整 GID；桥接 node integration 覆盖错误长度、旧 writer 和新 writer。验证证据见本任务记录和各包测试。
+- [x] 当前可用依赖环境构建了 `h1_2_nav_tools`、`h1_2_slam_bringup`；桥接及接口包的先前隔离构建/CTest 证据见本任务记录。构建不触发机器人节点。
+- [x] coordinator + session manager + fake Nav2 action 的最小进程生命周期联测通过（1 passed）；真实 persistent owner 未启动。
+- [x] 真实 owner CLI/ProcessSupervisor + fake policy runtime identity/claim + 真实 coordinator 子进程生命周期联测通过（1 passed）：输出状态 active 时收到 SIGTERM 仍保持 owner；输出关闭后 owner 有序退出0。fake runtime 不创建 LowCmd publisher。
+- [ ] owner/session manager/Nav2 的合并进程联测；目前 owner 生命周期与 session manager/fake Nav2 生命周期分开验证。目标板依赖路径和部署配置尚未核实。
 
 ### 任务 2：运行实例身份、配置及 launch
 
@@ -64,22 +67,22 @@
 
 **接口：** owner `build_runtime_manifest(deployment_paths: list[str], profile: Mapping[str, Any]) -> dict` 从板端实际文件生成静态 manifest；profile 含 `joint_names: list[str]`、`arrays: dict[str, list[float]]`（各关节数组 27 维）、`source_sha256: str` 与 `profile_sha256: str`；node `PolicyRuntimeIdentity.srv` 返回设计所列 UUID、PID、FQN、域、localhost、路径/hash、profile hash 和动态授权/writer 状态。LowCmd GUID 仅在授权且 writer 创建后由 node status 和现有 GUID 来源采集，携时间与身份绑定，不预填静态 manifest。`verify_runtime_identity(manifest: dict, status: PolicyRuntimeIdentity.Response, env: dict) -> str` 返回 `OK` 或设计的失败码。`policy_node_mode:=existing|launch`，兼容默认 launch、生产显式 existing；existing 校验真实 manifest/status，不创建替代节点。
 
-- [ ] 写 `test_existing_never_spawns_policy`、`test_manifest_binds_running_identity`、`test_guid_absent_before_authorization_then_bound`、`test_domain_mismatch_vs_unreachable`、`test_train_profile_and_hash_mismatch`；断言 runtime policy_pid 不等于 owner 启动子进程 PID、owner_boot_id 不匹配、27 维数组或模型/URDF/产物 hash 不符均拒绝，远端超时只报 UNREACHABLE。
-- [ ] 运行 `python3 -m pytest src/h1_2_policy_bridge/test/test_policy_launch.py src/h1_2_slam_bringup/test/test_navigation_backend.py -q`，预期新增案例失败。
-- [ ] 实现完整训练数组传参、规范化 profile hash、不可变静态 manifest 分别记录 owner_pid/policy_pid，runtime policy_pid 与 owner 启动子进程的 PID、启动 ID、路径及 profile hash 绑定，并按授权前无 writer、授权后有 writer 分别采集动态证据；在实际可得证据基础上检查域/localhost，冲突或缺失 fail closed。
-- [ ] 重跑相同命令预期 PASS；产出部署配置及维护迁移说明。回退为未激活 existing，并仅在安全交接后恢复对应备份。
+- [x] 实现静态 manifest、完整训练数组/profile hash、owner 与 policy PID、文件 hash 及 ROS 域/localhost runtime identity 检查；启动时要求输出未授权且无 LowCmd writer，身份不符 fail closed。
+- [x] owner/coordinator/bridge 定向验证已在前序记录完成；此次追加 owner envelope 文件作为可选 coordinator 参数，路径不存在即拒绝配置，未配置时 nav 默认关闭。
+- [x] 本地 fake-service owner graph：owner 读取 runtime identity，校验 manifest/profile/file hash/domain/授权状态并 claim coordinator endpoints；真实 coordinator 接受唯一 publisher GID。另有真实 owner supervisor inactive-only shutdown 联测。
+- [ ] 部署配置 review 和目标板路径核对。PC4 RC4仅做独立 release 准备，不覆盖主工作区/现有 release；Owner 安装和启动、Policy/Nav2 启动均待执行。不得以 mock/离线验证声称实机通过。
 
 ### 任务 3：shell 与 GUI 后端及会话入口
 
 **依赖：** 任务 2。**文件：** `run_ai_slam_nav.sh`、`src/h1_2_nav_tools/h1_2_nav_tools/h1_2_nav_web_gui.py`、`test/static/test_h1_2_nav_web_gui.py`、`test/unit/test_web_task_profiles.py`。
 
-**接口：** shell `motion_backend=unitree|policy` 默认 unitree；GUI payload `motion_backend` 同值；后端只在启动时选择，policy 使用 existing、claimed，先 prepare 并启动返回的 Nav2 会话，activate 成功后 GUI/route 使用返回的 frontend action namespace。禁止全局 action alias；unitree 行为保留。在线 camera_init 入口暂不接 policy。
+**接口：** shell 和 GUI 的 online/offline 导航均支持 `motion_backend=unitree|policy`，默认 unitree；后端只在启动时选择。Policy 通过常驻 owner/coordinator prepare 独立 Nav2 session，activate 后 GUI/route 使用 coordinator 返回的 frontend action namespace，不创建第二个 bridge、不改全局 action alias。在线 camera_init 保留 FAST-LIO、点云转动态占据栅格、TF/里程计和 Nav2 参数；只将 Nav2 动作会话与速度输出接到 Policy。Unitree 路径不变。
 
-**进度（2026-11-09）：** shell 离线导航参数已实现并通过静态测试；GUI 尚未提供后端选择，任务未完成。在线 camera_init 入口暂未接入 policy。
+**进度（2026-11-10）：** 在线 GUI 和 shell 已接受启动时 `motion_backend=policy`，camera-init launch 条件切换到 session manager/Nav2 参数，保持 FAST-LIO 和动态地图节点；Policy 分支不启动 Unitree smoother/bridge。Nav2 goal 与路线节点按 coordinator state 使用 token action namespace。Unitree 默认分支保留。定向入口/launch 测试通过；PC4 GUI 尚未切换到 RC4，也未实机启动。
 
-- [ ] 写 `test_policy_backend_and_session_forwarded`、`test_unitree_default_preserved`、`test_invalid_backend_rejected`；运行 `python3 -m pytest test/static/test_h1_2_nav_web_gui.py test/unit/test_web_task_profiles.py -q`，新增案例预期失败。
-- [ ] 实现入口参数和返回 namespace 的传递；禁止自动发 goal，重跑同命令预期 PASS。
-- [ ] 产出两个一致的启动入口；回退为 unitree 原默认并恢复备份，不终止运行中策略。
+- [x] GUI默认 Unitree；online/offline均转发后端选择；Policy 不传 Unitree gesture/turn route，shell保留Unitree默认路径。
+- [x] policy session 使用 coordinator 返回的 topic/action namespace；无全局 action alias，不自动发送 goal。
+- [x] manager prepare/activate 与 coordinator token action goal 的隔离 ROS 联测通过；完整 GUI/shell route 流程和目标板现场核对仍待单独进行。owner 配置边界和板端只读步骤见[核对清单](hardware-validation-checklist.md)。
 
 ### 任务 4：停止、失联和新目标恢复
 
@@ -87,9 +90,9 @@
 
 **接口：** GUI stop、stop_all、心跳超时先调用 `/h1_2/policy/hold`，只停止会话组；coordinator 负责取消旧 action，不能确认终态、退出或强隔离时保持 hold。恢复重新 prepare/activate 后由客户端显式提交新目标，不复用 namespace。
 
-- [ ] 写 `test_stop_preserves_owner_process_group`、`test_heartbeat_no_replay`、`test_goal_races_cleanup_is_rejected`；断言 hold 优先、被抢占 prepare 不改 phase 并返回 STALE_PREPARE、旧 goal 被拒、owner 子进程存活、恢复须新会话。
-- [ ] 运行 `python3 -m pytest src/h1_2_nav_tools/test/test_policy_motion_coordinator.py test/unit/test_web_heartbeat.py -q`，新增案例预期失败；实现上述顺序后重跑预期 PASS。
-- [ ] 完成标准：导航停止与控制退出隔离；回退为禁用 policy 导航入口，不用 stop 脚本杀 owner。
+- [x] Policy stop/watchdog/GUI shutdown 调用 hold-first stop script；确认 hold 失败时保留 session，不发 Unitree UDP stop，也不由 GUI 强杀 policy 导航进程组。常驻 owner 不在导航进程组内。
+- [x] coordinator ready-loss/hold/迟到 goal 竞态已有前序测试；本次 stop 路由 shell 语法检查通过。
+- [ ] 增加最小 fake owner/session stop 联测，验证 hold 失败保留 session、成功后仅退出会话且 owner 子进程存活；当前尚未实测整条运行图。
 
 ### 任务 5：受验速度包络
 
@@ -97,9 +100,10 @@
 
 **接口：** `ValidatedEnvelope` 定义在 `policy_speed_envelope.py`，字段为 `vx_min/vx_max/vy_min/vy_max/wz_min/wz_max: float`、`validated: bool`、`evidence_id: str`；从批准的现场补验证据加载，缺证据或值非法时未验证。`validate_command(vx: float, vy: float, wz: float, envelope: ValidatedEnvelope) -> bool`；导航 source 默认不可激活，右转及双向 yaw 现场受控补验后配置 `vx=[0,0.12]`、`vy=0`、`wz=[-0.1,0.1]`。越界拒绝并 hold；沿用 bridge 原有限幅与 guard。
 
-- [ ] 写 `test_nav_disabled_without_validated_envelope`、`test_bidirectional_envelope_boundaries`、`test_out_of_range_holds`、`test_policy_bt_excludes_unvalidated_recovery`、`test_unitree_configuration_unchanged`、`test_manual_trial_fixed_right_and_mock_default`；检查 policy BT 不加载或调用 spin、back_up、drive_on_heading，unitree 配置保持不变；运行 `python3 -m pytest src/h1_2_nav_tools/test/test_policy_speed_limits.py -q`，新增案例预期失败。
-- [ ] 实现固定 forward/turn_left/turn_right 工程试验入口（0.12 m/s 或 ±0.1 rad/s，≤3 秒，默认 mock；prepare→activate→单次→hold），允许待验右转仅用于另行现场授权的工程试验，nav source 保持未验禁用；实现显式包络验证及独立 policy YAML/BT，保留原 controller 算法，设置零横移、非倒车，禁用未经验证的倒车和大角度自动恢复；重跑预期 PASS；不声称双向 yaw 已现场验证、不开发新步态算法。
-- [ ] 完成标准：未验导航无法激活，已配置范围不被突破。回退为禁用 policy 导航配置，不改变 bridge 保护。
+- [x] 加入 fail-closed envelope loader/runtime bounds，未验证命令不能激活；初始硬上限 `vx<=0.12`、`vy=0`、`|wz|<=0.1`，越界输入触发 hold。
+- [x] 受支撑人工脉冲入口新增固定 `turn_right=(0,0,-0.1)`，沿用 0.5–3 秒、ready/telemetry/撤权门控；只增加代码选项，未执行现场动作。
+- [x] 每个 policy session 从当前 Nav2 参数派生独立临时配置，指定无 Spin/BackUp/drive-on-heading 的已有 BT、将现存 DWB/RPP 速度参数及 velocity_smoother 裁进 envelope，并在 launch shutdown 清理临时文件；Unitree 参数文件未改。
+- [ ] 完成现场人工短脉冲后，保存批准 envelope evidence；没有证据时保持 nav disabled。右转和双向 yaw 仍未实机验收。
 
 ### 任务 6：隔离集成、只读核验与现场验收
 
@@ -107,9 +111,9 @@
 
 **接口：** 仅在独立 ROS 域使用 fake ready/Nav2/policy，不创建实际 LowCmd writer；生产前核对真实 owner manifest/status；真实动作须另有当时有效授权。
 
-- [ ] 写 `test_prepare_activate_then_new_goal`、`test_hold_switching_reject_goals_and_late_old_session`、`test_hold_wins_inflight_activation`、`test_hold_invalidates_inflight_prepare`、`test_coordinator_restart_never_reuses_session_and_rejects_old_token`；依次 prepare、启动会话、activate 成功、显式新 goal、hold、重建新会话、重新激活及新 goal。注入 cleanup 期间 goal、hold 或后继 prepare 抢占、重启后旧 token、旧速度/goal、ready 丢失及竞争，验证全部旧请求拒绝。
-- [ ] 在已加载 ROS Humble 的隔离环境运行 `ROS_DOMAIN_ID=201 ROS_LOCALHOST_ONLY=1 python3 -m pytest src/h1_2_nav_tools/test/test_policy_navigation_integration.py -q`；新测试先失败，实现 mock 后 PASS。复用未受影响的历史双 action 测试。
-- [ ] 准备板端只读清单：实际进程/UUID/LowCmd GUID、状态新鲜度、profile/模型/URDF/产物 hash、ROS 域和 topic；不启动第二节点或覆盖运行文件，任何不符暂停。
-- [ ] 实现 `nav_commissioning.run_trial(action_namespace: str, goal: PoseStamped, max_seconds: float, mode: str = "mock") -> TrialResult`：默认只连接 mock；live 需显式选择并限定首次窗口 ≤3 秒，到时请求 cancel/hold 并记录归零，未完成取消须报告且保持 hold。测试 `test_mock_trial_cancels_by_deadline` 和 `test_live_requires_explicit_opt_in`；运行 `python3 -m pytest src/h1_2_nav_tools/test/test_policy_navigation_integration.py -q` 预期 PASS。live 不在自动测试执行；未来现场命令形式为 `python3 tools/h1_2_policy_hardware/nav_commissioning.py --mode live --action-namespace <prepare返回的frontend> --goal-x <米> --goal-y <米> --goal-yaw <弧度> --max-seconds 3`，只有当时明确授权、现场条件及双向 yaw 前置通过后人工执行，目标坐标由现场确定。
+- [x] 增加并运行最小 fake graph：coordinator prepare→session manager 启动 fake Nav2 action server→activate→token namespace 显式 goal→hold→确认 session child 退出；1 passed。ready-loss、hold 竞争和旧会话拒绝由已有 coordinator 测试覆盖；尚未覆盖新 token 重开和真实 owner 进程。
+- [x] 准备板端只读清单：实际进程/UUID/LowCmd GUID、状态新鲜度、profile/模型/URDF/产物 hash、ROS 域和 topic；不启动第二节点或覆盖运行文件，任何不符暂停。清单见[hardware-validation-checklist.md](hardware-validation-checklist.md)，尚未在目标板执行。
+- [x] 增加 `tools/h1_2_policy_hardware/nav_commissioning.py`：默认 mock 不导入 ROS、不发 goal；live 显式选择 coordinator frontend，限时 ≤3 秒，到时取消并请求 hold，分别记录取消和 hold 确认。
+- [x] 独立 ROS 域验证真实 owner/coordinator 生命周期与 fake runtime；独立 fake Nav2 session 测试覆盖 prepare/activate/goal/hold/child exit。合并同进程回归9项通过；完整 owner/session/Nav2 同一进程图尚未合并联测。
 - [ ] 单独规划并在有效现场授权下先补验右转与双向 yaw。通过后首次 Nav2 只做 ≤3 秒命令链短测、定时取消归零，不要求到达；后续目标到达验收须新的明确时长和范围授权。记录目标、定位、命令、ready/guard、现场运动与停稳；3 秒不是永久生产门限。现场未执行则标未验证。
 - [ ] 完成标准：mock、只读和现场分别有证据及结论；异常停止新目标并按现场控制和急停流程交接，回退仅在安全交接和有效授权后进行。

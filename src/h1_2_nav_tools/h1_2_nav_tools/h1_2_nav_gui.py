@@ -18,7 +18,7 @@ CONFIG_WORKFLOW_VERSION = 2
 LOCALIZATION_REQUIRED_STABLE_SAMPLES = 5
 LOCALIZATION_MAX_SCORE = 0.15
 LOCALIZATION_STATUS_TIMEOUT_SEC = 10.0
-GESTURE_OPTIONS = ["", "wave_hand", "shake_hand"]
+GESTURE_OPTIONS = ["", "wave_hand", "shake_hand", "grab_pull"]
 
 
 def configure_ros_environment():

@@ -1,0 +1,333 @@
+#ifndef H1_2_LOCO_BRIDGE_ARM_GESTURE_PLAYER_HPP_
+#define H1_2_LOCO_BRIDGE_ARM_GESTURE_PLAYER_HPP_
+
+#include <atomic>
+#include <chrono>
+#include <memory>
+#include <string>
+#include <thread>
+#include <vector>
+
+#include "arm_trajectory.hpp"
+#include "unitree/idl/hg/LowCmd_.hpp"
+#include "unitree/idl/hg/LowState_.hpp"
+#include "unitree/idl/hg/HandCmd_.hpp"
+#include "unitree/robot/channel/channel_publisher.hpp"
+#include "unitree/robot/channel/channel_subscriber.hpp"
+
+namespace h1_2_arm_gesture {
+
+using namespace h1_2_arm_trajectory;
+
+// 播放结果
+struct PlaybackResult {
+  int error_code;          // 0成功，负数错误
+  std::string message;
+  bool was_aborted;
+
+  PlaybackResult() : error_code(0), message(""), was_aborted(false) {}
+  PlaybackResult(int code, const std::string& msg, bool aborted = false)
+    : error_code(code), message(msg), was_aborted(aborted) {}
+
+  bool success() const { return error_code == 0; }
+};
+
+// 手势播放器（单线程使用）
+class ArmGesturePlayer {
+public:
+  ArmGesturePlayer()
+    : state_received_(false),
+      abort_requested_(false) {}
+
+  ~ArmGesturePlayer() {
+    stop();
+  }
+
+  // 初始化DDS（只能调用一次）
+  bool init_dds(int domain_id = 0, const std::string& network_interface = "") {
+    try {
+      state_subscriber_ = std::make_shared<unitree::robot::ChannelSubscriber<unitree_hg::msg::dds_::LowState_>>("rt/lowstate");
+      state_subscriber_->InitChannel(
+        [this](const void* msg) { this->on_state_received(msg); },
+        1
+      );
+
+      arm_sdk_publisher_ = std::make_shared<unitree::robot::ChannelPublisher<unitree_hg::msg::dds_::LowCmd_>>("rt/arm_sdk");
+      arm_sdk_publisher_->InitChannel();
+
+      // 初始化灵巧手发布器
+      hand_publisher_ = std::make_shared<unitree::robot::ChannelPublisher<unitree_hg::msg::dds_::HandCmd_>>("rt/dex5/right/cmd");
+      hand_publisher_->InitChannel();
+
+      return true;
+    } catch (const std::exception& e) {
+      last_error_ = std::string("DDS init failed: ") + e.what();
+      return false;
+    }
+  }
+
+  // 等待接收到机器人状态（超时返回false）
+  bool wait_for_state(double timeout_seconds = 2.0) {
+    const auto start = std::chrono::steady_clock::now();
+    while (!state_received_.load()) {
+      if (std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count() > timeout_seconds) {
+        last_error_ = "Timeout waiting for robot state";
+        return false;
+      }
+      std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    }
+    return true;
+  }
+
+  // 播放手势（阻塞，在工作线程中调用）
+  PlaybackResult play_gesture(
+      const std::vector<MotionSegment>& segments,
+      const TrajectoryConfig& config) {
+
+    abort_requested_.store(false);
+
+    // 1. 检查是否收到状态
+    if (!state_received_.load()) {
+      return PlaybackResult(-6, "No robot state received");
+    }
+
+    // 2. 获取当前姿势
+    ArmPose initial_right, initial_left;
+    double initial_waist;
+    {
+      std::lock_guard<std::mutex> lock(state_mutex_);
+      for (int i = 0; i < kArmJoints; ++i) {
+        initial_right[i] = latest_state_.motor_state()[kRightArmStart + i].q();
+        initial_left[i] = latest_state_.motor_state()[kLeftArmStart + i].q();
+      }
+      initial_waist = latest_state_.motor_state()[kWaistIndex].q();
+    }
+
+    // 3. 生成完整轨迹
+    TrajectoryGenerator gen(config);
+
+    // 检查总时长
+    const double total_duration = gen.compute_total_duration(initial_right, segments);
+    if (total_duration > 18.0) {
+      return PlaybackResult(-5, "Total duration " + std::to_string(total_duration) + "s exceeds 18s limit");
+    }
+
+    std::vector<FrameCommand> full_trajectory;
+
+    // 3.1 接管段
+    auto takeover_frames = gen.generate_weight_ramp(
+      initial_right, initial_left, initial_waist, HandShape::Open,
+      config.takeover_duration, true
+    );
+    full_trajectory.insert(full_trajectory.end(), takeover_frames.begin(), takeover_frames.end());
+
+    // 3.2 动作段
+    ArmPose current_right = initial_right;
+    ArmPose current_left = initial_left;
+    double current_waist = initial_waist;
+
+    for (const auto& seg : segments) {
+      auto seg_frames = gen.generate_segment(current_right, current_left, current_waist, seg);
+      full_trajectory.insert(full_trajectory.end(), seg_frames.begin(), seg_frames.end());
+
+      if (!seg_frames.empty()) {
+        current_right = seg_frames.back().right_arm;
+        current_left = seg_frames.back().left_arm;
+        current_waist = seg_frames.back().waist;
+      }
+    }
+
+    // 3.3 交还段
+    auto handback_frames = gen.generate_weight_ramp(
+      current_right, current_left, current_waist, HandShape::Open,
+      config.handback_duration, false
+    );
+    full_trajectory.insert(full_trajectory.end(), handback_frames.begin(), handback_frames.end());
+
+    // 4. 播放轨迹
+    const auto start_time = std::chrono::steady_clock::now();
+    for (size_t i = 0; i < full_trajectory.size(); ++i) {
+      // 检查中止标志
+      if (abort_requested_.load()) {
+        // 立即开始中止流程
+        return abort_playback(current_right, current_left, current_waist, config);
+      }
+
+      const auto& cmd = full_trajectory[i];
+      publish_frame(cmd, config);
+
+      // 等待到下一帧时间
+      const auto target_time = start_time + std::chrono::duration<double>(i * config.control_period);
+      std::this_thread::sleep_until(target_time);
+    }
+
+    return PlaybackResult(0, "Gesture completed successfully");
+  }
+
+  // 请求中止（从外部线程调用）
+  void request_abort() {
+    abort_requested_.store(true);
+  }
+
+  // 停止并清理
+  void stop() {
+    abort_requested_.store(true);
+  }
+
+  std::string last_error() const { return last_error_; }
+
+private:
+  void on_state_received(const void* msg) {
+    const auto* state = static_cast<const unitree_hg::msg::dds_::LowState_*>(msg);
+    std::lock_guard<std::mutex> lock(state_mutex_);
+    latest_state_ = *state;
+    state_received_.store(true);
+  }
+
+  void publish_frame(const FrameCommand& cmd, const TrajectoryConfig& config) {
+    unitree_hg::msg::dds_::LowCmd_ low_cmd;
+
+    // 初始化所有电机命令
+    for (int i = 0; i < 35; ++i) {
+      low_cmd.motor_cmd()[i].mode() = 0x01;  // 伺服模式
+      low_cmd.motor_cmd()[i].q() = 0.0;
+      low_cmd.motor_cmd()[i].dq() = 0.0;
+      low_cmd.motor_cmd()[i].kp() = 0.0;
+      low_cmd.motor_cmd()[i].kd() = 0.0;
+      low_cmd.motor_cmd()[i].tau() = 0.0;
+    }
+
+    // 腰部
+    low_cmd.motor_cmd()[kWaistIndex].q() = cmd.waist;
+    low_cmd.motor_cmd()[kWaistIndex].dq() = 0.0;
+    low_cmd.motor_cmd()[kWaistIndex].kp() = config.waist_gains.kp;
+    low_cmd.motor_cmd()[kWaistIndex].kd() = config.waist_gains.kd;
+    low_cmd.motor_cmd()[kWaistIndex].tau() = config.waist_gains.tau_ff;
+
+    // 左臂
+    for (int i = 0; i < kArmJoints; ++i) {
+      const int idx = kLeftArmStart + i;
+      low_cmd.motor_cmd()[idx].q() = cmd.left_arm[i];
+      low_cmd.motor_cmd()[idx].dq() = 0.0;
+      low_cmd.motor_cmd()[idx].kp() = config.left_arm_gains[i].kp;
+      low_cmd.motor_cmd()[idx].kd() = config.left_arm_gains[i].kd;
+      low_cmd.motor_cmd()[idx].tau() = config.left_arm_gains[i].tau_ff;
+    }
+
+    // 右臂
+    for (int i = 0; i < kArmJoints; ++i) {
+      const int idx = kRightArmStart + i;
+      low_cmd.motor_cmd()[idx].q() = cmd.right_arm[i];
+      low_cmd.motor_cmd()[idx].dq() = 0.0;
+      low_cmd.motor_cmd()[idx].kp() = config.right_arm_gains[i].kp;
+      low_cmd.motor_cmd()[idx].kd() = config.right_arm_gains[i].kd;
+      low_cmd.motor_cmd()[idx].tau() = config.right_arm_gains[i].tau_ff;
+    }
+
+    // 权重
+    low_cmd.motor_cmd()[kWeightIndex].q() = cmd.weight;
+
+    // 发布
+    arm_sdk_publisher_->Write(low_cmd);
+
+    // 发布手型到灵巧手
+    publish_hand_shape(cmd.hand_shape);
+  }
+
+  void publish_hand_shape(HandShape shape) {
+    unitree_hg::msg::dds_::HandCmd_ hand_cmd;
+
+    // Dex5有20个关节
+    hand_cmd.motor_cmd().resize(20);
+
+    // 增益配置 - 大幅增大以获得强响应
+    const double finger_kp = 10.0;    // 增大到10.0
+    const double finger_kd = 0.5;     // 增大到0.5
+    const double thumb_base_kp = 20.0;  // 增大到20.0
+    const double thumb_base_kd = 1.0;   // 增大到1.0
+
+    if (shape == HandShape::Open) {
+      // 张开手：尝试0角度（也许0才是张开状态）
+      for (int i = 0; i < 20; ++i) {
+        hand_cmd.motor_cmd()[i].mode() = 0x01;  // 伺服模式
+        hand_cmd.motor_cmd()[i].q() = 0.0;  // 全部设为0
+        hand_cmd.motor_cmd()[i].dq() = 0.0;
+        hand_cmd.motor_cmd()[i].tau() = 0.0;
+
+        // 拇指首关节用不同增益
+        if (i == 16) {
+          hand_cmd.motor_cmd()[i].kp() = thumb_base_kp;
+          hand_cmd.motor_cmd()[i].kd() = thumb_base_kd;
+        } else {
+          hand_cmd.motor_cmd()[i].kp() = finger_kp;
+          hand_cmd.motor_cmd()[i].kd() = finger_kd;
+        }
+      }
+    } else {  // HandShape::Fist
+      // 握拳：官方行程的80%
+      double fist_angles[20] = {
+        0.0, 1.25, 1.33, 1.13,  // 食指
+        0.0, 1.25, 1.33, 1.13,  // 中指
+        0.0, 1.25, 1.33, 1.13,  // 无名指
+        0.0, 1.25, 1.33, 1.13,  // 小指
+        0.3, 1.0, 0.9, 0.8      // 拇指
+      };
+
+      for (int i = 0; i < 20; ++i) {
+        hand_cmd.motor_cmd()[i].mode() = 0x01;
+        hand_cmd.motor_cmd()[i].q() = fist_angles[i];
+        hand_cmd.motor_cmd()[i].dq() = 0.0;
+        hand_cmd.motor_cmd()[i].tau() = 0.0;
+
+        if (i == 16) {
+          hand_cmd.motor_cmd()[i].kp() = thumb_base_kp;
+          hand_cmd.motor_cmd()[i].kd() = thumb_base_kd;
+        } else {
+          hand_cmd.motor_cmd()[i].kp() = finger_kp;
+          hand_cmd.motor_cmd()[i].kd() = finger_kd;
+        }
+      }
+    }
+
+    hand_publisher_->Write(hand_cmd);
+  }
+
+  PlaybackResult abort_playback(
+      const ArmPose& current_right,
+      const ArmPose& current_left,
+      double current_waist,
+      const TrajectoryConfig& config) {
+
+    // 生成快速交还轨迹
+    TrajectoryGenerator gen(config);
+    auto abort_frames = gen.generate_weight_ramp(
+      current_right, current_left, current_waist, HandShape::Open,
+      config.abort_handback_duration, false
+    );
+
+    const auto start_time = std::chrono::steady_clock::now();
+    for (size_t i = 0; i < abort_frames.size(); ++i) {
+      publish_frame(abort_frames[i], config);
+
+      const auto target_time = start_time + std::chrono::duration<double>(i * config.control_period);
+      std::this_thread::sleep_until(target_time);
+    }
+
+    return PlaybackResult(-4, "Gesture aborted by user", true);
+  }
+
+  std::shared_ptr<unitree::robot::ChannelSubscriber<unitree_hg::msg::dds_::LowState_>> state_subscriber_;
+  std::shared_ptr<unitree::robot::ChannelPublisher<unitree_hg::msg::dds_::LowCmd_>> arm_sdk_publisher_;
+  std::shared_ptr<unitree::robot::ChannelPublisher<unitree_hg::msg::dds_::HandCmd_>> hand_publisher_;
+
+  std::mutex state_mutex_;
+  unitree_hg::msg::dds_::LowState_ latest_state_;
+  std::atomic<bool> state_received_;
+  std::atomic<bool> abort_requested_;
+
+  std::string last_error_;
+};
+
+}  // namespace h1_2_arm_gesture
+
+#endif  // H1_2_LOCO_BRIDGE_ARM_GESTURE_PLAYER_HPP_

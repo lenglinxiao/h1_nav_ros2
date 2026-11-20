@@ -107,7 +107,7 @@ def test_teaching_route_uses_low_speed_rpp_for_path_tracking():
     rpp = read(RPP)
 
     assert 'plugin: "nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController"' in rpp
-    assert "desired_linear_vel: 0.10" in rpp
+    assert "desired_linear_vel: 0.15" in rpp
     assert "lookahead_dist: 0.25" in rpp
     assert "min_lookahead_dist: 0.15" in rpp
     assert "max_lookahead_dist: 0.35" in rpp
@@ -162,7 +162,7 @@ def test_rpp_config_is_additive_and_uses_regulated_pure_pursuit():
 
     assert "nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController" in rpp
     assert 'controller_plugins: ["FollowPath"]' in rpp
-    assert "desired_linear_vel: 0.10" in rpp
+    assert "desired_linear_vel: 0.15" in rpp
     assert "required_movement_radius: 0.1" in rpp
     assert "movement_time_allowance: 20.0" in rpp
     assert "min_approach_linear_velocity: 0.06" in rpp

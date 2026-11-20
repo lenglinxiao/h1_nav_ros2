@@ -13,6 +13,8 @@ from launch_ros.parameter_descriptions import ParameterValue
 def generate_launch_description():
     package_prefix = get_package_prefix("h1_2_loco_bridge")
     daemon_path = os.path.join(package_prefix, "lib", "h1_2_loco_bridge", "h1_2_loco_udp_daemon")
+    config_dir = os.path.join(package_prefix, "share", "h1_2_loco_bridge", "config")
+    grab_pull_config = os.path.join(config_dir, "grab_pull.yaml")
     unitree_root = os.environ.get("UNITREE_SDK2_ROOT", "")
     unitree_lib = os.path.join(unitree_root, "thirdparty", "lib", platform.machine())
     unitree_sdk_lib = os.path.join(unitree_root, "lib", platform.machine())
@@ -45,6 +47,7 @@ def generate_launch_description():
             DeclareLaunchArgument("command_duration", default_value="0.5"),
             DeclareLaunchArgument("command_timeout", default_value="1.0"),
             DeclareLaunchArgument("shake_hand_duration", default_value="10.0"),
+            DeclareLaunchArgument("grab_pull_config", default_value=grab_pull_config),
             ExecuteProcess(
                 cmd=[
                     "/usr/bin/env",
@@ -60,6 +63,7 @@ def generate_launch_description():
                     "--max-yaw", LaunchConfiguration("max_yaw"),
                     "--shake-hand-duration", LaunchConfiguration("shake_hand_duration"),
                     "--command-timeout", LaunchConfiguration("command_timeout"),
+                    "--grab-pull-config", LaunchConfiguration("grab_pull_config"),
                 ],
                 output="screen",
                 additional_env=daemon_env,

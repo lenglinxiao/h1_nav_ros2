@@ -12,6 +12,7 @@ from nav2_msgs.action import NavigateToPose, Spin
 from rclpy.action import ActionClient
 from rclpy.executors import ExternalShutdownException, MultiThreadedExecutor
 from rclpy.node import Node
+from rclpy.qos import DurabilityPolicy, QoSProfile
 from tf2_ros import Buffer, TransformListener
 
 from .route_activity_guard import RouteActivityGuard
@@ -386,6 +387,13 @@ class MemoryRouteRunner(Node):
             self.get_logger().error(self.last_message)
             return False
         self.frame_id = data.get("frame_id", "map")
+        if self.frame_id != self.required_tf_target_frame:
+            self.state = "blocked"
+            self.last_message = (
+                f"Memory points use frame_id={self.frame_id}, but the active navigation "
+                f"frame is {self.required_tf_target_frame}; record points again in the active mode."
+            )
+            return False
         points = data.get("points", {})
         if not isinstance(points, dict):
             self.state = "blocked"

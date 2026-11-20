@@ -102,6 +102,21 @@ class AcceptanceTests(unittest.TestCase):
         self.assertIn('not applied to native PD', result.stdout)
         self.assertEqual(self.run_cli('--joint-command-mode', 'invalid').returncode, 2)
 
+    def test_source_identity_is_optional_and_manual_speed_is_bounded(self):
+        result = subprocess.run([sys.executable, str(SCRIPT), '--fixstand-only',
+                                 '--fixstand-max-error', '.1'], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('Source identity:', result.stdout)
+        trial = ('--continuous-walk-trial', '--joint-command-mode', 'position_pd',
+                 '--confirm-supported-upright')
+        for motion, speed in (('forward', '.1201'), ('backward', '.121'),
+                              ('turn_left', '.1001'), ('turn_right', 'nan')):
+            result = self.run_cli(*trial, '--manual-motion', motion, '--manual-speed', speed)
+            self.assertEqual(result.returncode, 2, (motion, speed))
+        valid = self.run_cli(*trial, '--manual-motion', 'backward', '--manual-speed', '.08')
+        self.assertEqual(valid.returncode, 0, valid.stderr)
+        self.assertIn('command (-0.08, 0.0, 0.0)', valid.stdout)
+
     def test_blocked_release_prompt_does_not_imply_position_support(self):
         prompt = next(line for line in SOURCE.splitlines() if "Release is blocked;" in line)
         self.assertIn('Release is blocked;', prompt)
@@ -130,9 +145,11 @@ class AcceptanceTests(unittest.TestCase):
     def test_watch_checks_last_sample_for_speed(self):
         node = next(n for n in TREE.body if isinstance(n, ast.FunctionDef) and n.name == 'watch')
         readings = iter(({'policy_commands': 0, 'peak_dq': 0}, {'policy_commands': 3, 'peak_dq': 2.1}))
-        times = iter((0.0, 0.0, 2.0))
-        scope = {'sample': lambda: next(readings), 'check_policy_source': lambda value: value, 'status': lambda mode: {'write_count': '0'},
+        times = iter((0.0, 0.0, 0.0, 1.0))
+        scope = {'sample': lambda: next(readings), 'check_policy_source': lambda value: value,
+                 'status': lambda mode: {'write_count': '0', 'authorized': 'true', 'publisher_present': 'true'},
                  'time': SimpleNamespace(monotonic=lambda: next(times)),
+                 'pulse': None,
                  'check_speed': lambda value: (_ for _ in ()).throw(RuntimeError('speed exceeded')) if value['peak_dq'] > 2 else None}
         exec(compile(ast.Module(body=[node], type_ignores=[]), str(SCRIPT), 'exec'), scope)
         with self.assertRaisesRegex(RuntimeError, 'speed exceeded'):
@@ -140,6 +157,9 @@ class AcceptanceTests(unittest.TestCase):
 
     def test_monitor_signal_handler_ends_lifetime_loop(self):
         monitor = Path(__file__).with_name('prepare_monitor.cpp').read_text()
+        self.assertIn('lowcmd_writers', monitor)
+        self.assertIn('writer_samples[guid]', monitor)
+        self.assertIn('last_seen_age', monitor)
         declarations = re.search(r'volatile std::sig_atomic_t stop_requested = 0;\nvoid request_stop\(int\) \{ stop_requested = 1; \}', monitor)
         self.assertIsNotNone(declarations)
         self.assertIn('while (!stop_requested)', monitor)

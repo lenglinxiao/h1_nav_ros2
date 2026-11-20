@@ -6,8 +6,9 @@ import tty
 
 
 class RepeatInput:
-    def __init__(self, fd):
+    def __init__(self, fd, allow_trials=False):
         self.fd = fd
+        self.allow_trials = allow_trials
         self.original = termios.tcgetattr(fd)
         self.partial = b''
         self.commands = []
@@ -29,12 +30,15 @@ class RepeatInput:
                     self.commands.append('REVOKE')
                 elif command == b'WALK' and accept_walk:
                     self.commands.append('WALK')
+                elif self.allow_trials and command.startswith(b'TRIAL ') and accept_walk:
+                    self.commands.append(command.decode('utf-8'))
         if 'REVOKE' in self.commands:
             self.commands.clear()
             return 'REVOKE'
         if self.commands:
+            command = self.commands[0]
             self.commands.clear()  # never queue several WALK commands
-            return 'WALK'
+            return command
         return None
 
     def discard_partial(self):

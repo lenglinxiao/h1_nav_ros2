@@ -29,7 +29,7 @@ def test_navigation_script_selects_motion_backend_at_startup():
     assert '"motion_backend:=${MOTION_BACKEND}"' in script
     assert '"${MOTION_BACKEND}" != "unitree"' in script
     assert '"${MOTION_BACKEND}" != "policy"' in script
-    assert "policy motion backend is only supported with mode=navigation" in script
+    assert "policy motion backend is only supported with mode=online, mode=navigation" in script
     assert "motion_backend=policy" in script
 
 

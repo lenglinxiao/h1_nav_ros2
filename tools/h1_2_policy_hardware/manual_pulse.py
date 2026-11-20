@@ -2,14 +2,19 @@
 import math
 
 class ManualPulse:
-    def __init__(self, duration=.5, motion='forward'):
+    def __init__(self, duration=.5, motion='forward', speed=None):
         if not math.isfinite(duration) or not .5 <= duration <= 3.0:
             raise ValueError('Pulse duration must be between 0.5 and 3.0 seconds')
         self.duration = duration
-        commands = {'forward': (.12, 0., 0.), 'turn_left': (0., 0., .1)}
-        if motion not in commands:
+        if motion not in ('forward', 'backward', 'turn_left', 'turn_right'):
             raise ValueError('Unknown manual motion')
-        self.command = commands[motion]
+        default_speed = .1 if motion.startswith('turn_') else .12
+        speed = default_speed if speed is None else speed
+        maximum = .1 if motion.startswith('turn_') else .12
+        if not math.isfinite(speed) or not 0.0 < speed <= maximum:
+            raise ValueError('Manual speed must be positive and within the motion limit')
+        sign = -1.0 if motion in ('backward', 'turn_right') else 1.0
+        self.command = (sign * speed, 0., 0.) if motion in ('forward', 'backward') else (0., 0., sign * speed)
         self.lease_until = 0.0
         self.ready = False
         self.started = None

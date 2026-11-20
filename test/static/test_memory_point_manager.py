@@ -40,12 +40,12 @@ def test_memory_point_manager_uses_latest_odom_and_target_frame():
     assert "transform_pose" in source
 
 
-def test_memory_point_manager_always_stores_camera_init_pose_as_map():
+def test_memory_point_manager_uses_selected_navigation_frame():
     source = MANAGER.read_text(encoding="utf-8")
 
-    assert 'STORAGE_FRAME = "map"' in source
     assert 'IDENTITY_FRAME_ALIASES = {"map", "camera_init"}' in source
-    assert "self.target_frame = self.STORAGE_FRAME" in source
+    assert 'self.get_parameter("target_frame").value' in source
+    assert 'if not self.target_frame:' in source
     assert "pose.header.frame_id = self.target_frame" in source
 
 

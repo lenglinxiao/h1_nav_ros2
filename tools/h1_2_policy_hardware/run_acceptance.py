@@ -39,7 +39,7 @@ def fixstand_error(q, target, limit):
 
 
 parser = argparse.ArgumentParser(description="H1 hardware acceptance; dry-run by default")
-parser.add_argument('--source-commit', required=True, help='commit actually deployed on the robot (operator supplied)')
+parser.add_argument('--source-commit', help='optional deployment label; defaults to detected local identity')
 parser.add_argument('--fixstand-only', action='store_true', help='stop after FixStand and cleanup')
 parser.add_argument('--joint-command-mode', choices=('torque', 'position_pd'), default='torque')
 parser.add_argument('--fixstand-max-error', type=float, help='optional maximum absolute FixStand joint error in radians; required for fixstand-only')
@@ -47,8 +47,10 @@ parser.add_argument('--protection-profile', choices=('legacy', 'train_20261106')
 parser.add_argument('--train-urdf', type=Path)
 parser.add_argument('--continuous-walk-trial', action='store_true', help='isolated one-shot manual velocity trial')
 parser.add_argument('--manual-pulse-seconds', type=float, default=.5, help='one-shot pulse duration, 0.5 to 3.0 seconds')
-parser.add_argument('--manual-motion', choices=('forward', 'turn_left'), default='forward')
+parser.add_argument('--manual-motion', choices=('forward', 'backward', 'turn_left', 'turn_right'), default='forward')
+parser.add_argument('--manual-speed', type=float, help='positive linear m/s or angular rad/s; motion-specific ceiling applies')
 parser.add_argument('--allow-repeat-walk', action='store_true', help='allow explicit WALK commands while holding ArmHold')
+parser.add_argument('--web-repeat-trials', action='store_true', help='allow bounded TRIAL JSON input while idle in the repeat loop')
 parser.add_argument('--arm-hold-knee-tolerance', type=float, default=.07, help='knee position tolerance in radians (0.07 to 0.10 for continuous trial)')
 parser.add_argument('--walk-leg-speed-limit', type=float, default=None, help='leg cumulative speed limit after manual pulse starts, 2 to 3 rad/s')
 parser.add_argument('--execute', action='store_true', help='enable physical preparation')
@@ -63,17 +65,23 @@ parser.add_argument('--onsite-confirm-timeout', type=float, default=10.0,
 parser.add_argument('--onsite-confirmed-before-start', action='store_true', help='onsite conditions confirmed before this continuous trial starts')
 parser.add_argument('--confirm-supported-upright', action='store_true', help='enable the onsite confirmation prompt after ArmHoldStand settles')
 args = parser.parse_args()
+if args.web_repeat_trials:
+    args.allow_repeat_walk = True
 if not math.isfinite(args.manual_pulse_seconds) or not .5 <= args.manual_pulse_seconds <= 3.0:
     parser.error('--manual-pulse-seconds must be between 0.5 and 3.0')
 if args.manual_pulse_seconds != .5 and not args.continuous_walk_trial:
     parser.error('--manual-pulse-seconds requires --continuous-walk-trial')
 if args.manual_motion != 'forward' and not args.continuous_walk_trial:
     parser.error('--manual-motion requires --continuous-walk-trial')
+if args.manual_speed is not None and not args.continuous_walk_trial:
+    parser.error('--manual-speed requires --continuous-walk-trial')
 if args.allow_repeat_walk and (not args.continuous_walk_trial or not args.execute or not sys.stdin.isatty()):
     parser.error('--allow-repeat-walk requires an interactive executed continuous trial')
 if args.protection_profile == 'train_20261106':
-    if not args.continuous_walk_trial or args.joint_command_mode != 'position_pd' or args.train_urdf is None:
-        parser.error('train_20261106 requires --continuous-walk-trial, position_pd and --train-urdf')
+    if not args.continuous_walk_trial or args.joint_command_mode != 'position_pd':
+        parser.error('train_20261106 requires --continuous-walk-trial and position_pd')
+    if args.train_urdf is None:
+        args.train_urdf = Path('/home/unitree/h1_nav2_ros2_ws/src/h1_2_description/h1_2_handless.urdf')
     if args.walk_leg_speed_limit is not None:
         parser.error('--walk-leg-speed-limit is incompatible with train_20261106')
     try:
@@ -99,6 +107,10 @@ if args.onsite_confirmed_before_start and not (args.continuous_walk_trial and ar
     parser.error('--onsite-confirmed-before-start requires an executed interactive continuous trial with all confirmations')
 if args.continuous_walk_trial and args.execute and not sys.stdin.isatty():
     parser.error('--continuous-walk-trial requires an interactive terminal')
+try:
+    trial_pulse = ManualPulse(args.manual_pulse_seconds, args.manual_motion, args.manual_speed) if args.continuous_walk_trial else None
+except ValueError as exc:
+    parser.error(str(exc))
 if not math.isfinite(args.onsite_confirm_timeout) or not 0 < args.onsite_confirm_timeout <= 60:
     parser.error('--onsite-confirm-timeout must be finite and between 0 and 60')
 if args.execute and args.joint_command_mode == 'position_pd' and not sys.stdin.isatty():
@@ -120,6 +132,16 @@ if args.max_policy_seconds and (not args.policy_steps or args.joint_command_mode
 if args.policy_steps > 5 and not args.max_policy_seconds:
     parser.error('--policy-steps above 5 requires --max-policy-seconds')
 ws = Path('/home/unitree/h1_nav2_ros2_ws')
+try:
+    detected_commit = subprocess.run(['git', '-C', str(ws), 'rev-parse', '--short=12', 'HEAD'],
+                                     check=True, capture_output=True, text=True).stdout.strip()
+except (OSError, subprocess.CalledProcessError):
+    detected_commit = ''
+script_digest = __import__('hashlib').sha256(Path(__file__).read_bytes()).hexdigest()
+source_identity = args.source_commit or (('git:' + detected_commit + '+runner-sha256:' + script_digest)
+                                         if detected_commit else 'runner-sha256:' + script_digest)
+source_identity_evidence = ('operator_label_plus_runner_hash' if args.source_commit else
+                            'auto_detected_runner_hash_and_git_head')
 namespace = '/h1_prepare_' + str(os.getpid())
 command=[str(ws/'install/h1_2_policy_bridge/lib/h1_2_policy_bridge/h1_2_policy_node'),
          '--ros-args','-r','__ns:='+namespace,
@@ -137,8 +159,7 @@ if train_profile:
     command += ['-p', 'train_guard_profile_hash:=' + train_profile['profile_hash']]
 if args.continuous_walk_trial:
     command += ['-p', 'enable_navigation_commands:=true', '-p', 'continuous_policy_navigation:=true',
-                '-p', 'cmd_vel_topic:='+namespace+'/private_cmd_vel',
-                '-r', '/h1_2/policy_gate_alive:='+namespace+'/private_manual_gate_alive']
+                '-p', 'cmd_vel_topic:='+namespace+'/private_cmd_vel']
 if not args.execute:
     import shlex
     print('DRY RUN: no process, ROS connection or physical command executed')
@@ -156,15 +177,14 @@ if not args.execute:
         print('Checks: fresh finite LowState and CRC; source-identified policy command progression, valid state, cumulative speed <= 2 rad/s before pulse and upper body throughout; leg limit after pulse:', args.walk_leg_speed_limit, 'rad/s; native damping; revoke and verify no further writes.')
     print('Policy:', args.policy_steps, 'frames; monotonic deadline:', args.max_policy_seconds, 'seconds (0 disables); requires --confirm-supported-upright and onsite typed confirmation after 3 s in ArmHoldStand, sling ~60%, height ~0.95 m and straight legs, and both knee errors below configured tolerance; no retry. Tolerance:', args.arm_hold_knee_tolerance, 'rad')
     if args.continuous_walk_trial:
-        print('Manual trial: motion', args.manual_motion, 'command', ManualPulse(args.manual_pulse_seconds, args.manual_motion).command, 'for', args.manual_pulse_seconds, 's, then zero in ArmHold until onsite REVOKE; no automatic release. Deployed source commit:', args.source_commit)
+        print('Manual trial: motion', args.manual_motion, 'command', trial_pulse.command, 'for', args.manual_pulse_seconds, 's, then zero in ArmHold until onsite REVOKE; no automatic release. Source identity:', source_identity)
     else:
-        print('Finally: position PD holds the last command until onsite RELEASE confirms external support for robot and both arms; then exit, verify damping and revoke. Deployed source commit:', args.source_commit)
+        print('Finally: position PD holds the last command until onsite RELEASE confirms external support for robot and both arms; then exit, verify damping and revoke. Source identity:', source_identity)
     print('After revocation: observe telemetry for 0.5 s without motor commands; incomplete observation makes the result non-success.' if train_profile else 'After revocation: observe telemetry for 0.5 s without motor commands; any observed speed excess or incomplete observation makes the result non-success.')
     raise SystemExit(0)
 os.environ.update(ROS_DOMAIN_ID='43', ROS_LOCALHOST_ONLY='1', RMW_IMPLEMENTATION='rmw_fastrtps_cpp')
 import rclpy
 from std_srvs.srv import Trigger
-from std_msgs.msg import Bool
 from geometry_msgs.msg import Twist
 record = ws / 'third_party/h1_policy_runtime/integration-record' / ('acceptance-' + time.strftime('%Y%m%dT%H%M%S'))
 record.mkdir(parents=True)
@@ -179,12 +199,16 @@ summary = dict(result='not_started', policy_budget=args.policy_steps, max_policy
                fixstand_only=args.fixstand_only, fixstand_max_error_limit=args.fixstand_max_error,
                operator_confirmed_debug_mode=args.confirm_debug_mode,
                operator_confirmed_exclusive_control=args.confirm_exclusive_control,
-               source_commit=args.source_commit, source_commit_evidence='operator_supplied_unconfirmed',
+               source_commit=source_identity, source_commit_evidence=source_identity_evidence,
                onsite='unconfirmed', events=[], endpoints={}, observation_incomplete=False,
                max_observed_cumulative_peak_dq=0.0, first_observed_over_limit=None)
 summary['protection_profile'] = args.protection_profile
 summary['manual_pulse_seconds'] = args.manual_pulse_seconds
 summary['manual_motion'] = args.manual_motion
+pulse_for_summary = trial_pulse
+summary['manual_command'] = list(pulse_for_summary.command) if pulse_for_summary else None
+summary['manual_speed'] = (abs(pulse_for_summary.command[2]) if pulse_for_summary and args.manual_motion.startswith('turn_')
+                           else abs(pulse_for_summary.command[0]) if pulse_for_summary else None)
 if train_profile:
     summary['train_guard_profile'] = train_profile
     summary['train_guard_urdf_path'] = str(args.train_urdf)
@@ -194,7 +218,7 @@ authorized = False
 blocked_wait_interrupted = False
 logs = []
 observation_phase = 'preflight'
-pulse = ManualPulse(args.manual_pulse_seconds, args.manual_motion) if args.continuous_walk_trial else None
+pulse = pulse_for_summary
 repeat_reader = None
 repeat_busy = False
 repeat_revoke = False
@@ -530,6 +554,9 @@ def wait_for_entry_complete(mode):
 def manual_handoff(mode, reason):
     global pulse, repeat_reader, repeat_busy, repeat_revoke
     initial_pulse = pulse
+    if args.web_repeat_trials and (not summary.get('manual_policy_nonzero_observed') or
+                                   not summary.get('manual_policy_zero_in_armhold_observed')):
+        pulse.cancel('initial policy command observation incomplete')
     if reason != 'pulse window elapsed; zero command':
         pulse.cancel(reason)
     summary['manual_cancel_reason'] = pulse.cancel_reason
@@ -539,11 +566,14 @@ def manual_handoff(mode, reason):
     else:
         print('Pulse window elapsed; zero command continues in', mode, 'until onsite REVOKE.', flush=True)
     if args.allow_repeat_walk and mode == 'ArmHold' and not pulse.cancel_reason:
-        repeat_reader = RepeatInput(sys.stdin.fileno())
+        repeat_reader = (RepeatInput(sys.stdin.fileno(), allow_trials=True) if args.web_repeat_trials
+                         else RepeatInput(sys.stdin.fileno()))
         try:
             if repeat_reader.poll(False) == 'REVOKE': repeat_revoke = True
             repeat_reader.discard_partial()
             while not repeat_revoke:
+                if args.web_repeat_trials:
+                    print('MANUAL_WEB_EVENT ' + json.dumps({'state': 'ready_next'}), flush=True)
                 print('ArmHold idle: type WALK for one 3 s forward pulse, or REVOKE after securing support.', flush=True)
                 answer = None
                 while answer is None:
@@ -552,9 +582,23 @@ def manual_handoff(mode, reason):
                 if answer == 'REVOKE':
                     repeat_revoke = True
                     break
+                next_pulse = ManualPulse(3., 'forward')
+                web_trial = False
+                if answer.startswith('TRIAL '):
+                    if not args.web_repeat_trials:
+                        continue
+                    try:
+                        request = json.loads(answer[6:])
+                        next_pulse = ManualPulse(request['duration'], request['motion'], request['speed'])
+                    except (ValueError, TypeError, KeyError) as exc:
+                        print('Rejected repeat request:', exc, flush=True)
+                        continue
+                    web_trial = True
+                elif args.web_repeat_trials:
+                    continue
                 old_nonzero = summary.get('manual_policy_nonzero_observed')
                 old_zero = summary.get('manual_policy_zero_in_armhold_observed')
-                item = dict(requested=time.monotonic(), command=[.12, 0., 0.], duration=3.)
+                item = dict(requested=time.monotonic(), command=list(next_pulse.command), duration=next_pulse.duration)
                 summary.setdefault('repeat_walks', []).append(item)
                 summary['manual_policy_nonzero_observed'] = False
                 summary['manual_policy_zero_in_armhold_observed'] = False
@@ -566,15 +610,20 @@ def manual_handoff(mode, reason):
                         item['cancel_reason'] = 'operator requested REVOKE'
                         break
                     repeat_reader.discard_partial()
-                    pulse = ManualPulse(3., 'forward')
+                    pulse = next_pulse
                     pulse.authorize(time.monotonic(), fields.get('navigation_ready') == 'true' and fields.get('authorized') == 'true' and fields.get('publisher_present') == 'true')
                     if not pulse.ready:
                         item['cancel_reason'] = 'readiness unavailable'
-                        continue
+                        pulse.cancel('readiness unavailable')
+                        break
                     pulse.start(time.monotonic()); item['start'] = pulse.started
+                    if args.web_repeat_trials:
+                        print('MANUAL_WEB_EVENT ' + json.dumps({'state': 'running'}), flush=True)
                     repeat_busy = True
                     watch(pulse.duration + .1, 'ArmHold')
                     if not summary['manual_policy_zero_in_armhold_observed']: watch(.4, 'ArmHold')
+                    if not summary['manual_policy_nonzero_observed'] or not summary['manual_policy_zero_in_armhold_observed']:
+                        pulse.cancel('repeat policy command observation incomplete')
                 except Exception as exc:
                     item['error'] = str(exc)
                     raise
@@ -586,12 +635,17 @@ def manual_handoff(mode, reason):
                     summary['manual_policy_zero_in_armhold_observed'] = old_zero
                 if repeat_reader.poll(False) == 'REVOKE': repeat_revoke = True
                 repeat_reader.discard_partial()
-                if pulse.cancel_reason: break
+                if pulse.cancel_reason:
+                    if not web_trial:
+                        break
+                    break
         finally:
             repeat_reader.close(); repeat_reader = None
         if not repeat_revoke and pulse.cancel_reason:
             print('Repeat canceled; waiting for REVOKE.', flush=True)
         pulse = initial_pulse
+    if args.web_repeat_trials:
+        print('MANUAL_WEB_EVENT ' + json.dumps({'state': 'awaiting_revoke'}), flush=True)
     if not repeat_revoke:
         while True:
             watch(.2, mode)
@@ -620,7 +674,6 @@ try:
     process=spawn(command,'node')
     rclpy.init(args=[]); node=rclpy.create_node('preparation_runner',namespace=namespace)
     if pulse:
-        gate_pub=node.create_publisher(Bool, namespace+'/private_manual_gate_alive', 10)
         cmd_pub=node.create_publisher(Twist, namespace+'/private_cmd_vel', 10)
         def manual_tick():
             try:
@@ -628,7 +681,6 @@ try:
                 check_speed(value)
                 velocity=pulse.output(time.monotonic(), True)
                 if velocity is not None:
-                    msg=Bool(); msg.data=True; gate_pub.publish(msg)
                     cmd=Twist(); cmd.linear.x, cmd.linear.y, cmd.angular.z = velocity; cmd_pub.publish(cmd)
                     if any(velocity): summary['manual_nonzero_published'] = True
             except Exception as exc:

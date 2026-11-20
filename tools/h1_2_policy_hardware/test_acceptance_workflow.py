@@ -180,7 +180,7 @@ class Case:
                                      message='release_blocked=true' if name == 'release_supported' and self.failure in blocked_failures else 'accepted')
 
 class WorkflowTests(unittest.TestCase):
-    def run_case(self, failure=None, full=False, limit=None, policy_steps=0, command_mode='position_pd', confirm=False, brief=False, manual=False, before_start=False, trained=False, pulse_seconds=.5, motion='forward', repeat=False):
+    def run_case(self, failure=None, full=False, limit=None, policy_steps=0, command_mode='position_pd', confirm=False, brief=False, manual=False, before_start=False, trained=False, pulse_seconds=.5, motion='forward', repeat=False, web_repeat=False):
         case = Case(failure)
         case.command_mode = command_mode
         case.manual = manual
@@ -227,6 +227,7 @@ class WorkflowTests(unittest.TestCase):
             if pulse_seconds != .5: argv += ['--manual-pulse-seconds', str(pulse_seconds)]
             if motion != 'forward': argv += ['--manual-motion', motion]
             if repeat: argv += ['--allow-repeat-walk']
+            if web_repeat: argv += ['--web-repeat-trials']
             if trained: argv += ['--protection-profile', 'train_20261106', '--train-urdf', str(urdf)]
             if before_start: argv += ['--onsite-confirmed-before-start']
             output = io.StringIO()
@@ -234,13 +235,14 @@ class WorkflowTests(unittest.TestCase):
             elif limit is not None: argv += ['--fixstand-max-error', str(limit)]
             if policy_steps: argv += ['--policy-steps', str(policy_steps), '--confirm-supported-upright']
             class FakeRepeatInput:
-                def __init__(self, fd): self.inputs = iter(['WALK', 'WALK', 'REVOKE'])
+                def __init__(self, fd, allow_trials=False):
+                    self.inputs = iter(['TRIAL '+json.dumps({'motion':'turn_left','speed':.05,'duration':1.}), 'TRIAL '+json.dumps({'motion':'forward','speed':.08,'duration':.5}), 'REVOKE'] if allow_trials else ['WALK', 'WALK', 'REVOKE'])
                 def poll(self, accept_walk):
                     if not accept_walk and failure == 'repeat_busy_revoke' and case.repeat_started and any(case.last_vector):
                         return 'REVOKE'
                     if accept_walk:
                         answer = next(self.inputs)
-                        if answer == 'WALK': case.repeat_started = True
+                        if answer == 'WALK' or answer.startswith('TRIAL '): case.repeat_started = True
                         return answer
                     return None
                 def discard_partial(self): pass
@@ -264,6 +266,20 @@ class WorkflowTests(unittest.TestCase):
             result['_exit_code'] = raised.exception.code
             case.output = output.getvalue()
             return case, result
+
+    def test_web_repeat_uses_new_parameters_without_preparation_or_revoke_between_pulses(self):
+        case, result = self.run_case(full=True, manual=True, before_start=True, web_repeat=True)
+        self.assertEqual(len(result['repeat_walks']), 2)
+        self.assertEqual(result['repeat_walks'][0]['command'], [0.,0.,.05])
+        self.assertEqual(result['repeat_walks'][1]['command'], [.08,0.,0.])
+        self.assertEqual(result['repeat_walks'][0]['duration'], 1.)
+        self.assertEqual(result['repeat_walks'][1]['duration'], .5)
+        for item in result['repeat_walks']:
+            self.assertTrue(item['nonzero_observed'])
+            self.assertTrue(item['zero_observed'])
+        self.assertEqual(result['manual_handoff'], 'operator_confirmed_REVOKE')
+        self.assertEqual(case.output.count('starting approved FixStand preparation'), 1)
+        self.assertEqual(case.output.count('starting approved ArmHoldStand preparation'), 1)
 
     def test_background_stream_does_not_block_own_progress(self):
         case, result = self.run_case()

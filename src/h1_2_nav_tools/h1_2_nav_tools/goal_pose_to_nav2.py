@@ -1,10 +1,13 @@
 import rclpy
 from rclpy.executors import ExternalShutdownException
+from rclpy.time import Time
 from action_msgs.msg import GoalStatus
 from geometry_msgs.msg import PoseStamped
 from nav2_msgs.action import NavigateToPose
 from rclpy.action import ActionClient
 from rclpy.node import Node
+from tf2_ros import Buffer, TransformException, TransformListener
+from h1_2_nav_tools.goal_readiness import goal_readiness_error
 
 
 class GoalPoseToNav2(Node):
@@ -13,8 +16,18 @@ class GoalPoseToNav2(Node):
         self.declare_parameter("goal_topic", "/goal_pose")
         self.declare_parameter("action_name", "navigate_to_pose")
         self.declare_parameter("server_timeout_sec", 2.0)
+        self.declare_parameter("required_tf_target_frame", "map")
+        self.declare_parameter("required_tf_source_frame", "body")
+        self.declare_parameter("required_tf_max_age_sec", 0.5)
 
         self.server_timeout_sec = float(self.get_parameter("server_timeout_sec").value)
+        self.required_tf_target_frame = str(self.get_parameter("required_tf_target_frame").value)
+        self.required_tf_source_frame = str(self.get_parameter("required_tf_source_frame").value)
+        self.required_tf_max_age_sec = max(
+            0.0, float(self.get_parameter("required_tf_max_age_sec").value)
+        )
+        self.tf_buffer = Buffer()
+        self.tf_listener = TransformListener(self.tf_buffer, self)
         self.action_client = ActionClient(
             self,
             NavigateToPose,
@@ -29,6 +42,27 @@ class GoalPoseToNav2(Node):
         )
 
     def goal_callback(self, msg):
+        try:
+            transform = self.tf_buffer.lookup_transform(
+                self.required_tf_target_frame,
+                self.required_tf_source_frame,
+                Time(),
+            )
+            stamp = Time.from_msg(transform.header.stamp)
+            transform_age_sec = (self.get_clock().now() - stamp).nanoseconds / 1e9
+        except TransformException:
+            transform_age_sec = None
+
+        readiness_error = goal_readiness_error(
+            msg.header.frame_id,
+            self.required_tf_target_frame,
+            transform_age_sec,
+            self.required_tf_max_age_sec,
+        )
+        if readiness_error:
+            self.get_logger().warn(f"Rejecting Nav2 goal: {readiness_error}")
+            return
+
         if not self.action_client.wait_for_server(timeout_sec=self.server_timeout_sec):
             self.get_logger().warn(
                 "Nav2 NavigateToPose action server is not available yet.",

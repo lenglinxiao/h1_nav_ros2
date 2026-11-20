@@ -14,7 +14,6 @@ from .transform_utils import transform_pose
 
 
 class MemoryPointManager(Node):
-    STORAGE_FRAME = "map"
     IDENTITY_FRAME_ALIASES = {"map", "camera_init"}
 
     def __init__(self):
@@ -27,13 +26,9 @@ class MemoryPointManager(Node):
         self.declare_parameter("list_service", "list_memory_points")
 
         self.points_file = Path(self.get_parameter("points_file").value).expanduser()
-        requested_target_frame = self.get_parameter("target_frame").value
-        self.target_frame = self.STORAGE_FRAME
-        if requested_target_frame != self.target_frame:
-            self.get_logger().warn(
-                f"Ignoring target_frame={requested_target_frame}; "
-                f"memory points are always stored in {self.target_frame}."
-            )
+        self.target_frame = str(self.get_parameter("target_frame").value).strip()
+        if not self.target_frame:
+            raise ValueError("target_frame cannot be empty")
         self.latest_pose = None
         self.points = {}
         self.storage_error = None
