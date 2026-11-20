@@ -17,7 +17,6 @@
 ![Fast DDS](https://img.shields.io/badge/Fast_DDS-middleware-6C7A89)
 ![colcon](https://img.shields.io/badge/colcon-build-4B5563)
 ![pytest](https://img.shields.io/badge/pytest-tests-0A9EDC?logo=pytest&logoColor=white)
-![License: MIT](https://img.shields.io/badge/license-MIT-2EA44F)
 
 徽章中的 C++ 版本对应不同子包的标准设置；Unitree SDK 2 和 ONNX Runtime 是相关运动后端的依赖。
 
@@ -130,4 +129,10 @@ colcon test --packages-select h1_2_policy_bridge
 colcon test-result --verbose
 ```
 
-MIT 徽章用于标识项目许可；部分 ROS 包和 `third_party` 组件保留各自声明的许可证。测试、离线仿真和输出禁用检查不等同于真机控制验证；硬件操作应遵循对应功能文档及现场准入流程。
+测试、离线仿真和输出禁用检查不等同于真机控制验证；硬件操作应遵循对应功能文档及现场准入流程。
+
+## License
+
+![License: MIT](https://img.shields.io/badge/license-MIT-2EA44F)
+
+项目主体采用 MIT License。部分 ROS 包和 `third_party` 组件保留各自声明的许可证，请以对应包元数据和许可证文件为准。
