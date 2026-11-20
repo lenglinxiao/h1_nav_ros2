@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 160" role="img" aria-labelledby="title desc">
+  <title id="title">H1-2 Navigation</title>
+  <desc id="desc">An original geometric H1-2 wordmark with a waypoint route as its hyphen, paired with a navigation label.</desc>
+  <g fill="none" stroke="#263B45" stroke-width="11" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M28 38v72m48-72v72M28 74h48"/>
+    <path d="m105 52 20-14v72m-20 0h42"/>
+    <path d="M236 53c0-12 12-17 25-17 16 0 24 8 23 20-1 9-8 16-17 23l-32 31h51"/>
+  </g>
+  <path d="M169 81h19V67h24" fill="none" stroke="#36BFA0" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="169" cy="81" r="7" fill="#E58B55"/>
+  <circle cx="188" cy="67" r="4" fill="#263B45"/>
+  <path d="m205 59 10 8-10 8" fill="none" stroke="#36BFA0" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M324 34v92" stroke="#CFD9D8" stroke-width="2"/>
+  <text x="352" y="78" fill="#263B45" font-family="Inter, Avenir Next, Arial, sans-serif" font-size="23" font-weight="700" letter-spacing="3">NAVIGATION</text>
+  <text x="354" y="105" fill="#61727A" font-family="Inter, Avenir Next, Arial, sans-serif" font-size="12" font-weight="600" letter-spacing="2">MAPPING · LOCALIZATION</text>
+</svg>
